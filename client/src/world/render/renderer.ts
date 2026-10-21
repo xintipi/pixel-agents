@@ -20,6 +20,8 @@ import { RoomFxRenderer } from './github-fx';
 import { Lighting } from './lighting';
 import { Particles } from './particles';
 import { carSprite, propSprite, shadowSprite } from './props';
+import { petSprite } from './pets';
+import type { Pet } from '../sim/pets';
 import { countBadge, fallbackIcon } from './shell-sprites';
 import { decorateElevator, drawSeasonalLights, drawSeasonalWindow, seasonalCostume, seasonalFurniture } from './seasonal';
 import { buildAreaVis, furnitureSprites, opaqueBounds, paintShell, toWallVis, WALL_MARGIN, wallItemOrigin, wallSprites, type AreaVis, type FurnVis, type WallVis } from './scene';
@@ -30,12 +32,13 @@ const enum K {
   Char,
   Prop,
   Car,
+  Pet,
 }
 
 interface Ent {
   k: K;
   y: number;
-  ref: FurnVis | Character | ExteriorProp | Car | null;
+  ref: FurnVis | Character | ExteriorProp | Car | Pet | null;
   area: AreaVis | null;
   scale: number;
 }
@@ -79,6 +82,8 @@ export class Renderer {
   readonly ctx: CanvasRenderingContext2D;
   readonly areas = new Map<string, AreaVis>();
   readonly heads = new Map<string, HeadInfo>();
+  /** Retângulo (px de mundo) de cada bicho desenhado neste frame, para o clique de carinho. */
+  readonly petBoxes = new Map<string, { x: number; y: number; w: number; h: number; feetY: number }>();
   exterior: ExteriorLayout;
   shells: SlotShell[] = [];
   shellWindows: WallVis[] = [];
@@ -464,6 +469,8 @@ export class Renderer {
       }
     }
     for (const car of this.cars) if (visible(car.x - 24, car.y - 24, 48, 28)) push(K.Car, car.y, car, null, 1);
+    this.petBoxes.clear();
+    for (const pet of this.sim.pets.pets) if (visible(pet.x - 16, pet.y - 20, 32, 24)) push(K.Pet, pet.y, pet, null, 1);
     ents.sort((a, b) => a.y - b.y || a.k - b.k);
 
     this.iconCount = 0;
@@ -483,6 +490,9 @@ export class Renderer {
           break;
         case K.Car:
           this.drawCar(e.ref as Car);
+          break;
+        case K.Pet:
+          this.drawPet(e.ref as Pet, now);
           break;
       }
     }
@@ -819,6 +829,27 @@ export class Renderer {
       ctx.fillRect(sx, sy, 1, 2);
     }
     ctx.globalAlpha = 1;
+  }
+
+  /** Bicho: sombra pequena, o sprite e o ícone (coração do carinho, zzz do cochilo). */
+  private drawPet(pet: Pet, now: number): void {
+    const { ctx } = this;
+    const x = Math.round(pet.x);
+    const y = Math.round(pet.y);
+    const sh = shadowSprite();
+    ctx.globalAlpha = 0.7;
+    ctx.drawImage(sh.canvas, x - sh.ax, y - sh.ay);
+    ctx.globalAlpha = 1;
+    try {
+      const s = petSprite(pet.kind, pet.pose, pet.animT, pet.left);
+      ctx.drawImage(s.canvas, x - s.ax, y - s.ay);
+      this.petBoxes.set(pet.id, { x: x - s.ax, y: y - s.ay, w: s.canvas.width, h: s.canvas.height, feetY: y });
+    } catch {
+      // arte quebrada não derruba o frame
+    }
+    const top = y - (pet.pose === 'sleep' ? 8 : 14);
+    if (pet.icon) this.pushIcon(x, top, pet.icon, Math.round(Math.sin(now / 180) * 1.5), 1, 0);
+    else if (pet.pose === 'sleep') this.pushIcon(x + 6, top - 2, 'zzz', Math.round(Math.sin(now / 500) * 1.5), 1, 0);
   }
 
   private drawCharacter(ch: Character, now: number, sel: { agent: string | null; hover: string | null }): void {

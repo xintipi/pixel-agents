@@ -32,6 +32,7 @@ import { Character, dirOf, facing } from './character';
 import { Elevator } from './elevator';
 import { PARTY_MS } from '../../../../shared/github';
 import { RoomFxState } from './github';
+import { PetHerd, type PetWorld } from './pets';
 import { RoomState } from './room-state';
 import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, spinDir, spinPhase, yawnPhase } from './shell';
 import { SpotRegistry } from './spots';
@@ -131,6 +132,26 @@ export class Sim {
   readonly effects: WorldEffect[] = [];
   /** Festa e alarme das salas (eventos do GitHub; sim/github.ts). */
   readonly roomFx = new RoomFxState();
+  /** O cachorro e o gato do escritório (fora de `chars`: não são agentes). */
+  readonly pets = new PetHerd();
+  /** O que o prédio oferece aos bichos (caminhos e quem está parado na mesa). */
+  private readonly petWorld: PetWorld = {
+    grid: () => this.building.grid,
+    findPath: (sx, sy, gx, gy, out) => this.finder.find(sx, sy, gx, gy, out),
+    restingPeople: () => {
+      const out: { id: string; tx: number; ty: number; asleep: boolean }[] = [];
+      for (const ch of this.chars.values()) {
+        if (ch.leaving || ch.mode !== 'idle' || !ch.homeSpot || ch.atSpot !== ch.homeSpot) continue;
+        const spot = this.spots.get(ch.homeSpot);
+        if (spot) out.push({ id: ch.id, tx: spot.tx, ty: spot.ty, asleep: ch.pose === 'sleep' });
+      }
+      return out;
+    },
+    personTile: (id) => {
+      const ch = this.chars.get(id);
+      return ch && !ch.leaving ? { tx: ch.tx, ty: ch.ty } : null;
+    },
+  };
   private lastSnapshot: OfficeSnapshot | null = null;
   /** Desde quando há uma vaga livre antes da última sala (0 = não há). */
   private gapSince = 0;
@@ -159,6 +180,7 @@ export class Sim {
     this.finder = new PathFinder(this.building.grid);
     this.spots.setSpots(this.building.spots);
     for (const s of this.spots.ofKind('elevator')) this.elevators.push(new Elevator(this.elevators.length, s.id));
+    this.pets.place(this.petWorld);
   }
 
   // =================================================================== snapshot
@@ -307,7 +329,11 @@ export class Sim {
         if (act.kind === 'error') this.reactError(ch, now);
         if (act.kind === 'delegate' && ch.info.kind === 'main' && a.status === 'working') this.planDelegate(ch, now);
         // pedido atendido: moedinhas pelo trabalho
-        if (act.kind === 'done' && ch.info.kind === 'main') this.social.turnDone(ch, now);
+        if (act.kind === 'done' && ch.info.kind === 'main') {
+          this.social.turnDone(ch, now);
+          // o cachorro vai comemorar com quem entregou
+          this.pets.celebrate(this.petWorld, ch.id, now);
+        }
       }
     }
     // fim de um shell: comemora ou lamenta (uma vez por notificação)
@@ -569,6 +595,7 @@ export class Sim {
     this.building = building;
     this.layoutVersion++;
     this.finder.setGrid(building.grid);
+    this.pets.relayout(this.petWorld);
     const lost = this.spots.setSpots(building.spots);
     for (const { owner } of lost) {
       const ch = this.chars.get(owner);
@@ -615,6 +642,7 @@ export class Sim {
       this.runCharacter(ch, dt, now);
     }
     if (this.visitor) this.runVisitor(this.visitor, dt, now);
+    this.pets.update(this.petWorld, dt, now);
     for (const [id, ch] of this.chars) {
       if (ch.gone) {
         this.spots.releaseAll(id);
@@ -1905,6 +1933,7 @@ export class Sim {
   /** Avança tudo instantaneamente para os destinos (usado ao voltar de uma aba oculta). */
   fastForward(now: number): void {
     this.now = now;
+    this.pets.fastForward(now);
     for (const room of this.rooms.values()) {
       if (room.phase === 'building') room.setPhase('ready', now - 10_000);
       if (room.phase === 'dismantling') room.setPhase('gone', now);

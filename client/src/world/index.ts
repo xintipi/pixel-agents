@@ -201,6 +201,27 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     return null;
   };
 
+  /**
+   * Bicho sob o cursor (px CSS do canvas), se estiver na frente do agente apontado: o clique faz carinho em vez de
+   * selecionar. Os bichos não entram na seleção nem no hover (não têm cartão).
+   */
+  const petAt = (sx: number, sy: number, hit: Hit): string | null => {
+    const w = camera.screenToWorld(sx, sy);
+    const slack = Math.max(1, 2 / camera.zoom);
+    let best: string | null = null;
+    let bestY = -Infinity;
+    for (const [id, b] of renderer.petBoxes) {
+      if (w.x < b.x - slack || w.x > b.x + b.w + slack || w.y < b.y - slack || w.y > b.y + b.h + slack) continue;
+      if (b.feetY > bestY) {
+        bestY = b.feetY;
+        best = id;
+      }
+    }
+    if (!best || hit?.type !== 'agent') return best;
+    const head = renderer.heads.get(hit.id);
+    return head && head.depth > bestY ? null : best;
+  };
+
   const setHover = (id: string | null) => {
     if (id === hover) return;
     hover = id;
@@ -223,7 +244,12 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
 
   const detachInput = attachInput(canvas, camera, {
     pick,
-    click: (hit, at) => (visitMode ? visitClick(hit, at) : setSelection(hit)),
+    click: (hit, at) => {
+      const pet = petAt(at.x, at.y, hit);
+      if (pet && sim.pets.pat(pet, sim.now)) return;
+      if (visitMode) visitClick(hit, at);
+      else setSelection(hit);
+    },
     doubleClick: (hit) => {
       if (hit?.type === 'agent') {
         setSelection(hit);

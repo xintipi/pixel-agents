@@ -12,6 +12,10 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Cachorro e gato no escritório.** Um cachorro caramelo e um gato laranja rajado andam pelo prédio por conta
+  própria: o gato cochila muito e gosta de deitar perto de quem está parado na mesa (e dorme junto de quem cochila);
+  o cachorro passeia, às vezes corre, e vai correndo comemorar com quem acabou de entregar um pedido. Um clique num
+  deles faz carinho (coração). Não são agentes: ficam fora da lista, dos contadores e do Habblaud World.
 - **Conquistas e comemorações.** Um troféu na barra superior abre o painel com 12 conquistas (de "100 pedidos
   atendidos" e "10 seguidos sem erro" a "5 agentes trabalhando ao mesmo tempo" e "coruja da madrugada"), com o
   progresso de cada uma, contado ao vivo e guardado neste navegador (o modo demonstração do servidor fica de fora).
