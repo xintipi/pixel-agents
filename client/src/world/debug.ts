@@ -56,6 +56,8 @@ export interface WorldDebug {
   setNewYear(phase: 'countdown' | 'party' | null): void;
   /** Calls the pizza delivery person now. */
   pizzaParty(): boolean;
+  /** Forces the after-lunch siesta on/off (idle agents nap, lights dim); null goes back to the clock (12:30–13:30). */
+  siestaNow(on: boolean | null): void;
   setHour(hour: number | null): void;
   /** Centers the camera on a point (tiles) with optional zoom, without animation. */
   lookAt(tx: number, ty: number, zoom?: number): void;
@@ -67,6 +69,10 @@ export interface WorldDebug {
   wanderNow(): void;
   /** Sends whoever is idle at the desk to the iced tea stall now (while it's set up). Returns how many went. */
   teaNow(): number;
+  /** Sends someone idle to light incense and bow at the reception's Thần Tài altar now. Returns whether someone went. */
+  altarNow(): boolean;
+  /** Sends whoever is idle at the desk to the bánh mì cart now (mornings, while it's parked). Returns how many went. */
+  banhmiNow(): number;
   /**
    * Starts a round now with whoever is idle/waiting on shell (or with `ids`): all go back to the table
    * right away and leave together. Returns the participants' names or null.
@@ -357,6 +363,13 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     },
 
     teaNow: () => sim.teaNow(),
+    siestaNow: (on) => {
+      sim.siestaOverride = on;
+    },
+
+    altarNow: () => sim.altarNow(),
+
+    banhmiNow: () => sim.banhmiNow(),
 
     socialize: (kind, ids) => {
       sim.fastForward(now());

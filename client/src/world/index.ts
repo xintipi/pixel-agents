@@ -250,15 +250,6 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
         const w = camera.screenToWorld(at.x, at.y);
         if (sim.throwBall(Math.floor(w.x / TILE), Math.floor(w.y / TILE))) return;
       }
-      // aquarium: the click feeds the fish
-      const aq = renderer.aquariumBox;
-      if (aq && !visitMode) {
-        const w = camera.screenToWorld(at.x, at.y);
-        if (w.x >= aq.x && w.x <= aq.x + aq.w && w.y >= aq.y && w.y <= aq.y + aq.h) {
-          renderer.fishFedAt = sim.now;
-          return;
-        }
-      }
       const pet = petAt(at.x, at.y, hit);
       if (pet && sim.pets.pat(pet, sim.now)) return;
       if (visitMode) visitClick(hit, at);

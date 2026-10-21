@@ -68,7 +68,9 @@ export type HeldItem = 'none' | 'coffee' | 'water' | 'papers' | 'laptop' | 'book
   | 'comb' // comb (pose 'groom')
   | 'noodles' // steaming bowl of phở (lunch; seated or standing)
   | 'bubbletea' // cup of milk tea with tapioca pearls, domed lid and straw (afternoon snack)
-  | 'pizza'; // slice of pizza (pizza party)
+  | 'pizza' // slice of pizza (pizza party)
+  | 'banhmi' // bánh mì: half a baguette with the filling showing (morning cart)
+  | 'xoi'; // pack of xôi (sticky rice) wrapped in banana leaf (morning cart)
 
 export type HairStyle =
   | 'short' | 'buzz' | 'spiky' | 'side_part' | 'curly' | 'afro' | 'bob' | 'long' | 'ponytail' | 'bun' | 'pigtails'
@@ -193,7 +195,8 @@ export type FurnitureKind =
   | 'sink' // 1x1 sink with cabinet (against the north wall; use 'mirror' on the wall above).
   // --- reception
   | 'reception_desk' // 3x1 reception counter.
-  | 'bench'; // 2x1 waiting bench (seat, facing down).
+  | 'bench' // 2x1 waiting bench (seat, facing down).
+  | 'altar'; // 2x1 low Thần Tài / Ông Địa altar on the floor, facing the camera. state bit 0 = incense lit (glowing tips; the render adds the smoke), bit 1 = Vía Thần Tài (extra gold and fruit). Use: character to the SOUTH, facing up.
 
 export interface FurnitureDef {
   mount: 'floor' | 'wall';
@@ -267,6 +270,7 @@ export const FURNITURE: Readonly<Record<FurnitureKind, FurnitureDef>> = {
   sink: { mount: 'floor', footprint: { w: 1, h: 1 }, blocks: true },
   reception_desk: { mount: 'floor', footprint: { w: 3, h: 1 }, blocks: true },
   bench: { mount: 'floor', footprint: { w: 2, h: 1 }, blocks: false, seat: true },
+  altar: { mount: 'floor', footprint: { w: 2, h: 1 }, blocks: true, states: 4 },
 };
 
 export type FloorKind =

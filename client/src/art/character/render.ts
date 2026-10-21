@@ -1272,6 +1272,10 @@ const BOWL: readonly string[] = ['.s.s', 'nhnn', 'BbbB', '.bb.'];
 const BOBA: readonly string[] = ['..s', '.l.', 'lll', 'ttt', 'tpt', 'ptp'];
 /** Slice of pizza: golden crust, cheese and pepperoni, tip pointing down. */
 const SLICE: readonly string[] = ['bbbb', 'cpcc', '.cp.', '.c..'];
+/** Bánh mì: golden crust split open on the herbs, chili and pork. */
+const BAGUETTE: readonly string[] = ['.lbbb', 'bghrb', 'bbbb.'];
+/** Xôi: banana leaf pack open on top, sticky rice with fried shallots. */
+const XOI: readonly string[] = ['.rr.', 'lrsl', 'lLLl', '.ll.'];
 
 function drawItem(dc: Dc, x: number, y: number): void {
   const { b, r } = dc;
@@ -1289,6 +1293,12 @@ function drawItem(dc: Dc, x: number, y: number): void {
       break;
     case 'pizza':
       b.stamp(SLICE, x - 1, y, { b: '#d99a45', c: '#f3cf5c', p: '#c4402f' }, side);
+      break;
+    case 'banhmi':
+      b.stamp(BAGUETTE, x - 1, y, { l: '#f0c070', b: '#d48a35', g: '#5fb35a', h: '#e7a5a0', r: '#c4402f' }, side);
+      break;
+    case 'xoi':
+      b.stamp(XOI, x, y - 1, { r: '#f7f1dc', s: '#c9893a', l: '#4f9a45', L: '#3a7a35' }, side);
       break;
     case 'bubbletea':
       b.stamp(BOBA, x, y - 2, { s: '#e05a7a', l: '#f2f4f8', t: '#cf9a62', p: '#3a2626' }, side);

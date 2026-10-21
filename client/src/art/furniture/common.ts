@@ -749,3 +749,146 @@ export function bench(): BufFurniture {
   contact(b, 0, 13, 32, 3, 0.22);
   return { base: s };
 }
+
+// ------------------------------------------------------------------ Thần Tài altar
+
+const LACQUER = ramp('#b3262b', 0.07);
+const GOLD = ramp('#e2b23c', 0.08);
+const ALTAR_SKIN = '#f2c79b';
+
+/**
+ * Altar anchor-relative points (px, from the bottom center of the footprint) the render animates on top: the two red
+ * lamps' bulbs (glow) and the tips of the lit incense sticks (where the smoke starts).
+ */
+export const ALTAR_LAMPS: readonly { x: number; y: number }[] = [
+  { x: -13, y: -17 },
+  { x: 13, y: -17 },
+];
+export const ALTAR_INCENSE: readonly { x: number; y: number }[] = [
+  { x: -2, y: -18 },
+  { x: 0, y: -18 },
+];
+
+/**
+ * Floor altar to Thần Tài and Ông Địa (bàn thờ Thần Tài), facing the camera: a low red-lacquer cabinet with gold trim and,
+ * on top, a little shrine with a tiled roof; inside, Thần Tài (red and yellow robe, black hat, gold ingot) and the
+ * round-bellied Ông Địa with his fan; in front, the fruit plate (mâm ngũ quả), the incense bowl, a cup of water,
+ * marigolds and two red electric lamps. state bit 0 = incense lit (tall sticks with glowing tips; otherwise burnt
+ * stubs); bit 1 = Vía Thần Tài (red lanterns, garland and gold ingots).
+ */
+export function altar(state: number): BufFurniture {
+  const lit = (state & 1) === 1;
+  const festive = (state & 2) === 2;
+  const s = floorSheet(2, 1, 16);
+  const b = s.buf;
+  // Shrine: roof with upturned gold corners, ridge ornament.
+  b.rect(5, -11, 22, 3, LACQUER.base);
+  b.hline(5, 26, -11, LACQUER.lt);
+  b.hline(4, 27, -8, GOLD.base);
+  b.hline(8, 23, -12, LACQUER.dk);
+  b.set(3, -9, GOLD.lt);
+  b.set(28, -9, GOLD.lt);
+  b.set(4, -9, GOLD.base);
+  b.set(27, -9, GOLD.base);
+  b.set(15, -13, GOLD.hi);
+  b.set(16, -13, GOLD.hi);
+  b.set(15, -14, GOLD.lt);
+  for (let x = 7; x <= 24; x += 3) b.set(x, -10, LACQUER.dk);
+  // Back wall of the niche and the gold pillars.
+  b.rect(6, -7, 20, 11, '#3a0c0f');
+  b.rect(8, -6, 16, 9, '#4e1216');
+  b.hline(8, 23, -7, GOLD.dd);
+  for (const x of [6, 24]) {
+    b.rect(x, -7, 2, 10, GOLD.base);
+    b.vline(x, -7, 2, GOLD.lt);
+    b.vline(x + 1, -7, 2, GOLD.dk);
+  }
+  // Thần Tài (left): black hat, face with a beard, red robe with a yellow front, gold ingot at the chest.
+  b.hline(9, 13, -4, '#2b2b33');
+  b.rect(10, -5, 3, 1, '#2b2b33');
+  b.rect(10, -3, 3, 2, ALTAR_SKIN);
+  b.set(11, -2, '#3a2a22');
+  b.rect(9, -1, 5, 4, '#d63a2f');
+  b.vline(11, -1, 2, '#f2c14e');
+  b.rect(10, 0, 3, 1, '#ffd23f');
+  b.set(11, -1, '#fff1a8');
+  // Ông Địa (right): bald round head, big bare belly, brown shirt, palm-leaf fan.
+  b.ellipse(19.5, -2.5, 1.8, 1.8, ALTAR_SKIN);
+  b.set(18, -3, '#5a3a28');
+  b.set(20, -3, '#5a3a28');
+  b.set(19, -2, '#b0483a');
+  b.rect(17, -1, 6, 4, '#c0803a');
+  b.ellipse(19.5, 1, 2, 1.6, '#f0b98a');
+  b.set(19, 1, '#d99a6c');
+  b.rect(22, -4, 2, 2, '#efe1b0');
+  b.set(23, -4, '#fff6d0');
+  b.set(22, -2, '#a07a4a');
+  // Cabinet top (dark wood), with the offerings on it.
+  topFace(b, 0, 3, 32, 5, ramp('#6e2a20', 0.07));
+  b.hline(0, 31, 3, GOLD.dk);
+  // Cabinet front: lacquer, gold trim and the central gold panel.
+  frontFace(b, 1, 8, 30, 8, LACQUER);
+  b.hline(1, 30, 9, GOLD.base);
+  b.hline(1, 30, 14, LACQUER.dd);
+  b.rect(11, 10, 10, 3, GOLD.base);
+  b.rect(12, 11, 8, 1, LACQUER.lt);
+  b.set(15, 11, GOLD.hi);
+  b.set(16, 11, GOLD.hi);
+  if (!festive) for (const x of [4, 27]) b.rect(x, 11, 1, 2, GOLD.dk);
+  // Red electric lamps on the corners (the bulbs glow in the render): gold foot, red glass, warm bulb.
+  for (const x of [2, 28]) {
+    b.rect(x, 0, 2, 4, '#e8382a');
+    b.vline(x, 0, 3, '#ff6a50');
+    b.rect(x, -1, 2, 1, '#ffd08a');
+    b.hline(x - 1, x + 2, 4, GOLD.base);
+    b.hline(x - 1, x + 2, 5, GOLD.dk);
+  }
+  // Fruit plate: pomelo on top, bananas, a red apple and an orange.
+  b.ellipse(10, 6, 3.5, 1, '#ece6d6');
+  b.ellipse(10, 3.6, 1.9, 1.8, '#a5c95a');
+  b.set(9, 3, '#c8e08a');
+  b.hline(7, 8, 5, '#f5d142');
+  b.set(7, 4, '#f5d142');
+  b.set(8, 4, '#e0b832');
+  b.rect(11, 4, 2, 2, '#e0453a');
+  b.set(12, 4, '#ff8070');
+  b.set(9, 5, '#f39a2b');
+  // Incense bowl (brass) in the middle: tall lit sticks or burnt stubs.
+  b.rect(14, 5, 4, 2, '#c9a03a');
+  b.hline(14, 17, 4, '#e7c45a');
+  b.hline(15, 16, 7, '#8a6a22');
+  if (lit) {
+    for (const x of [14, 16]) {
+      b.vline(x, -1, 3, '#d4553a');
+      b.set(x, -2, '#ffb35a');
+    }
+  } else {
+    for (const x of [14, 16]) b.vline(x, 2, 3, '#7a3a2a');
+  }
+  // Cup of water and a small vase of marigolds.
+  b.rect(19, 5, 2, 2, '#f4f4f0');
+  b.hline(19, 20, 5, '#9fd0f0');
+  b.rect(22, 4, 2, 3, '#e9eef8');
+  b.set(22, 5, '#3f7fd8');
+  b.set(23, 5, '#3f7fd8');
+  for (const [x, y, c] of [[22, 2, '#f39a2b'], [23, 3, '#f7c23a'], [24, 2, '#f39a2b'], [21, 3, '#f7c23a']] as const) b.set(x, y, c);
+  b.set(23, 2, '#ffd86a');
+  if (festive) {
+    // Vía Thần Tài: garland on the roof, little red lanterns at the corners and gold ingots on the cabinet front.
+    for (let x = 8; x <= 23; x++) b.set(x, -7, x % 2 ? '#ffd23f' : '#e0453a');
+    for (const x of [3, 28]) {
+      b.set(x, -8, GOLD.dk);
+      b.rect(x - 1, -7, 3, 2, '#e0302a');
+      b.set(x, -7, '#ff7a5a');
+      b.set(x, -5, GOLD.base);
+    }
+    for (const x of [3, 25]) {
+      b.rect(x, 11, 4, 2, '#ffd23f');
+      b.hline(x, x + 3, 12, GOLD.dk);
+      b.hline(x + 1, x + 2, 10, '#fff1a8');
+    }
+  }
+  b.outline();
+  contact(b, 0, 14, 32, 3, 0.24);
+  return { base: s };
+}

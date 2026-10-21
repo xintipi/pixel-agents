@@ -5,6 +5,7 @@ import type { AgentInfo, OfficeSnapshot, RoomInfo, ShellJob } from '../../../../
 import type { Appearance, ArtModule, RoomTheme } from '../../art/api';
 import { DEFAULT_WORLD_OPTIONS } from '../api';
 import type { Character } from './character';
+import { BANHMI_CART } from './banhmi';
 import { SHELL_DONE_TOOL, Sim } from './sim';
 
 const theme: RoomTheme = {
@@ -258,6 +259,67 @@ describe('simulação do escritório', () => {
     // The once-per-second check doesn't give the "zzz" back to someone standing.
     run(sim, clock, 1.5);
     expect(ana.icon).toBeNull();
+  });
+
+  it('ngủ trưa: depois do almoço o ocioso cochila na mesa, quem trabalha digita, ninguém vem acordar e no fim ele se espreguiça', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.hourOverride = 12.75;
+    const rooms = [room('/a', 0)];
+    sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'idle', { statusSince: T0 }), agent('bia', '/a', 'working')]), clock.now);
+    const ana = sim.chars.get('ana')!;
+    const bia = sim.chars.get('bia')!;
+    run(sim, clock, 60, () => ana.atSpot === ana.homeSpot && ana.icon === 'zzz');
+    expect(sim.siestaOn).toBe(true);
+    expect(sim.longIdle(ana, clock.now)).toBe(false);
+    expect(ana.pose).toBe('sleep');
+    expect(ana.icon).toBe('zzz');
+    expect(bia.pose).toBe('type');
+    // well past the nap limit: no coworker or dog is sent, nobody goes out
+    const dog = sim.pets.pets.find((p) => p.kind === 'dog')!;
+    run(sim, clock, 150, () => dog.plan?.t === 'wake' || ana.pose !== 'sleep');
+    expect(dog.plan?.t).not.toBe('wake');
+    expect(ana.pose).toBe('sleep');
+    expect(ana.atSpot).toBe(ana.homeSpot);
+    expect(ana.awakeUntil).toBe(0);
+    // whoever stops working mid-siesta falls asleep too; whoever gets work wakes up and types right away
+    sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working'), agent('bia', '/a', 'idle', { statusSince: clock.now })], 2), clock.now);
+    run(sim, clock, 3);
+    expect(ana.pose).toBe('type');
+    expect(bia.pose).toBe('sleep');
+    // the end of the siesta: no startle, a stretch and back to sitting (staggered, within a few seconds)
+    sim.hourOverride = 13.6;
+    run(sim, clock, 20, () => bia.pose === 'stretch');
+    expect(sim.siestaOn).toBe(false);
+    expect(bia.pose).toBe('stretch');
+    expect(bia.icon).not.toBe('alert');
+    run(sim, clock, 10, () => bia.pose === 'sit');
+    expect(bia.pose).toBe('sit');
+  });
+
+  it('ngủ trưa: debug.siestaNow liga e desliga; quem ainda está acordado na mesa anuncia a soneca', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.hourOverride = 17; // outside the morning incense (altar) and the siesta
+    sim.applySnapshot(snap([room('/a', 0)], [agent('ana', '/a', 'idle', { statusSince: T0 })]), clock.now);
+    const ana = sim.chars.get('ana')!;
+    ana.nextOutingAt = Number.MAX_SAFE_INTEGER;
+    run(sim, clock, 30, () => ana.atSpot === ana.homeSpot && !ana.step && !ana.queue.length);
+    expect(ana.pose).toBe('sit');
+    sim.siestaOverride = true;
+    run(sim, clock, 2.5);
+    expect(ana.sayText).toContain('😴');
+    expect(ana.pose).toBe('sleep');
+    expect(ana.icon).toBe('zzz');
+    run(sim, clock, 5);
+    expect(sim.siestaDim).toBeGreaterThan(0.9);
+    sim.siestaOverride = false;
+    sim.hourOverride = 12.75;
+    run(sim, clock, 20, () => ana.pose === 'sit');
+    expect(ana.pose).toBe('sit');
+    expect(sim.siestaOn).toBe(false);
+    run(sim, clock, 5);
+    expect(sim.siestaDim).toBe(0);
   });
 
   it('avanço rápido (aba oculta) teletransporta para os destinos', () => {
@@ -779,10 +841,43 @@ describe('espera de shell', () => {
       }
       return seen;
     };
-    expect(held(12.5).has('noodles')).toBe(true);
+    expect(held(12).has('noodles')).toBe(true);
     expect(held(15).has('bubbletea')).toBe(true);
     const night = held(22);
     expect(night.has('noodles') || night.has('bubbletea')).toBe(false);
+  });
+
+  it('xe bánh mì: de manhã o vendedor chega empurrando o carrinho; quem vai compra, volta e come na mesa; depois ele vai embora', () => {
+    const sim = newSim();
+    sim.hourOverride = 7.5;
+    const clock = { now: T0 };
+    sim.applySnapshot(snap([room('/a', 0)], ['ana', 'bia', 'caio'].map((id) => agent(id, '/a', 'idle'))), clock.now);
+    expect(sim.banhmiNow()).toBe(0); // not parked yet
+    run(sim, clock, 60, () => sim.banhmiUp);
+    expect(sim.banhmiUp).toBe(true);
+    expect(sim.banhmiCart()).toEqual({ x: BANHMI_CART.x, y: BANHMI_CART.y });
+    run(sim, clock, 60, () => sim.banhmiNow() > 0);
+    // at most two at the cart at a time
+    expect(sim.banhmi.taken.filter(Boolean).length).toBeGreaterThan(0);
+    expect(sim.banhmi.taken.length).toBe(2);
+    let ate = false;
+    run(sim, clock, 180, () => {
+      for (const ch of sim.chars.values()) if ((ch.held === 'banhmi' || ch.held === 'xoi') && ch.atSpot && ch.atSpot === ch.homeSpot && !ch.outdoors) ate = true;
+      return ate;
+    });
+    expect(ate).toBe(true);
+    // closing time: whoever is out goes back in and the vendor pushes the cart off
+    sim.hourOverride = 10;
+    run(sim, clock, 120, () => sim.banhmiCart() === null);
+    expect(sim.banhmiUp).toBe(false);
+    expect(sim.banhmiCart()).toBeNull();
+    expect(sim.banhmi.taken.every((t) => t === null)).toBe(true);
+    // visiting another building: no cart at all
+    const visit = new Sim(art, () => ({ ...DEFAULT_WORLD_OPTIONS, liveliness: 'calm' }), null, { visit: true });
+    visit.hourOverride = 7.5;
+    const c2 = { now: T0 };
+    run(visit, c2, 30);
+    expect(visit.banhmiCart()).toBeNull();
   });
 
   it('festa da pizza: o entregador sai do elevador, deixa as caixas, vai embora; quem está à toa come pizza', () => {

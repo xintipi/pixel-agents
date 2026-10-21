@@ -33,10 +33,10 @@ const POSE_PT: Record<Pose, string> = {
 };
 /** Poses that are always seated (the others can be standing or seated). */
 const SEATED_POSES: readonly Pose[] = ['sit', 'type', 'sleep', 'wait'];
-const HELD: readonly HeldItem[] = ['coffee', 'water', 'papers', 'laptop', 'book', 'box', 'paddle', 'popcorn', 'controller', 'phone', 'lipstick', 'comb', 'rock', 'paper', 'scissors', 'noodles', 'bubbletea', 'pizza'];
+const HELD: readonly HeldItem[] = ['coffee', 'water', 'papers', 'laptop', 'book', 'box', 'paddle', 'popcorn', 'controller', 'phone', 'lipstick', 'comb', 'rock', 'paper', 'scissors', 'noodles', 'bubbletea', 'pizza', 'banhmi', 'xoi'];
 const HELD_PT: Record<HeldItem, string> = {
   none: 'nada', coffee: 'café', water: 'água', papers: 'papéis', laptop: 'notebook', book: 'livro', box: 'caixa', paddle: 'raquete', popcorn: 'pipoca',
-  controller: 'controle', phone: 'celular', lipstick: 'batom', comb: 'pente', rock: 'pedra', paper: 'papel', scissors: 'tesoura', noodles: 'phở', bubbletea: 'trà sữa', pizza: 'pizza',
+  controller: 'controle', phone: 'celular', lipstick: 'batom', comb: 'pente', rock: 'pedra', paper: 'papel', scissors: 'tesoura', noodles: 'phở', bubbletea: 'trà sữa', pizza: 'pizza', banhmi: 'bánh mì', xoi: 'xôi',
 };
 const SCREENS: readonly ScreenMode[] = ['off', 'standby', 'idle', 'code', 'terminal', 'browser', 'search', 'chat', 'docs', 'tasks', 'alert', 'progress', 'show', 'game'];
 const SCREEN_PT: Record<ScreenMode, string> = {

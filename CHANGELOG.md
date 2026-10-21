@@ -12,11 +12,27 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Música lofi de fundo.** Em **Configurações › Sons**, uma chave **Música lofi** com volume próprio (desligada por
+  padrão) toca dois lofis tranquilos em sequência, também com a aba escondida; durante a disco ela some e volta depois.
+  As faixas são CC0, de OMF-Games no OpenGameArt (créditos em `client/public/assets/music/CREDITS.md`).
 - **Trà đá na calçada.** Na calçada em frente ao prédio tem uma barraquinha de chá gelado vietnamita: mesinha baixa
   com a garrafa térmica, banquinhos de plástico vermelhos e azuis, a caixa de gelo e a vendedora de chapéu cônico,
   que chega a pé de manhã (6h30) e vai embora à noite (21h30), quando os banquinhos ficam empilhados. Quem está à toa
   às vezes sai pela fachada de vidro do corredor, desce o caminho de pedra, pede um copo e fica conversando; se o
   agente volta a trabalhar, larga o copo e volta pelo mesmo caminho. No console: `habblaud.world.debug.teaNow()`.
+- **Carrinho de bánh mì de manhã.** Das 6h30 às 9h30 o vendedor empurra pela calçada um carrinho azul com toldo
+  listrado, vitrine de pães e uma panela de xôi, e estaciona mais adiante da barraquinha de trà đá. Quem está à toa
+  às vezes sai, pede um bánh mì (ou um pacotinho de xôi), volta com ele na mão e come na mesa. No console:
+  `habblaud.world.debug.banhmiNow()`.
+- **Ngủ trưa (a sesta).** Das 12h30 às 13h30, depois do phở, quem está à toa dorme debruçado na mesa, com "zzz", e
+  ninguém (nem o cachorro) vem acordar; as luzes das salas baixam um pouco. Quem está trabalhando de verdade continua
+  digitando, com a luz da tela no rosto. No fim, cada um acorda no seu tempo, boceja e se espreguiça. No console:
+  `habblaud.world.debug.siestaNow(true)`.
+- **Altar de Thần Tài na recepção.** Num canto da recepção, o altarzinho vermelho e dourado do Deus da Fortuna e de
+  Ông Địa, com frutas, lâmpadas vermelhas e incenso. Quando um agente fica mais de 2 minutos esperando você aprovar
+  algo, um colega à toa às vezes vai lá, acende o incenso (sobe a fumacinha), faz três reverências e pede pela
+  aprovação; de manhã, alguém acende o incenso do dia. No dia de Vía Thần Tài (10º dia do Tết) o altar ganha
+  lanternas e lingotes de ouro. No console: `habblaud.world.debug.altarNow()`.
 - **Mais temas de festa.** Tema do escritório agora é uma lista, com Trung thu (Festival do Meio do Outono: lanternas
   de estrela e de carpa, bolos lunares, a lua cheia nas janelas, a cabeça do leão e orelhas de coelho), Valentine,
   Dia da Mulher (8/3 e 20/10), Dia do Programador (256º dia do ano), Dia Nacional (30/4 e 2/9) e Dia das Crianças
@@ -27,8 +43,6 @@ do meio (0.**3**.0).
   sai de carona.
 - **Festa da pizza.** Quando a árvore do trabalho sobe de estágio, o entregador sai do elevador, deixa as caixas
   na mesa da copa e vai embora; quem está à toa vai comer uma fatia e o cachorro senta perto pedindo.
-- **Aquário.** No lugar da palmeira do lounge, um aquário com peixinhos e bolhas; um clique joga comida e os peixes
-  sobem para pegar. O gato às vezes fica sentado olhando.
 - **Virada de ano.** Nos últimos 5 minutos de 31/12 (e da véspera do Tết) aparece a contagem regressiva no céu; à
   meia-noite, festa em todas as salas, todo mundo comemorando e fogos de artifício lá fora por 10 minutos, com som
   (o assobio subindo, o estouro e o crepitar, de cada lado conforme o fogo na tela; com os sons do escritório ligados).
@@ -45,7 +59,7 @@ do meio (0.**3**.0).
 - **Corgi e gato britânico de pelo longo.** Os bichos foram redesenhados: um corgi caramelo e branco e um britânico
   cinza-azulado de olhos cor de cobre, agora de frente e de costas quando andam na vertical e com passada de 4
   quadros.
-- **Almoço e trà sữa.** Das 11:45 às 13:15 quem está à toa vai comer um phở na copa ou num sofá; das 14:30 às 16:00,
+- **Almoço e trà sữa.** Das 11:30 às 12:30 quem está à toa vai comer um phở na copa ou num sofá; das 14:30 às 16:00,
   pega um trà sữa (chá com leite e bolinhas de tapioca) e senta para tomar.
 - **Tempo lá fora.** Um tempo por dia, sorteado pela data: sol (com passarinhos cruzando o céu), chuva (gotas,
   respingos e os vidros molhados), vento (folhas voando) ou, no inverno (dezembro a fevereiro), neve (flocos

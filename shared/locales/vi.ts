@@ -3338,6 +3338,7 @@ export const VI: Readonly<Record<string, string>> = {
   "Lunar New Year in": "Giao thừa còn",
   "New Year in": "Năm mới còn",
   "Pizza delivery": "Giao pizza",
+  "Nap time 😴": "Ngủ trưa thôi 😴",
   "🧧 Happy Lunar New Year!": "🧧 Chúc mừng năm mới!",
   "🎆 Happy New Year!": "🎆 Chúc mừng năm mới!",
 
@@ -3364,4 +3365,30 @@ export const VI: Readonly<Record<string, string>> = {
   "Iced tea here! 🧊": "Trà đá đây! 🧊",
   "Sit down, sit down! 🪑": "Ngồi đi, ngồi đi các cháu! 🪑",
   "Iced tea, sunflower seeds! 🌻": "Trà đá, hướng dương đây! 🌻",
+  // client/src/ui/settings-sound.ts (background lofi)
+  "Lofi music": "Nhạc lofi",
+  "Music volume": "Âm lượng nhạc",
+  "Soft lofi in the background, also with the tab hidden. Quiet during the disco. Tracks by OMF-Games (CC0).": "Lofi nhẹ nhàng làm nền, kể cả khi ẩn tab. Tạm im khi bật disco. Nhạc của OMF-Games (CC0).",
+  // client/src/world/sim/altar.ts (Thần Tài altar in the reception)
+  "Please let the permission be approved 🙏": "Cầu cho quyền được duyệt 🙏",
+  "Thần Tài, bless this deploy 🙏": "Thần Tài phù hộ cho lần deploy này 🙏",
+  "May the user answer soon 🙏": "Mong sếp sớm trả lời 🙏",
+  "Let the build pass, please 🙏": "Cho build qua đi mà 🙏",
+  "A smooth day, no bugs 🙏": "Một ngày suôn sẻ, không bug 🙏",
+  "Thần Tài, bless today's work 🙏": "Thần Tài phù hộ công việc hôm nay 🙏",
+  "Green tests all day 🙏": "Test xanh cả ngày 🙏",
+  // client/src/world/sim/banhmi.ts, sim.ts (morning bánh mì cart)
+  "Bánh mì vendor": "Chú bán bánh mì",
+  "A pack of xôi, please! 🍙": "Cho gói xôi chú ơi! 🍙",
+  "Xôi with shredded chicken, please 🍙": "Cho gói xôi gà xé 🍙",
+  "One bánh mì with everything! 🥖": "Một ổ bánh mì đầy đủ nhé! 🥖",
+  "Bánh mì, extra pâté please 🥖": "Bánh mì, nhiều pa tê chú nhé 🥖",
+  "Bánh mì, no chili for me 🥖": "Bánh mì, không ớt chú ơi 🥖",
+  "Two bánh mì, one is for my teammate 🥖": "Hai ổ nhé, một ổ mua hộ đồng nghiệp 🥖",
+  "Here you go, still warm! 🔥": "Đây cháu, còn nóng hổi! 🔥",
+  "Coming right up! 🥖": "Có ngay, có ngay! 🥖",
+  "Thanks, see you tomorrow! 👋": "Cảm ơn cháu, mai lại ghé nhé! 👋",
+  "Hot bánh mì here! 🥖": "Bánh mì nóng giòn đây! 🥖",
+  "Bánh mì, xôi, fresh this morning! 🍙": "Bánh mì, xôi nóng sáng nay đây! 🍙",
+  "Breakfast before work? 🌅": "Ăn sáng rồi hẵng làm nào! 🌅",
 };

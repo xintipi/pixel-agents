@@ -107,6 +107,8 @@ export class Social {
   canJoin(c: Character, now: number): boolean {
     if (c.gone || c.leaving || c.arriving || c.inside || c.gathering) return false;
     if (c.mode !== 'idle' && c.mode !== 'shell') return false;
+    // siesta: the idle ones are napping (whoever watches a shell can still chat)
+    if (c.mode === 'idle' && this.sim.siestaOn) return false;
     if (c.step || c.queue.length) return false;
     if (!c.homeSpot || c.atSpot !== c.homeSpot) return false;
     if (now < c.reactUntil) return false;

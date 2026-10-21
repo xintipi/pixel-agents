@@ -32,8 +32,6 @@ export interface PetWorld {
   releaseSpot?(id: string, by: string): void;
   /** (Optional) Where the robot vacuum's dock is (a free corner); null = no robot. */
   robotDock?(): { tx: number; ty: number } | null;
-  /** (Optional) Tile in front of the aquarium (the cat watches the fish). */
-  tankTile?(): { tx: number; ty: number } | null;
   /** (Optional) The dog arrived to wake someone who was napping (lick). */
   wake?(id: string): void;
 }
@@ -72,8 +70,6 @@ type Plan =
   | { t: 'flee' }
   /** cat: climb onto the robot (which is charging) and hitch a ride */
   | { t: 'mount' }
-  /** cat: watch the aquarium fish */
-  | { t: 'watch' }
   /** dog: wake whoever is napping with a lick */
   | { t: 'wake'; who: string }
   /** dog: beg for pizza near the party table */
@@ -415,10 +411,6 @@ export class PetHerd {
         return;
       }
       ms = 2_000;
-    } else if (plan?.t === 'watch') {
-      const t = world?.tankTile?.();
-      if (t) p.left = t.tx * TILE + FOOT_DX < p.x;
-      ms = 12_000 + r * 12_000;
     } else if (plan?.t === 'wake') {
       p.setIcon('heart', 2000, now);
       world?.wake?.(plan.who);
@@ -485,20 +477,13 @@ export class PetHerd {
         return;
       }
     }
-    // cat: climbs onto the charging robot (to hitch a ride) or goes to watch the fish
+    // cat: climbs onto the charging robot (to hitch a ride)
     // (with the robot on the dock, the urge to climb is much greater: it's ride time)
     const docked = this.robot.state === 'charge' && !!this.robot.dockTile;
     if (cat && docked && r < 0.3) {
       const d = this.robot.dockTile!;
       if (!this.pets.some((x) => x.riding) && this.goNear(world, p, d.tx, d.ty, false, now)) {
         p.plan = { t: 'mount' };
-        p.rest = 'sit';
-        return;
-      }
-    } else if (cat && r >= 0.3 && r < 0.38 && world.tankTile) {
-      const t = world.tankTile();
-      if (t && this.goNear(world, p, t.tx, t.ty, false, now)) {
-        p.plan = { t: 'watch' };
         p.rest = 'sit';
         return;
       }

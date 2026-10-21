@@ -97,7 +97,8 @@ export type SpotKind =
   | 'sink'
   | 'elevator'
   | 'talk'
-  | 'watch'; // spectator standing spot (watching a match)
+  | 'watch' // spectator standing spot (watching a match)
+  | 'altar'; // in front of the Thần Tài altar (reception): lighting incense and bowing
 
 /**
  * Point of interest. The character walks to the (walkable) approach tile (tx, ty),
@@ -156,7 +157,7 @@ export interface AreaLayout {
 
 /** Outdoor decorative element (tree, bush, lamp post...) drawn by the world itself. */
 export interface ExteriorProp {
-  kind: 'tree' | 'pine' | 'bush' | 'flowers' | 'lamp' | 'bench' | 'rock' | 'hedge' | 'parasol' | 'totem' | 'paving' | 'tea_stool' | 'tea_table' | 'tea_cooler' | 'tea_stack';
+  kind: 'tree' | 'pine' | 'bush' | 'flowers' | 'lamp' | 'bench' | 'rock' | 'hedge' | 'parasol' | 'totem' | 'paving' | 'tea_stool' | 'tea_table' | 'tea_cooler' | 'tea_stack' | 'banhmi_cart';
   /** World px: bottom center point (base). */
   x: number;
   y: number;

@@ -1,8 +1,8 @@
-// Drawing of the office's little things (art/fun.ts on canvas, cached) and what moves each frame: the aquarium
-// fish (and the food falling when someone clicks), the New Year countdown and the fireworks outside.
+// Drawing of the office's little things (art/fun.ts on canvas, cached) and what moves each frame: the New Year
+// countdown and the fireworks outside.
 import type { Sprite } from '../../art/api';
 import type { BufSprite } from '../../art/core/sprite';
-import { AQUARIUM_WATER, renderAquarium, renderDock, renderPizzaBox, renderRobot } from '../../art/fun';
+import { renderDock, renderPizzaBox, renderRobot } from '../../art/fun';
 import { FIREWORK_RISE, FIREWORK_TUBES, fireworkBurst } from '../fireworks';
 
 const cache = new Map<string, Sprite>();
@@ -23,59 +23,7 @@ function cached(key: string, make: () => BufSprite): Sprite {
 
 export const robotSprite = (frame: number, led: 'green' | 'orange' | 'blue') => cached(`robot|${frame % 2}|${led}`, () => renderRobot(frame, led));
 export const dockSprite = () => cached('dock', renderDock);
-export const aquariumSprite = () => cached('aquarium', renderAquarium);
 export const pizzaBoxSprite = () => cached('pizza', renderPizzaBox);
-
-const FISH = ['#ff8a3c', '#ffd34d', '#ff5d7a', '#7ee0ff'];
-/** Food lasts this long (ms) after the click. */
-export const FEED_MS = 7_000;
-
-/**
- * Fish of the aquarium anchored at (ax, ay): three little fish swimming back and forth; with food (recent fedAt), the flakes
- * sink from the top and the fish rise to catch them.
- */
-export function drawFish(ctx: CanvasRenderingContext2D, ax: number, ay: number, now: number, fedAt: number): void {
-  const w = AQUARIUM_WATER;
-  const x0 = ax + w.x;
-  const y0 = ay + w.y;
-  const fed = now - fedAt < FEED_MS;
-  const t = now / 1000;
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(x0, y0, w.w, w.h);
-  ctx.clip();
-  if (fed) {
-    ctx.fillStyle = '#d9b26a';
-    const k = (now - fedAt) / FEED_MS;
-    for (let i = 0; i < 6; i++) {
-      const fx = x0 + 4 + ((i * 7) % (w.w - 8));
-      const fy = y0 + 1 + Math.min(w.h - 3, k * 30 + (i % 3) * 2);
-      ctx.fillRect(Math.round(fx), Math.round(fy), 1, 1);
-    }
-  }
-  FISH.slice(0, 3).forEach((col, i) => {
-    const speed = 0.35 + i * 0.12;
-    const ph = t * speed + i * 2.1;
-    const fx = x0 + 3 + ((Math.sin(ph) + 1) / 2) * (w.w - 7);
-    const dir = Math.cos(ph) >= 0 ? 1 : -1;
-    const baseY = y0 + 3 + i * 3;
-    const fy = fed ? y0 + 2 + Math.abs(Math.sin(t * 3 + i)) * 2 : baseY + Math.sin(t * 1.7 + i) * 1;
-    const x = Math.round(fx);
-    const y = Math.round(fy);
-    ctx.fillStyle = col;
-    ctx.fillRect(x, y, 3, 2);
-    ctx.fillRect(x - dir * 1, y, 1, 2); // tail
-    ctx.fillStyle = '#1d2230';
-    ctx.fillRect(x + (dir > 0 ? 2 : 0), y, 1, 1); // eye
-  });
-  // rising bubbles
-  ctx.fillStyle = 'rgba(230,248,255,0.8)';
-  for (let i = 0; i < 3; i++) {
-    const by = y0 + w.h - (((t * 6 + i * 4) % w.h) | 0);
-    ctx.fillRect(x0 + w.w - 5 + (i % 2), by, 1, 1);
-  }
-  ctx.restore();
-}
 
 export interface Rect {
   x: number;

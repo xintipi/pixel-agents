@@ -455,6 +455,118 @@ function teaStackSprite(): PropSprite {
   return { canvas: c, ax: 12, ay: 28 };
 }
 
+/** 3×5 (N: 4×5, M: 5×5) letters for the cart's sign. */
+const SIGN_FONT: Record<string, readonly string[]> = {
+  B: ['11.', '1.1', '11.', '1.1', '11.'],
+  A: ['.1.', '1.1', '111', '1.1', '1.1'],
+  N: ['1..1', '11.1', '1.11', '1..1', '1..1'],
+  H: ['1.1', '1.1', '111', '1.1', '1.1'],
+  M: ['1...1', '11.11', '1.1.1', '1...1', '1...1'],
+  I: ['111', '.1.', '.1.', '.1.', '111'],
+  ' ': ['.', '.', '.', '.', '.'],
+};
+
+/** Pixel text (top-left x, y). */
+function signText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string): void {
+  ctx.fillStyle = color;
+  for (const chr of text) {
+    const g = SIGN_FONT[chr] ?? SIGN_FONT[' '];
+    for (let r = 0; r < g.length; r++) for (let i = 0; i < g[r].length; i++) if (g[r][i] === '1') ctx.fillRect(x + i, y + r, 1, 1);
+    x += g[0].length + 1;
+  }
+}
+
+/** Baguette in the glass case: golden loaf with diagonal cuts. */
+function drawLoaf(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = '#c47f34';
+  ctx.fillRect(x, y + 1, 7, 2);
+  ctx.fillStyle = '#eab15a';
+  ctx.fillRect(x + 1, y, 5, 1);
+  ctx.fillRect(x, y + 1, 7, 1);
+  ctx.fillStyle = '#9a5f24';
+  ctx.fillRect(x + 2, y + 1, 1, 1);
+  ctx.fillRect(x + 4, y + 1, 1, 1);
+}
+
+/**
+ * Bánh mì cart: blue tin cabinet with the red "BÁNH MÌ" sign, glass case with the baguettes and a pot of xôi, striped
+ * awning on two posts, two wheels and the push handle on the west end.
+ */
+function banhmiCartSprite(): PropSprite {
+  const [c, ctx] = makeCanvas(42, 36);
+  shadowEllipse(ctx, 21, 33, 18, 2, 0.24);
+  // push handle (west end)
+  ctx.fillStyle = '#4a5468';
+  ctx.fillRect(0, 16, 6, 1);
+  ctx.fillRect(4, 16, 1, 6);
+  // awning posts
+  ctx.fillStyle = '#8d96a3';
+  ctx.fillRect(7, 4, 1, 5);
+  ctx.fillRect(35, 4, 1, 5);
+  // glass case: aluminum frame, bluish glass, the loaves and the xôi pot inside
+  ctx.fillStyle = '#9aa6b4';
+  ctx.fillRect(7, 8, 29, 11);
+  ctx.fillStyle = '#d6eef7';
+  ctx.fillRect(8, 9, 27, 9);
+  drawLoaf(ctx, 9, 11);
+  drawLoaf(ctx, 17, 11);
+  drawLoaf(ctx, 12, 14);
+  drawLoaf(ctx, 20, 14);
+  ctx.fillStyle = '#3a7a35';
+  ctx.fillRect(28, 15, 6, 2);
+  ctx.fillStyle = '#4f9a45';
+  ctx.fillRect(28, 14, 6, 1);
+  ctx.fillStyle = '#f7f1dc';
+  ctx.fillRect(29, 12, 4, 2);
+  ctx.fillRect(30, 11, 2, 1);
+  ctx.fillStyle = '#c9893a';
+  ctx.fillRect(30, 12, 1, 1);
+  // reflection on the glass
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillRect(9, 9, 3, 1);
+  ctx.fillRect(9, 10, 1, 1);
+  ctx.fillRect(26, 9, 1, 1);
+  // cabinet (blue tin) with the red sign
+  ctx.fillStyle = '#2e3648';
+  ctx.fillRect(5, 18, 33, 12);
+  ctx.fillStyle = '#2f7fd8';
+  ctx.fillRect(6, 19, 31, 10);
+  ctx.fillStyle = '#6aa8f0';
+  ctx.fillRect(6, 19, 31, 1);
+  ctx.fillStyle = '#1f5aa6';
+  ctx.fillRect(6, 28, 31, 1);
+  ctx.fillStyle = '#d8383e';
+  ctx.fillRect(7, 20, 29, 8);
+  ctx.fillStyle = '#9e2328';
+  ctx.fillRect(7, 27, 29, 1);
+  const yellow = '#ffd36b';
+  signText(ctx, 'BANH MI', 8, 22, yellow);
+  // the accents: Á and Ì
+  ctx.fillStyle = yellow;
+  ctx.fillRect(14, 21, 1, 1);
+  ctx.fillRect(31, 21, 1, 1);
+  // wheels
+  for (const wx of [11, 31]) {
+    ctx.fillStyle = '#2e3648';
+    ctx.fillRect(wx - 3, 29, 6, 5);
+    ctx.fillRect(wx - 2, 28, 4, 7);
+    ctx.fillStyle = '#a8b0bc';
+    ctx.fillRect(wx - 1, 30, 2, 2);
+  }
+  // striped awning (red and white) with a scalloped edge
+  ctx.fillStyle = '#9e2328';
+  ctx.fillRect(5, 0, 33, 1);
+  for (let x = 4; x < 39; x++) {
+    const red = Math.floor((x - 4) / 3) % 2 === 0;
+    ctx.fillStyle = red ? '#d8383e' : '#f4f6f8';
+    ctx.fillRect(x, 1, 1, 4);
+    if (red) ctx.fillRect(x, 5, 1, 1);
+  }
+  ctx.fillStyle = 'rgba(28,36,52,0.18)';
+  ctx.fillRect(4, 4, 35, 1);
+  return { canvas: c, ax: 21, ay: 34 };
+}
+
 export function propSprite(prop: ExteriorProp): PropSprite {
   const key = prop.kind === 'lamp' || prop.kind === 'bench' || prop.kind === 'totem' ? prop.kind : `${prop.kind}:${prop.seed % 7}`;
   let s = cache.get(key);
@@ -501,6 +613,9 @@ export function propSprite(prop: ExteriorProp): PropSprite {
       break;
     case 'tea_stack':
       s = teaStackSprite();
+      break;
+    case 'banhmi_cart':
+      s = banhmiCartSprite();
       break;
     default:
       // 'paving' and other kinds drawn by the renderer itself

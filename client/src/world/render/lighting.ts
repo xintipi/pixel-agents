@@ -28,6 +28,8 @@ const LAMP_WARM: Rgb = [255, 236, 196];
 const STREET_WARM: Rgb = [255, 214, 150];
 const SCREEN_COOL: Rgb = [196, 222, 255];
 const ARCADE_GLOW: Rgb = [236, 190, 255];
+/** The Thần Tài altar's red lamps. */
+const ALTAR_RED: Rgb = [255, 170, 140];
 const FIREFLIES = 26;
 
 /** What the lighting needs from the renderer (satisfied by the Renderer itself). */
@@ -387,6 +389,7 @@ export class Lighting {
     const street = haloSprite(STREET_WARM, 64);
     const cool = haloSprite(SCREEN_COOL, 48);
     const arcade = haloSprite(ARCADE_GLOW, 48);
+    const altarRed = haloSprite(ALTAR_RED, 48);
     const k = Math.min(1, (n - 0.12) / 0.5);
     const halo = (img: HTMLCanvasElement, cx: number, cy: number, w: number, h: number, a: number) => {
       if (a <= 0.01) return;
@@ -401,6 +404,7 @@ export class Lighting {
       const a = vis.room ? k * l : k;
       for (const f of vis.furniture) {
         if (f.kind === 'floor_lamp') halo(lamp, f.ax, f.ay - 6, 92, 66, a);
+        else if (f.kind === 'altar') halo(altarRed, f.ax, f.ay - 4, 56, 34, 0.8 * a);
         else if (f.kind === 'vending_machine') halo(cool, f.ax, f.ay + 4, 52, 34, 0.9 * a);
         else if (f.kind === 'arcade') halo(arcade, f.ax, f.ay + 4, 44, 30, 0.8 * a);
       }
@@ -459,6 +463,7 @@ export class Lighting {
     ctx.globalCompositeOperation = 'lighter';
     const cool = glowSprite('#7fb8ff', 48);
     const warm = glowSprite('#ffcf7a', 64);
+    const altarGlow = glowSprite('#ff5a3c', 48);
     const inView = (x: number, y: number, m: number) => x > view.x0 - m && x < view.x1 + m && y > view.y0 - m && y < view.y1 + m;
     for (const vis of scene.areas.values()) {
       const p = vis.px;
@@ -466,20 +471,28 @@ export class Lighting {
       const room = vis.room;
       const dark = room ? 1 - room.light(now) : 0;
       const k = Math.max(n, dark);
-      if (k < 0.2) continue;
+      // siesta: in the dimmed rooms, whoever is still at it shows up lit by their screen
+      const siesta = room ? this.sim.siestaDim : 0;
+      if (k < 0.2 && siesta < 0.2) continue;
       for (const f of vis.furniture) {
         if (!inView(f.ax, f.ay, 40)) continue;
         if (f.kind === 'desk' || f.kind === 'desk_back') {
           const mode = scene.deskScreen(f, vis);
           if (mode === 'off') continue;
-          // whoever works at night has their face lit by the screen
-          ctx.globalAlpha = (mode === 'idle' ? 0.2 : 0.35) * k;
+          // whoever works at night (or through the siesta) has their face lit by the screen
+          const kd = mode === 'idle' ? k : Math.max(k, siesta);
+          if (kd < 0.2) continue;
+          ctx.globalAlpha = (mode === 'idle' ? 0.2 : 0.35) * kd;
           ctx.drawImage(cool, Math.round(f.ax - 24), Math.round(f.ay - 34));
         } else if (f.kind === 'floor_lamp' && n > 0.2 && (!room || room.lightOn)) {
           // lit bulb (the halo on the ground is in the light map)
           const g = this.lampHead(f);
           ctx.globalAlpha = 0.5 * n;
           ctx.drawImage(warm, Math.round(g.x - 16), Math.round(g.y - 16), 32, 32);
+        } else if (f.kind === 'altar' && n > 0.2) {
+          // red glow of the altar lamps
+          ctx.globalAlpha = 0.45 * n;
+          ctx.drawImage(altarGlow, Math.round(f.ax - 20), Math.round(f.ay - 34), 40, 32);
         } else if (f.kind === 'vending_machine' || f.kind === 'arcade') {
           ctx.globalAlpha = 0.25 * k;
           ctx.drawImage(cool, Math.round(f.ax - 24), Math.round(f.ay - 36));

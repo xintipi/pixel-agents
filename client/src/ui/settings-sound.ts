@@ -1,4 +1,4 @@
-// "Sounds" group in settings: master switch, master volume and categories.
+// "Sounds" group in settings: master switch, master volume and categories; the background lofi apart.
 import { SOUND_CATEGORIES, type SoundCategory, type SoundKind } from '../audio/scheduler';
 import type { UiContext } from './context';
 import { h, setAttr, setText } from './dom';
@@ -19,6 +19,10 @@ export class SoundSettingsGroup {
   private volumeOut: HTMLElement;
   private chips = new Map<SoundCategory, HTMLButtonElement>();
   private details: HTMLElement;
+  private music: HTMLButtonElement;
+  private musicVolume: HTMLInputElement;
+  private musicVolumeOut: HTMLElement;
+  private musicDetails: HTMLElement;
 
   constructor(
     private ctx: UiContext,
@@ -61,6 +65,22 @@ export class SoundSettingsGroup {
       h('div', { class: 'ui-set ui-set--stack' }, h('span', { class: 'ui-set__label', text: tr('Play') }), chipRow, h('span', { class: 'ui-set__hint', text: tr('Alerts: bell and click · Keyboard: typing in the rooms in view · Elevator: arrivals and departures · Groups: ping-pong and arcade.') })),
     );
 
+    // background lofi: its own switch and volume (the click is the gesture that lets the browser play it)
+    const musicId = 'ui-snd-music';
+    this.music = h('button', { class: 'ui-switch', type: 'button', role: 'switch', attrs: { 'aria-checked': 'false', 'aria-labelledby': musicId } }, h('span', { class: 'ui-switch__knob' }));
+    this.music.addEventListener('click', () => {
+      ctx.updatePrefs({ music: !ctx.prefs.music });
+      this.sound.sync();
+      if (ctx.prefs.music) this.sound.music.start();
+    });
+    this.musicVolume = h('input', { class: 'ui-snd__range', type: 'range', attrs: { min: 0, max: 100, step: 5, 'aria-label': tr('Music volume') } });
+    this.musicVolume.addEventListener('input', () => {
+      ctx.updatePrefs({ musicVolume: Number(this.musicVolume.value) / 100 });
+      setText(this.musicVolumeOut, `${this.musicVolume.value}%`);
+    });
+    this.musicVolumeOut = h('span', { class: 'ui-snd__value', attrs: { 'aria-hidden': 'true' } });
+    this.musicDetails = h('div', { class: 'ui-snd__details' }, h('div', { class: 'ui-set ui-snd__vol' }, h('span', { class: 'ui-set__label', text: tr('Volume') }), this.musicVolume, this.musicVolumeOut));
+
     this.el = h(
       'div',
       { class: 'ui-set-group ui-snd' },
@@ -77,6 +97,18 @@ export class SoundSettingsGroup {
         this.master,
       ),
       this.details,
+      h(
+        'div',
+        { class: 'ui-set' },
+        h(
+          'div',
+          { class: 'ui-set__text' },
+          h('span', { class: 'ui-set__label', text: tr('Lofi music'), attrs: { id: musicId } }),
+          h('span', { class: 'ui-set__hint', text: tr('Soft lofi in the background, also with the tab hidden. Quiet during the disco. Tracks by OMF-Games (CC0).') }),
+        ),
+        this.music,
+      ),
+      this.musicDetails,
     );
   }
 
@@ -92,5 +124,11 @@ export class SoundSettingsGroup {
       b.disabled = !p.sound;
     }
     this.details.classList.toggle('is-off', !p.sound);
+    setAttr(this.music, 'aria-checked', String(p.music));
+    const mpct = String(Math.round(p.musicVolume * 100));
+    if (document.activeElement !== this.musicVolume && this.musicVolume.value !== mpct) this.musicVolume.value = mpct;
+    setText(this.musicVolumeOut, `${this.musicVolume.value}%`);
+    this.musicVolume.disabled = !p.music;
+    this.musicDetails.classList.toggle('is-off', !p.music);
   }
 }

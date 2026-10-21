@@ -1,5 +1,6 @@
 // UI preferences, persisted in localStorage ('habblaud:prefs').
 // Pure: storage is injected (testable in node).
+import { DEFAULT_MUSIC_VOLUME } from '../audio/lofi';
 import { DEFAULT_SOUND_SETTINGS, sanitizeSoundSettings, type SoundSettings } from '../audio/scheduler';
 import type { DaylightMode, WorldOptions } from '../world/api';
 import { DEFAULT_WORLD_OPTIONS } from '../world/api';
@@ -18,6 +19,10 @@ export interface UiPrefs {
   sound: boolean;
   /** Master volume and sound categories. */
   sounds: SoundSettings;
+  /** Background lofi music (its own switch; off by default). */
+  music: boolean;
+  /** Music volume (0–1). */
+  musicVolume: number;
   /** Browser Notification for alerts with the tab hidden. */
   browserNotifications: boolean;
   sidebarOpen: boolean;
@@ -44,6 +49,8 @@ export const DEFAULT_PREFS: UiPrefs = {
   theme: 'auto',
   sound: false,
   sounds: DEFAULT_SOUND_SETTINGS,
+  music: false,
+  musicVolume: DEFAULT_MUSIC_VOLUME,
   browserNotifications: false,
   sidebarOpen: true,
   feedOpen: true,
@@ -74,6 +81,8 @@ export function sanitizePrefs(raw: unknown): UiPrefs {
     theme: oneOf(o.theme, ['auto', 'none', 'christmas', 'halloween', 'tet', 'midautumn', 'valentine', 'women', 'devday', 'national', 'children'] as const, d.theme),
     sound: bool(o.sound, d.sound),
     sounds: sanitizeSoundSettings(o.sounds),
+    music: bool(o.music, d.music),
+    musicVolume: typeof o.musicVolume === 'number' && Number.isFinite(o.musicVolume) ? Math.min(1, Math.max(0, o.musicVolume)) : d.musicVolume,
     browserNotifications: bool(o.browserNotifications, d.browserNotifications),
     sidebarOpen: bool(o.sidebarOpen, d.sidebarOpen),
     feedOpen: bool(o.feedOpen, d.feedOpen),

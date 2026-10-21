@@ -1,6 +1,5 @@
 // Little office things in pixel art (procedural, same style as the furniture: ramps and outline at the end): the robot
-// vacuum and its dock, the break-room aquarium (without the fish, which swim on top, drawn every frame)
-// and the open pizza box from the party.
+// vacuum and its dock and the open pizza box from the party.
 import { ramp } from './core/color';
 import { PixelBuf } from './core/pixbuf';
 import type { BufSprite } from './core/sprite';
@@ -36,39 +35,6 @@ export function renderDock(): BufSprite {
   b.outline();
   return { buf: b, ax: 8, ay: 9 };
 }
-
-const WOOD = ramp('#8a5a3b', 0.08);
-
-/** Aquarium on a wooden cabinet: glass, blue water, sand, a rock and little plants. The fish come later. 30×34. */
-export function renderAquarium(): BufSprite {
-  const b = new PixelBuf(32, 36);
-  b.shadow(16, 33, 13, 2, '#252c39', 0.22);
-  // cabinet
-  b.rect(3, 22, 26, 11, WOOD.base);
-  b.rect(3, 22, 26, 2, WOOD.lt);
-  b.vline(16, 24, 32, WOOD.dk);
-  b.set(13, 28, '#e3c07a');
-  b.set(19, 28, '#e3c07a');
-  // tank
-  b.rect(3, 4, 26, 18, '#2f6f9a');
-  b.rect(4, 5, 24, 16, '#4f9fd0');
-  b.rect(4, 5, 24, 3, '#7cc2ea');
-  b.rect(4, 18, 24, 3, '#e8d6a3'); // sand
-  b.hline(4, 27, 18, '#d4bf86');
-  b.rect(19, 15, 5, 3, '#7c8494'); // rock
-  b.rect(20, 14, 3, 1, '#9aa2b2');
-  for (const [x, h] of [[7, 9], [9, 6], [25, 7]]) {
-    for (let i = 0; i < h; i++) b.set(x + (i % 2), 17 - i, i % 3 === 0 ? '#7fd17a' : '#4fae58');
-  }
-  // lid and the reflection on the glass
-  b.rect(2, 3, 28, 2, '#3b4150');
-  b.vline(6, 9, 13, '#c9e9fb');
-  b.outline();
-  return { buf: b, ax: 16, ay: 33 };
-}
-
-/** Water area of the aquarium (relative to the anchor), for the fish and the food. */
-export const AQUARIUM_WATER = { x: -12, y: -28, w: 24, h: 13 };
 
 /** Open pizza box on the table: lid tilted back, pepperoni pizza. 16×10. */
 export function renderPizzaBox(): BufSprite {

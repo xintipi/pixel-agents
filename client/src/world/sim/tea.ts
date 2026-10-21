@@ -19,7 +19,7 @@ const DOOR_X = TEA_DOOR.tx * TILE + FOOT_DX;
 const DOOR_Y = TEA_DOOR.ty * TILE + FOOT_DY;
 /** Center of the stone path (x) and the walking lane along the sidewalk (y), in px. */
 const PATH_X = -2 * TILE + 8;
-const LANE_Y = 31 * TILE + 5;
+export const LANE_Y = 31 * TILE + 5;
 
 /** Table: bottom center (px), on the sidewalk in front of the building, between two lamp posts. The stools and the seller are around it. */
 export const TEA_TABLE = { x: 9 * TILE, y: 32 * TILE + 12 } as const;
@@ -58,8 +58,8 @@ export function teaOpen(hour: number): boolean {
   return hour >= TEA_OPEN_H && hour < TEA_CLOSE_H;
 }
 
-/** Route (flat x,y px pairs) from the corridor door to a stool: through the glass gap, down the path, along the sidewalk. */
-export function routeToSeat(s: TeaSeat): number[] {
+/** Route (flat x,y px pairs) from the corridor door to a stool (or any sidewalk spot): through the glass gap, down the path, along the sidewalk. */
+export function routeToSeat(s: { x: number; y: number }): number[] {
   return [DOOR_X - TILE, DOOR_Y, PATH_X, DOOR_Y, PATH_X, LANE_Y, s.x, LANE_Y, s.x, s.y];
 }
 
@@ -92,10 +92,15 @@ export function teaStallProps(up: boolean): readonly ExteriorProp[] {
   return up ? SET_UP : PACKED;
 }
 
-/** Stool reservations: index -> character id (and whether they're already seated). */
-export class TeaStall {
-  readonly taken: (string | null)[] = TEA_SEATS.map(() => null);
-  readonly seated: boolean[] = TEA_SEATS.map(() => false);
+/** Spot reservations at a sidewalk stall: index -> character id (and whether they've already arrived). */
+export class Stall {
+  readonly taken: (string | null)[];
+  readonly seated: boolean[];
+
+  constructor(n: number) {
+    this.taken = new Array<string | null>(n).fill(null);
+    this.seated = new Array<boolean>(n).fill(false);
+  }
 
   hasFree(): boolean {
     return this.taken.some((t) => t === null);
@@ -131,6 +136,13 @@ export class TeaStall {
   clear(): void {
     this.taken.fill(null);
     this.seated.fill(false);
+  }
+}
+
+/** Stool reservations at the iced tea stall. */
+export class TeaStall extends Stall {
+  constructor() {
+    super(TEA_SEATS.length);
   }
 }
 

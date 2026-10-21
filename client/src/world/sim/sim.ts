@@ -44,6 +44,7 @@ import {
   TEA_DOOR,
   TEA_SEATS,
   TEA_SELLER_SEAT,
+  Stall,
   TeaStall,
   chatLine,
   orderLine,
@@ -55,8 +56,11 @@ import {
   teaOpen,
   wayBack,
 } from './tea';
+import { lunchTime, SIESTA_WAKE_SPREAD_MS, siestaLevel, siestaTime } from './siesta';
+import { BANHMI_SPOTS, BANHMI_VENDOR_SPOT, banhmiOpen, cartAt, pickOrder, vendorLine, vendorReply, vendorRouteIn, vendorRouteOut } from './banhmi';
 import { EXIT_RADIUS, NO_INTENT, stepFree, tileAt, VISITOR_LANYARD, type VisitorIntent } from './visitor';
 import { tr } from '../../../../shared/i18n';
+import { ALTAR_CHANCE, INCENSE_MS, altarState, cooldownOver, dayKey, morningDue, prayerLine, waitingLong } from './altar';
 
 /**
  * One-off visual effect the simulation asks the renderer for (drained every frame): confetti (shell
@@ -99,6 +103,8 @@ const PIZZA_ID = 'npc:pizza';
 const TEA_SELLER_ID = 'npc:tra-da';
 /** The seller walks in from (and back to) this x (px), off to the west on the sidewalk. */
 const TEA_SELLER_FROM_X = -19 * TILE;
+/** Id of the bánh mì vendor (extra). He pushes the cart in from the west and off to the east. */
+const BANHMI_VENDOR_ID = 'npc:banh-mi';
 /** Once awake, doesn't nap for this long. */
 const AWAKE_MS = 5 * 60_000;
 const DISCO_FADE_MS = 700;
@@ -173,6 +179,14 @@ export class Sim {
   workTreeStage: WorkTreeStage | null = null;
   /** Fixed hour for meals (debug.setHour); null = the clock's. */
   hourOverride: number | null = null;
+  /** Siesta (sim/siesta.ts): forced by debug (true/false); null = the clock's. */
+  siestaOverride: boolean | null = null;
+  /** Siesta going on (checked once a second) and how dim the office is for it (0–1, smoothed; read by the lighting). */
+  siestaOn = false;
+  siestaDim = 0;
+  private siestaTarget = 0;
+  /** End of the siesta: when each sleeper wakes up (staggered, not everyone at once). */
+  private readonly siestaWakes = new Map<string, number>();
   /** Pizza party: until when and the table tile (for the dog to beg). */
   pizzaUntil = 0;
   pizzaTile: { tx: number; ty: number } | null = null;
@@ -182,6 +196,14 @@ export class Sim {
   readonly tea = new TeaStall();
   /** The stall is set up (the seller is there): the renderer shows the stools out or stacked. */
   teaUp = false;
+  /** Thần Tài altar (sim/altar.ts): incense lit until; last prayer for a waiting agent; day of the morning incense. */
+  altarLitUntil = 0;
+  private altarPrayedAt = 0;
+  private altarMorningDay = '';
+  /** Morning bánh mì cart: who holds each spot at the glass case (sim/banhmi.ts). */
+  readonly banhmi = new Stall(BANHMI_SPOTS.length);
+  /** The cart is parked and selling. */
+  banhmiUp = false;
   /** New Year (Dec 31 and Tết eve): current phase and the one forced by debug. */
   newYearOverride: 'countdown' | 'party' | null = null;
   newYear: { phase: 'countdown' | 'party' | null; secondsLeft: number; lunar: boolean } = { phase: null, secondsLeft: 0, lunar: false };
@@ -213,7 +235,6 @@ export class Sim {
     },
     releaseSpot: (id, by) => this.spots.release(id, by),
     robotDock: () => this.coreTile(LOUNGE_ID, 8, 10),
-    tankTile: () => this.coreTile(LOUNGE_ID, 6, 3),
     wake: (id) => this.wakeUp(id, this.now),
   };
 
@@ -670,19 +691,62 @@ export class Sim {
     viaDog();
   }
 
-  /** Wakes up whoever was napping: startle, a stretch at the desk and a while without napping. */
-  wakeUp(id: string, now: number): void {
+  /**
+   * Wakes up whoever was napping: startle, a stretch at the desk and a while without napping. `gentle` (end of the
+   * siesta): no startle, a yawn instead. During the siesta, only the gentle wake-up works (a lick doesn't do it).
+   */
+  wakeUp(id: string, now: number, gentle = false): void {
     const ch = this.chars.get(id);
-    if (!ch || ch.pose !== 'sleep') return;
+    if (!ch || ch.pose !== 'sleep' || (this.siestaOn && !gentle)) return;
     ch.awakeUntil = now + AWAKE_MS;
     ch.sleepSince = 0;
-    ch.setIcon('alert', 1500, now);
+    if (gentle) {
+      if (ch.icon === 'zzz') ch.setIcon(null, 0, now);
+      ch.nextOutingAt = now + idleSitMs(ch.rng, this.options().liveliness);
+      ch.chatEmoji = '🥱';
+      ch.chatUntil = now + 1_600;
+    } else ch.setIcon('alert', 1500, now);
     const home = this.spots.get(ch.homeSpot);
     if (!home || ch.atSpot !== home.id || ch.step || ch.queue.length) return;
     ch.reactUntil = now + 2_400;
     if (home.seated) ch.queue.push({ t: 'exit' });
     ch.queue.push({ t: 'act', pose: 'stretch', ms: 1800 });
     if (home.seated) ch.queue.push({ t: 'enter', spot: home.id });
+  }
+
+  /**
+   * Siesta (ngủ trưa, sim/siesta.ts): after lunch, whoever is idle naps at the desk (the desk pose) and the lights dim;
+   * whoever works, waits for the user or watches a shell carries on. Not in visits (the timing didn't come from the
+   * world) nor during a party. At the end, the sleepers wake up one by one with a stretch. Runs once a second.
+   */
+  private updateSiesta(now: number): void {
+    const hour = this.hourOf(now);
+    const blocked = this.visit || now < this.pizzaUntil || now < this.discoUntil || this.newYear.phase === 'party';
+    const on = !blocked && (this.siestaOverride ?? siestaTime(hour));
+    this.siestaTarget = !on ? 0 : this.siestaOverride !== null ? 1 : siestaLevel(hour);
+    for (const [id, at] of this.siestaWakes) {
+      if (now < at) continue;
+      this.siestaWakes.delete(id);
+      this.wakeUp(id, now, true);
+    }
+    if (on === this.siestaOn) return;
+    this.siestaOn = on;
+    if (on) {
+      this.siestaWakes.clear();
+      // someone still awake at their desk announces it
+      for (const ch of this.chars.values()) {
+        if (ch.leaving || ch.mode !== 'idle' || ch.atSpot !== ch.homeSpot || ch.step || ch.queue.length || ch.pose === 'sleep') continue;
+        this.social.say(ch, tr('Nap time 😴'), now);
+        break;
+      }
+      return;
+    }
+    for (const ch of this.chars.values()) if (ch.mode === 'idle' && ch.pose === 'sleep') this.siestaWakes.set(ch.id, now + 600 + ch.rng() * SIESTA_WAKE_SPREAD_MS);
+  }
+
+  /** Napping for the siesta (or about to wake up from it, at the end)? */
+  private siestaNap(ch: Character): boolean {
+    return this.siestaOn || this.siestaWakes.has(ch.id);
   }
 
   /**
@@ -734,6 +798,82 @@ export class Sim {
   pushEffect(e: WorldEffect): void {
     if (this.effects.length >= MAX_EFFECTS) this.effects.shift();
     this.effects.push(e);
+  }
+
+  // =================================================================== Thần Tài altar (sim/altar.ts)
+
+  /**
+   * Runs once a second. In the morning, the first one free lights the day's incense; when an agent has been waiting on
+   * the user for a long time, now and then (office-wide cooldown) an idle coworker goes to light incense and bow for
+   * luck. Not in visits: nothing there has real timing.
+   */
+  private updateAltar(now: number): void {
+    if (this.visit) return;
+    if (morningDue(this.hourOf(now), now, this.altarMorningDay)) {
+      if (this.sendToAltar('morning')) this.altarMorningDay = dayKey(now);
+      return;
+    }
+    if (!cooldownOver(this.altarPrayedAt, now)) return;
+    let waiter: Character | undefined;
+    for (const c of this.chars.values()) if (!c.leaving && waitingLong(c.mode, c.info.status, c.info.statusSince, now)) waiter = c;
+    if (!waiter || waiter.rng() >= ALTAR_CHANCE) return;
+    if (this.sendToAltar('wait', waiter.roomId)) this.altarPrayedAt = now;
+  }
+
+  /** Idle at the desk with nothing planned: free to go to the altar. `force` (debug) also takes whoever is strolling. */
+  private altarFree(c: Character, force: boolean): boolean {
+    if (c.leaving || c.mode !== 'idle' || c.gathering || c.inside || c.outdoors || c.pose === 'sleep' || !c.homeSpot) return false;
+    if (force) return !c.step || this.interruptible(c.step);
+    return !c.step && !c.queue.length && c.atSpot === c.homeSpot;
+  }
+
+  /**
+   * Sends an idle coworker (from room `prefer`, if there is one) to the altar: walks over, lights the incense (the
+   * smoke starts), says a little prayer, bows three times and goes back. Returns whether someone went.
+   */
+  private sendToAltar(why: 'wait' | 'morning', prefer?: string, force = false): boolean {
+    const spot = this.spots.ofKind('altar').find((s) => this.spots.isFree(s.id));
+    if (!spot) return false;
+    let who: Character | undefined;
+    for (const c of this.chars.values()) {
+      if (!this.altarFree(c, force)) continue;
+      if (!who || (prefer && c.roomId === prefer && who.roomId !== prefer)) who = c;
+    }
+    if (!who) return false;
+    const ch = who;
+    if (force) this.clearPlan(ch);
+    if (!this.reserveTemp(ch, spot)) return false;
+    const rng = ch.rng;
+    const steps: Step[] = [];
+    this.pushLeave(ch, steps);
+    steps.push(
+      { t: 'go', tx: spot.tx, ty: spot.ty, fx: spot.x, fy: spot.y, dir: spot.dir },
+      { t: 'act', pose: 'use', ms: 1500, dir: spot.dir },
+      {
+        t: 'do',
+        fn: () => {
+          this.altarLitUntil = this.now + INCENSE_MS;
+          this.social.say(ch, prayerLine(rng, why), this.now);
+        },
+      },
+    );
+    // three bows: head down, back up
+    for (let i = 0; i < 3; i++) steps.push({ t: 'act', pose: 'sulk', ms: 700, dir: spot.dir }, { t: 'act', pose: 'stand', ms: 500, dir: spot.dir });
+    steps.push({ t: 'do', fn: () => this.spots.release(spot.id, ch.id) });
+    ch.queue.push(...steps);
+    this.pushHome(ch, 'none');
+    return true;
+  }
+
+  /** Debug: someone idle goes to light incense at the altar right now (ignores the wait and the cooldown). */
+  altarNow(): boolean {
+    if (this.visit) return false;
+    return this.sendToAltar('wait', undefined, true);
+  }
+
+  /** Altar sprite state for the renderer: incense lit and Vía Thần Tài decorations. */
+  altarState(now: number): number {
+    return altarState(this.altarLitUntil, now);
   }
 
   // =================================================================== spawning and placement
@@ -914,27 +1054,33 @@ export class Sim {
       if (ch.gone) {
         this.spots.releaseAll(id);
         this.tea.release(id);
+        this.banhmi.release(id);
         this.chars.delete(id);
       }
     }
+    if (this.siestaDim !== this.siestaTarget) this.siestaDim = Math.abs(this.siestaTarget - this.siestaDim) < 0.01 ? this.siestaTarget : this.siestaDim + (this.siestaTarget - this.siestaDim) * Math.min(1, dt * 2);
     if (now >= this.nextHousekeeping) {
       this.nextHousekeeping = now + 1000;
       this.housekeeping(now);
       this.updateTea(now);
+      this.updateAltar(now);
+      this.updateBanhMi(now);
     }
   }
 
   /** Low-frequency checks (parent leaving, ownerless rooms, shrink building). */
   private housekeeping(now: number): void {
+    this.updateSiesta(now);
     for (const ch of this.chars.values()) {
       if (ch.info.kind === 'sub' && !ch.leaving) this.refreshMode(ch);
       // foreground command went past 10 s (or the wait ended): switches mode without a new snapshot
       else if (!ch.leaving && (ch.mode === 'shell' || (ch.info.status === 'working' && ch.info.shells?.length))) this.refreshMode(ch);
-      if (ch.mode === 'idle' && this.longIdle(ch, now) && ch.atSpot === ch.homeSpot && ch.pose === 'sleep' && ch.icon !== 'zzz') {
+      if (ch.mode === 'idle' && (this.longIdle(ch, now) || this.siestaOn) && ch.atSpot === ch.homeSpot && ch.pose === 'sleep' && ch.icon !== 'zzz') {
         ch.setIcon('zzz', 1e12, now);
       }
       if (ch.pose !== 'sleep') ch.sleepSince = 0;
-      else if (ch.sleepSince && now - ch.sleepSince >= NAP_WAKE_MS && now >= ch.wakeTryAt && !this.visit) {
+      // siesta: everyone naps, nobody comes to wake them (they wake up on their own at the end)
+      else if (ch.sleepSince && now - ch.sleepSince >= NAP_WAKE_MS && now >= ch.wakeTryAt && !this.visit && !this.siestaOn && !this.siestaWakes.size) {
         ch.wakeTryAt = now + 60_000;
         this.sendWaker(ch, now);
       }
@@ -1527,6 +1673,8 @@ export class Sim {
     if (room && room.switchClaim === ch.id) room.switchClaim = null;
     if (ch.gathering) this.social.leave(ch, this.now);
     ch.chatUntil = 0;
+    // the 'do' that frees the spot at the bánh mì cart may have gone with the queue (even before walking out)
+    this.banhmi.release(ch.id);
     // out at the tea stall: whatever comes next starts by walking back in through the corridor door
     if (ch.outdoors) {
       this.tea.release(ch.id);
@@ -1586,7 +1734,7 @@ export class Sim {
     }
     if (ch.atSpot !== ch.homeSpot) return this.planGoHome(ch, now);
     ch.arriving = false;
-    if (ch.mode === 'idle' && !this.longIdle(ch, now)) {
+    if (ch.mode === 'idle' && !this.longIdle(ch, now) && !this.siestaNap(ch)) {
       if (!ch.nextOutingAt) ch.nextOutingAt = now + idleSitMs(ch.rng, this.options().liveliness);
       if (now >= ch.nextOutingAt) {
         if (this.planOuting(ch, now)) return true;
@@ -1870,13 +2018,13 @@ export class Sim {
   }
 
   /**
-   * Mealtime: at lunch (11:45–13:15) whoever is idle goes to eat a phở in the pantry or on a sofa; in the afternoon
+   * Mealtime: at lunch (11:30–12:30, then the siesta) whoever is idle goes to eat a phở in the pantry or on a sofa; in the afternoon
    * (14:30–16:00), grabs a trà sữa from the fridge or the machine and sits down to drink it. Returns whether it planned.
    */
   private planMeal(ch: Character, now: number): boolean {
     const h = this.hourOf(now);
     const party = now < this.pizzaUntil;
-    const lunch = !party && h >= 11.75 && h < 13.25;
+    const lunch = !party && lunchTime(h);
     const tea = !party && h >= 14.5 && h < 16;
     if (!party && !lunch && !tea) return false;
     const rng = ch.rng;
@@ -1933,6 +2081,7 @@ export class Sim {
       mirror: !!this.social.plan('mirror', 1, ch),
       phone: !!this.randomFree(PHONE_SEATS, ch),
       tea: this.teaUp && this.tea.hasFree(),
+      banhmi: this.banhmiUp && this.banhmi.hasFree(),
     };
     const what = pickIdleActivity(rng, avail, soloWeights(persona));
     if (!what) return false;
@@ -2056,6 +2205,8 @@ export class Sim {
       }
       case 'tea':
         return this.planTea(ch);
+      case 'banhmi':
+        return this.planBanhMi(ch);
       case 'stretch': {
         const home = ch.homeSpot;
         if (!home) return false;
@@ -2222,6 +2373,152 @@ export class Sim {
     return ch;
   }
 
+  /**
+   * Breakfast from the bánh mì cart: out the same way as for the tea, order at the glass case (the vendor hands it
+   * over), back in carrying it and eat it seated at the desk.
+   */
+  private planBanhMi(ch: Character): boolean {
+    const i = this.banhmi.reserve(ch.id, ch.rng);
+    if (i < 0) return false;
+    const spot = BANHMI_SPOTS[i];
+    const rng = ch.rng;
+    const order = pickOrder(rng);
+    const steps: Step[] = [];
+    this.pushLeave(ch, steps);
+    steps.push(
+      { t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty },
+      { t: 'route', pts: routeToSeat(spot), trail: 'out' },
+      {
+        t: 'do',
+        fn: () => {
+          this.banhmi.sit(i, ch.id);
+          ch.dir = spot.dir;
+          this.social.say(ch, order.line, this.now);
+          const vendor = this.extras.find((e) => e.id === BANHMI_VENDOR_ID);
+          if (vendor) vendor.chatEmoji = '🥖';
+          if (vendor) vendor.chatUntil = this.now + 2_500;
+        },
+      },
+      { t: 'act', pose: 'stand', dir: spot.dir, ms: between(rng, 2500, 4000) },
+      {
+        t: 'do',
+        fn: () => {
+          const vendor = this.extras.find((e) => e.id === BANHMI_VENDOR_ID);
+          if (vendor && vendor.sayUntil <= this.now) this.social.say(vendor, vendorReply(rng), this.now);
+        },
+      },
+      { t: 'act', pose: 'stand', held: order.held, dir: spot.dir, ms: between(rng, 1200, 2200) },
+      {
+        t: 'do',
+        fn: () => {
+          this.banhmi.release(ch.id);
+          ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), held: order.held, trail: 'back' });
+        },
+      },
+    );
+    ch.queue.push(...steps);
+    // back at the desk with it: breakfast seated, then the usual rest before the next stroll
+    const home = this.spots.get(ch.homeSpot);
+    ch.queue.push({ t: 'do', fn: () => this.releaseTemp(ch) });
+    if (!home) return true;
+    ch.queue.push(
+      { t: 'go', tx: home.tx, ty: home.ty, held: order.held },
+      { t: 'enter', spot: home.id },
+      { t: 'act', pose: 'sit', held: order.held, ms: between(rng, 20_000, 40_000) },
+      { t: 'do', fn: () => (ch.nextOutingAt = this.now + idleSitMs(ch.rng, this.options().liveliness)) },
+    );
+    return true;
+  }
+
+  /** Debug: whoever is idle (and not already outside or in a circle) goes to the bánh mì cart now. Returns how many went. */
+  banhmiNow(): number {
+    if (!this.banhmiUp) return 0;
+    let n = 0;
+    for (const c of this.chars.values()) {
+      if (c.leaving || c.mode !== 'idle' || c.outdoors || c.gathering || c.inside || (c.step && !this.interruptible(c.step))) continue;
+      if (!this.banhmi.hasFree()) break;
+      this.clearPlan(c);
+      if (this.planBanhMi(c)) n++;
+    }
+    return n;
+  }
+
+  /** Where the cart is drawn (bottom center, px): next to the vendor while he's around, null otherwise. */
+  banhmiCart(): { x: number; y: number } | null {
+    const vendor = this.extras.find((e) => e.id === BANHMI_VENDOR_ID && !e.gone);
+    return vendor ? cartAt(vendor) : null;
+  }
+
+  /** The cart's morning: the vendor pushes it in at opening, calls out now and then, pushes it off at closing. Once a second. */
+  private updateBanhMi(now: number): void {
+    const open = !this.visit && banhmiOpen(this.hourOf(now));
+    let vendor = this.extras.find((e) => e.id === BANHMI_VENDOR_ID);
+    if (open && !vendor) vendor = this.spawnBanhMiVendor(now) ?? undefined;
+    if (!vendor) {
+      this.banhmiUp = false;
+      return;
+    }
+    if (!this.banhmiUp || vendor.sayUntil > now) return;
+    if (vendor.rng() < 0.015) this.social.say(vendor, vendorLine(vendor.rng), now);
+  }
+
+  /** The vendor: cap and white shirt; pushes the cart along the curb, stands at its handle until closing, pushes on east. */
+  private spawnBanhMiVendor(now: number): Character | null {
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(5021, { look: 'm', sub: false });
+      appearance = { ...base, top: '#eeeae0', topAccent: '#c9c2b0', bottom: '#3a4a5c', accessory: 'cap' as const, lanyard: null };
+    } catch {
+      return null;
+    }
+    const info: AgentInfo = {
+      id: BANHMI_VENDOR_ID,
+      kind: 'main',
+      provider: 'claude',
+      roomId: RECEPTION_ID,
+      name: tr('Bánh mì vendor'),
+      look: 'm',
+      role: tr('Bánh mì vendor'),
+      sessionId: BANHMI_VENDOR_ID,
+      account: '',
+      status: 'working',
+      recent: [],
+      tasks: [],
+      startedAt: now,
+      lastEventAt: now,
+      statusSince: now,
+      stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
+      seed: 5021,
+    };
+    const ch = new Character(info, appearance);
+    const pts = vendorRouteIn(TEA_SELLER_FROM_X);
+    ch.x = pts[0];
+    ch.y = pts[1];
+    ch.dir = 'right';
+    const spot = BANHMI_VENDOR_SPOT;
+    ch.queue.push(
+      { t: 'route', pts },
+      { t: 'do', fn: () => (this.banhmiUp = true) },
+      { t: 'until', cond: () => this.visit || !banhmiOpen(this.hourOf(this.now)), minMs: 0, maxMs: Number.MAX_SAFE_INTEGER, pose: 'stand', dir: spot.dir },
+      {
+        t: 'do',
+        fn: () => {
+          this.banhmiUp = false;
+          // whoever is still on the way or at the cart goes back in
+          for (const id of [...this.banhmi.taken]) {
+            const c = id ? this.chars.get(id) : undefined;
+            if (c) this.interrupt(c);
+          }
+          this.banhmi.clear();
+        },
+      },
+      { t: 'route', pts: vendorRouteOut((this.building.cols * COL_W + 19) * TILE) },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+    return ch;
+  }
+
   /** Goes back to the desk at the end of a stroll. */
   pushHome(ch: Character, held: 'none' | 'coffee' | 'water'): void {
     const home = this.spots.get(ch.homeSpot);
@@ -2271,7 +2568,7 @@ export class Sim {
     if (atHome && ch.mode === 'work') ch.setPose('type', laptop ? 'laptop' : 'none');
     else if (atHome && ch.mode === 'wait') ch.setPose('raise_hand');
     else if (atHome && ch.mode === 'shell') this.shellPose(ch, spot, now);
-    else if (ch.mode === 'idle' && this.longIdle(ch, now) && now >= ch.awakeUntil) {
+    else if (ch.mode === 'idle' && ((this.longIdle(ch, now) && now >= ch.awakeUntil) || this.siestaNap(ch))) {
       ch.setPose('sleep');
       if (!ch.sleepSince) ch.sleepSince = now;
     }
@@ -2480,6 +2777,9 @@ export class Sim {
     // the tea stall starts over (the seller walks in again, if it's open)
     this.teaUp = false;
     this.tea.clear();
+    // so does the bánh mì cart (pushed in again, if it's still breakfast time)
+    this.banhmiUp = false;
+    this.banhmi.clear();
     for (const room of this.rooms.values()) {
       if (room.phase === 'building') room.setPhase('ready', now - 10_000);
       if (room.phase === 'dismantling') room.setPhase('gone', now);

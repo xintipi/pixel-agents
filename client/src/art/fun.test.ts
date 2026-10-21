@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { renderAquarium, renderDock, renderPizzaBox, renderRobot } from './fun';
+import { renderDock, renderPizzaBox, renderRobot } from './fun';
 
 describe('coisinhas do escritório (arte)', () => {
-  it('robô (as três luzes, dois quadros), base, aquário e pizza cabem na folha com margem', () => {
-    const sprites = [renderDock(), renderAquarium(), renderPizzaBox()];
+  it('robô (as três luzes, dois quadros), base e pizza cabem na folha com margem', () => {
+    const sprites = [renderDock(), renderPizzaBox()];
     for (const led of ['green', 'orange', 'blue'] as const) for (const f of [0, 1]) sprites.push(renderRobot(f, led));
     for (const { buf } of sprites) {
       const b = buf.bounds()!;

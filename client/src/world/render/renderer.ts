@@ -14,6 +14,7 @@ import type { Character } from '../sim/character';
 import type { RoomState } from '../sim/room-state';
 import { cobwebScale, hourglassIcon, HOURGLASS_FLIP_MS, STORM_LIFT } from '../sim/shell';
 import type { Sim } from '../sim/sim';
+import { banhmiCartProps } from '../sim/banhmi';
 import { teaStallProps } from '../sim/tea';
 import { buildAnim, furnitureScale, NO_ANIM, sweepDelay, type BuildAnim } from './anim';
 import { daylightModeOf, parseHourParam } from './daylight';
@@ -23,11 +24,13 @@ import { Particles } from './particles';
 import { carSprite, propSprite, shadowSprite } from './props';
 import { petSprite, workTreeSprite } from './pets';
 import { drawDisco } from './disco';
-import { aquariumSprite, dockSprite, drawCountdown, drawFireworks, drawFish, pizzaBoxSprite, robotSprite } from './fun';
+import { dockSprite, drawCountdown, drawFireworks, pizzaBoxSprite, robotSprite } from './fun';
 import { tr } from '../../../../shared/i18n';
+import { ALTAR_INCENSE, ALTAR_LAMPS } from '../../art/furniture/common';
 import { drawWeather, drawWeatherWindow, weatherFor, type Weather } from './weather';
 import { reducedMotion } from './github-fx';
 import type { Pet } from '../sim/pets';
+import { SIESTA_DIM } from '../sim/siesta';
 import { countBadge, fallbackIcon } from './shell-sprites';
 import { decorateElevator, drawSeasonalLights, drawSeasonalWindow, seasonalCostume, seasonalFurniture } from './seasonal';
 import { buildAreaVis, furnitureSprites, opaqueBounds, paintShell, toWallVis, WALL_MARGIN, wallItemOrigin, wallSprites, type AreaVis, type FurnVis, type WallVis } from './scene';
@@ -92,10 +95,6 @@ export class Renderer {
   readonly heads = new Map<string, HeadInfo>();
   /** Rectangle (world px) of each pet drawn this frame, for the petting click. */
   readonly petBoxes = new Map<string, { x: number; y: number; w: number; h: number; feetY: number }>();
-  /** Aquarium rectangle (world px) in the last frame: the click feeds the fish. */
-  aquariumBox: { x: number; y: number; w: number; h: number } | null = null;
-  /** When the fish were last fed. */
-  fishFedAt = -1e9;
   exterior: ExteriorLayout;
   shells: SlotShell[] = [];
   shellWindows: WallVis[] = [];
@@ -488,6 +487,8 @@ export class Renderer {
     }
     // iced tea stall on the sidewalk: set up while the seller is there, stools stacked otherwise
     for (const prop of teaStallProps(this.sim.teaUp)) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
+    // morning bánh mì cart: rides along with the vendor, parked east of the tea stall
+    for (const prop of banhmiCartProps(this.sim.banhmiCart())) if (visible(prop.x - 24, prop.y - 36, 48, 40)) push(K.Prop, prop.y, prop, null, 1);
     for (const car of this.cars) if (visible(car.x - 24, car.y - 24, 48, 28)) push(K.Car, car.y, car, null, 1);
     this.petBoxes.clear();
     for (const pet of this.sim.pets.pets) if (visible(pet.x - 16, pet.y - 20, 32, 24)) push(K.Pet, pet.depth(), pet, null, 1);
@@ -813,6 +814,7 @@ export class Renderer {
   private furnState(f: FurnVis, now: number): number {
     if (f.kind === 'coffee_machine') return (this.sim.machineUntil.get(f.id) ?? 0) > now ? 1 : 0;
     if (f.kind === 'toilet_stall') return this.sim.stallBusy.has(f.id) ? 1 : 0;
+    if (f.kind === 'altar') return this.sim.altarState(now);
     return 0;
   }
 
@@ -823,9 +825,7 @@ export class Renderer {
     if (!fs) return;
     // the work tree takes the reception's ficus pot (the first pot is left for the themes)
     const tree = !front && this.sim.workTreeStage !== null && area.layout.kind === 'reception' && f.kind === 'plant_tall' && f.variant === 'ficus' ? workTreeSprite(this.sim.workTreeStage) : null;
-    // the aquarium takes the place of the lounge palm
-    const tank = !front && area.layout.kind === 'lounge' && f.kind === 'plant_tall' && f.variant === 'palm' ? aquariumSprite() : null;
-    const s = tank ?? tree ?? (front ? fs.front : seasonalFurniture(this.theme, f.kind, area.layout, f.seed) ?? fs.base);
+    const s = tree ?? (front ? fs.front : seasonalFurniture(this.theme, f.kind, area.layout, f.seed) ?? fs.base);
     if (!s) return;
     const dx = Math.round(f.ax - s.ax);
     const dy = Math.round(f.ay - s.ay);
@@ -837,10 +837,6 @@ export class Renderer {
       ctx.translate(-f.ax, -f.ay);
     }
     ctx.drawImage(s.canvas, dx, dy);
-    if (tank) {
-      drawFish(ctx, Math.round(f.ax), Math.round(f.ay), now, this.fishFedAt);
-      this.aquariumBox = { x: dx, y: dy, w: s.canvas.width, h: s.canvas.height };
-    }
     // pizza party: open boxes on the pantry table
     if (!front && f.kind === 'meeting_table' && area.layout.kind === 'cafe' && now < this.sim.pizzaUntil) {
       const p = pizzaBoxSprite();
@@ -854,6 +850,8 @@ export class Renderer {
         this.safe(() => this.art.drawScreen(ctx, { x: dx + r.x, y: dy + r.y, w: r.w, h: r.h }, mode, now, f.seed));
       } else if (f.kind === 'coffee_machine' && state === 1) {
         this.drawSteam(f.ax, dy + 2, now, f.seed);
+      } else if (f.kind === 'altar') {
+        this.drawAltarFx(f.ax, f.ay, now, (state & 1) === 1);
       } else if (f.kind === 'arcade' && s.rects?.screen) {
         // arcade duel: both machines show the match
         const seed = this.sim.social.arcadeSeed();
@@ -889,6 +887,34 @@ export class Renderer {
       const sx = Math.round(x - 1 + Math.sin(ph * 6 + i * 2) * 1.5 + (i - 1));
       const sy = Math.round(y - ph * 9);
       ctx.fillRect(sx, sy, 1, 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Thần Tài altar: the red lamps' bulbs flicker softly and, with incense lit, a thin wavy smoke trail rises from each
+   * stick tip and fades (time-based, no allocation).
+   */
+  private drawAltarFx(ax: number, ay: number, now: number, lit: boolean): void {
+    const { ctx } = this;
+    const x0 = Math.round(ax);
+    const y0 = Math.round(ay);
+    ALTAR_LAMPS.forEach((p, i) => {
+      ctx.globalAlpha = 0.55 + 0.35 * Math.sin(now / 260 + i * 2.3) * Math.sin(now / 710 + i);
+      ctx.fillStyle = '#fff0c0';
+      ctx.fillRect(x0 + p.x - 1, y0 + p.y, 2, 1);
+    });
+    if (lit) {
+      // gray-lilac reads on both the light wall and the dark niche
+      ctx.fillStyle = '#b9b2c6';
+      ALTAR_INCENSE.forEach((p, i) => {
+        for (let k = 0; k < 8; k++) {
+          const ph = ((now / 2800 + k / 8 + i * 0.37) % 1 + 1) % 1;
+          ctx.globalAlpha = 0.8 * (1 - ph);
+          const sx = Math.round(x0 + p.x + Math.sin(ph * 7 + now / 900 + i * 1.7) * (0.5 + ph * 2.5));
+          ctx.fillRect(sx, Math.round(y0 + p.y - 1 - ph * 18), 1, 2);
+        }
+      });
     }
     ctx.globalAlpha = 1;
   }
@@ -1341,7 +1367,8 @@ export class Renderer {
     for (const vis of this.areas.values()) {
       const room = vis.room;
       if (!room || !vis.layout.shade) continue;
-      const light = room.light(now);
+      // siesta: the office lights dim a little
+      const light = room.light(now) * (1 - SIESTA_DIM * this.sim.siestaDim);
       const strength = (room.phase === 'building' ? 0.5 : 0.74) + 0.1 * n;
       // during assembly/teardown, the darkness follows the visible floor (the patio doesn't darken)
       const cover = room.phase === 'building' || room.phase === 'dismantling' ? buildAnim(room.phase, room.progress(now)).floor : 1;
