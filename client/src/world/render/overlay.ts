@@ -433,7 +433,9 @@ export class Overlay {
           this.place(ax, ay, w, h);
         }
       }
-      if (room ? readable : zoom >= 1.4) continue;
+      // project rooms: the sign takes over once it's readable; the core areas (reception, kitchen, restrooms,
+      // lounge) have no sign with their function, so their name pill shows at every zoom
+      if (room ? readable : !CORE_NAMES[vis.id]) continue;
       const cx = this.sx((r.x + r.w / 2) * TILE);
       const cy = this.sy(r.y * TILE + 6);
       if (cx < -200 || cx > vw + 200 || cy < -40 || cy > vh + 40) continue;
