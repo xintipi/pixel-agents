@@ -1,6 +1,8 @@
 // Ambient sounds suggested by the world: keyboard of whoever is working in view, "ding" when an elevator
-// door opens (someone arrives or leaves) and the circles (ping-pong paddle hits, arcade). Only
-// observes the simulation and the camera; whoever decides whether to play (preference, volume, hidden tab) is the UI.
+// door opens (someone arrives or leaves), the circles (ping-pong paddle hits, arcade), the office life the sim
+// points out (pets, bathroom, coffee machine, pizza, yawns, the robot vacuum), room parties and the weather outside
+// (rain and wind beds, distant thunder, birds by day). Only observes the simulation and the camera; whoever decides
+// whether to play (preference, volume, hidden tab) is the UI.
 import type { SoundCue } from './api';
 import type { Camera } from './camera';
 import type { Character } from './sim/character';
@@ -8,11 +10,21 @@ import type { Sim } from './sim/sim';
 import { BUILDING_H, COL_W } from './constants';
 import { TILE } from '../art/api';
 import { FIREWORK_RISE, FIREWORK_TUBES, fireworkBurst } from './fireworks';
+import { rectPx, slotRect } from './layout/geometry';
+import type { Weather } from './render/weather';
 
 /** Re-evaluates who is typing every this many ms. */
 const KEYS_TICK_MS = 160;
 /** Period (ms) of one ping-pong ball trip (the same as the drawing). */
 const PINGPONG_PERIOD = 1_100;
+/** Beds (rain, wind, the robot's hum): their level is re-sent every this many ms while they last. */
+const BED_TICK_MS = 400;
+/** A sound the sim suggested longer ago than this is dropped (fast forward, a frame that took too long). */
+const SFX_STALE_MS = 1_500;
+/** How loud each office-life sound is next to the others (1 = as loud as the elevator). */
+const SFX_GAIN: Partial<Record<SoundCue['kind'], number>> = { door: 0.7, flush: 0.8, tap: 0.7, coffee: 0.8, yawn: 0.8, bark: 0.9, meow: 0.9, robot_start: 0.8, robot_dock: 0.8 };
+/** Heard even off screen (quieter): the doorbell of the pizza delivery. */
+const SFX_OFFSCREEN: ReadonlySet<SoundCue['kind']> = new Set(['pizza']);
 
 interface ViewRect {
   x0: number;
@@ -29,6 +41,13 @@ export class SoundCues {
   private rally = new Map<number, number>();
   /** Last state of each firework tube: the cycle and whether it had already opened. */
   private tubes: { cycle: number; open: boolean }[] = [];
+  private bedsAt = 0;
+  private nextThunderAt = 0;
+  private nextBirdAt = 0;
+  /** Parties already heard, by room (the key of the effect). */
+  private parties = new Map<string, number>();
+  /** Weather outside and the night factor (from the renderer); without it, no weather sounds. */
+  env: (() => { weather: Weather; night: number }) | null = null;
 
   constructor(
     private readonly sim: Sim,
@@ -46,6 +65,80 @@ export class SoundCues {
     this.keys(now, view, near, emit);
     this.social(now, view, near, emit);
     this.fireworks(now, view, emit);
+    this.officeLife(view, near, emit);
+    this.roomParties(view, near, emit);
+    this.beds(now, view, near, emit);
+  }
+
+  /** What the sim pointed out at a spot (coffee machine, stall, pets, robot beeps...): only what is in view. */
+  private officeLife(view: ViewRect, near: number, emit: (cue: SoundCue) => void): void {
+    const list = this.sim.sfx;
+    if (!list.length) return;
+    for (const e of list) {
+      if (this.sim.now - e.at > SFX_STALE_MS) continue;
+      const k = SFX_GAIN[e.kind] ?? 1;
+      if (this.inView(e.x, e.y, view, 24)) emit({ kind: e.kind, gain: near * k, pan: this.pan(e.x, view) });
+      else if (SFX_OFFSCREEN.has(e.kind)) emit({ kind: e.kind, gain: 0.4 * k, pan: this.pan(e.x, view) });
+    }
+    list.length = 0;
+  }
+
+  /** A room party starting (merged PR, achievement, big delivery): party horn and poppers, if the room is in view. */
+  private roomParties(view: ViewRect, near: number, emit: (cue: SoundCue) => void): void {
+    const fxs = this.sim.roomFx.active;
+    for (const id of this.parties.keys()) if (!fxs.has(id)) this.parties.delete(id);
+    for (const [id, fx] of fxs) {
+      if (fx.kind !== 'party' || this.parties.get(id) === fx.key) continue;
+      const fresh = !this.parties.has(id) ? this.sim.now - fx.start < 2_000 : true;
+      this.parties.set(id, fx.key);
+      const room = this.sim.rooms.get(id);
+      if (!fresh || !room) continue;
+      const r = rectPx(slotRect(room.slot));
+      const cx = r.x + r.w / 2;
+      if (this.inView(cx, r.y + r.h / 2, view, r.w / 2)) emit({ kind: 'party', gain: near, pan: this.pan(cx, view) });
+    }
+  }
+
+  /**
+   * Continuous sounds: the weather outside (rain; wind, softer when it snows) louder the more of the outside is in
+   * view, distant thunder now and then while it rains, birds on sunny days, and the robot vacuum's hum when it's in
+   * view and running.
+   */
+  private beds(now: number, view: ViewRect, near: number, emit: (cue: SoundCue) => void): void {
+    if (now - this.bedsAt < BED_TICK_MS) return;
+    this.bedsAt = now;
+    const robot = this.sim.pets.robot;
+    if (robot.dockTile && robot.state !== 'charge' && this.inView(robot.x, robot.y, view, 32)) emit({ kind: 'robot_hum', gain: near * 0.7, pan: this.pan(robot.x, view) });
+    const env = this.env?.();
+    if (!env) return;
+    const outside = this.outsideShare(view);
+    const level = 0.35 + 0.65 * outside;
+    if (env.weather === 'rain') {
+      emit({ kind: 'rain', gain: level, pan: 0 });
+      if (!this.nextThunderAt) this.nextThunderAt = now + 8_000 + this.rng() * 25_000;
+      else if (now >= this.nextThunderAt) {
+        this.nextThunderAt = now + 25_000 + this.rng() * 45_000;
+        emit({ kind: 'thunder', gain: 0.5 + this.rng() * 0.5, pan: (this.rng() - 0.5) * 1.2 });
+      }
+    } else this.nextThunderAt = 0;
+    if (env.weather === 'wind' || env.weather === 'snow') emit({ kind: 'wind', gain: level * (env.weather === 'snow' ? 0.4 : 1), pan: 0 });
+    if (env.weather === 'clear' && env.night < 0.4 && outside > 0.1) {
+      if (!this.nextBirdAt) this.nextBirdAt = now + 2_000 + this.rng() * 6_000;
+      else if (now >= this.nextBirdAt) {
+        this.nextBirdAt = now + 4_000 + this.rng() * 9_000;
+        emit({ kind: 'bird', gain: (0.4 + 0.6 * outside) * near, pan: (this.rng() - 0.5) * 1.2 });
+      }
+    } else this.nextBirdAt = 0;
+  }
+
+  /** Share (0–1) of the view that is outside the building. */
+  private outsideShare(v: ViewRect): number {
+    const area = Math.max(1, (v.x1 - v.x0) * (v.y1 - v.y0));
+    const bw = this.sim.building.cols * COL_W * TILE;
+    const bh = BUILDING_H * TILE;
+    const ix = Math.max(0, Math.min(v.x1, bw) - Math.max(v.x0, 0));
+    const iy = Math.max(0, Math.min(v.y1, bh) - Math.max(v.y0, 0));
+    return Math.max(0, Math.min(1, 1 - (ix * iy) / area));
   }
 
   /**

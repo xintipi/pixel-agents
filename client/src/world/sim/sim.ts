@@ -3,7 +3,7 @@
 import { partsKey } from '../../../../shared/appearance';
 import type { AgentInfo, OfficeSnapshot, Provider, RoomInfo } from '../../../../shared/types';
 import type { ArtModule, Dir, RoomTheme } from '../../art/api';
-import type { WorldOptions } from '../api';
+import type { SoundCueKind, WorldOptions } from '../api';
 import { COL_W, COMPACT_DELAY_MS, DISMANTLE_DELAY_MS, FOOT_DX, FOOT_DY, MISSING_DEBOUNCE_MS, RUN_SPEED, TILE, WALK_SPEED } from '../constants';
 import { assembleBuilding, type BuildingLayout } from '../layout/building';
 import { RECEPTION_ID } from '../layout/core';
@@ -173,6 +173,8 @@ export class Sim {
   readonly roomFx = new RoomFxState();
   /** The office dog and cat (outside `chars`: they are not agents). */
   readonly pets = new PetHerd();
+  /** Sounds suggested at a point of the building (coffee machine, stall, pets...); SoundCues drains the list. */
+  readonly sfx: { kind: SoundCueKind; x: number; y: number; at: number }[] = [];
   /** Disco (typing "disco"): until when the party goes and when it started (for the fade). */
   discoUntil = 0;
   /** Work tree in the reception (stage by the week's tasks); null = the normal pot. */
@@ -284,6 +286,7 @@ export class Sim {
     this.finder = new PathFinder(this.building.grid);
     this.spots.setSpots(this.building.spots);
     for (const s of this.spots.ofKind('elevator')) this.elevators.push(new Elevator(this.elevators.length, s.id));
+    this.pets.sfx = (kind, x, y) => this.sound(kind, x, y);
     this.pets.place(this.petWorld);
   }
 
@@ -561,6 +564,12 @@ export class Sim {
     this.roomFx.active.set(roomId, { roomId, kind: 'party', text, agentId, key: now, start: now, end: now + PARTY_MS, cheered: new Set(), sticky: true });
   }
 
+  /** Suggests a sound at (x, y) (world px); outside a visit, and only a few at a time. */
+  sound(kind: SoundCueKind, x: number, y: number): void {
+    if (this.visit || this.sfx.length >= 24) return;
+    this.sfx.push({ kind, x, y, at: this.now });
+  }
+
   /** Turns the disco on for `ms` (or off, if it's already playing). Returns whether it stayed on. */
   toggleDisco(now: number, ms = DISCO_MS): boolean {
     if (now < this.discoUntil) {
@@ -628,7 +637,7 @@ export class Sim {
     ch.queue.push(
       { t: 'elevOut', elev: el.index, phase: 0 },
       { t: 'go', tx: table.tx, ty: table.ty, held: 'box' },
-      { t: 'act', pose: 'use', ms: 1500, icon: 'box' },
+      { t: 'act', pose: 'use', ms: 1500, icon: 'box', sound: 'pizza' },
       { t: 'do', fn: () => this.startPizza(table) },
       { t: 'go', tx: spot.tx, ty: spot.ty, fx: spot.tx * TILE + FOOT_DX, fy: spot.ty * TILE + FOOT_DY - 2, dir: 'up' },
       { t: 'elevIn', elev: el.index, phase: 0 },
@@ -706,6 +715,7 @@ export class Sim {
       ch.chatEmoji = '🥱';
       ch.chatUntil = now + 1_600;
     } else ch.setIcon('alert', 1500, now);
+    this.sound('yawn', ch.x, ch.y);
     const home = this.spots.get(ch.homeSpot);
     if (!home || ch.atSpot !== home.id || ch.step || ch.queue.length) return;
     ch.reactUntil = now + 2_400;
@@ -1345,6 +1355,7 @@ export class Sim {
           if (s.dir) ch.dir = s.dir;
           if (s.icon) ch.setIcon(s.icon, s.ms, now);
           if (s.machine) this.machineUntil.set(s.machine, now + s.ms);
+          if (s.sound) this.sound(s.sound, ch.x, ch.y);
         }
         ch.setPose(s.pose, s.held ?? 'none');
         return ch.stepT >= s.ms;
@@ -1587,6 +1598,7 @@ export class Sim {
       if (d <= step && ch.alpha <= 0) {
         ch.inside = true;
         this.stallBusy.add(furn);
+        this.sound('door', ch.x, ch.y);
         s.phase = 1;
         ch.stallUntil = now + s.ms;
       }
@@ -1597,6 +1609,7 @@ export class Sim {
         s.phase = 2;
         this.stallBusy.delete(furn);
         ch.inside = false;
+        this.sound('flush', ch.x, ch.y);
         ch.dir = 'down';
       }
       return false;
@@ -2098,7 +2111,7 @@ export class Sim {
         if (!this.reserveTemp(ch, s)) return false;
         this.pushLeave(ch, steps);
         goUse(s);
-        steps.push({ t: 'act', pose: 'use', ms: 1900, machine: s.furnitureId, icon: 'coffee' }, { t: 'act', pose: 'drink', held: 'coffee', ms: 2600 });
+        steps.push({ t: 'act', pose: 'use', ms: 1900, machine: s.furnitureId, icon: 'coffee', sound: 'coffee' }, { t: 'act', pose: 'drink', held: 'coffee', ms: 2600 });
         release(s);
         carry = 'coffee';
         if (rng() < 0.45) {
@@ -2134,7 +2147,7 @@ export class Sim {
         const sink = this.spots.findFree('sink', { near: { tx: s.tx, ty: s.ty }, by: ch.id });
         if (sink && this.reserveTemp(ch, sink)) {
           goUse(sink);
-          steps.push({ t: 'act', pose: 'use', ms: 2200 });
+          steps.push({ t: 'act', pose: 'use', ms: 2200, sound: 'tap' });
           release(sink);
         }
         break;

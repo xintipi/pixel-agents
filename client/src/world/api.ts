@@ -123,7 +123,32 @@ export function specialDayTheme(date: Date): SeasonalTheme | null {
 export type DaylightMode = 'auto' | 'day' | 'night';
 
 /** Ambient sounds the world suggests (who plays them, and whether, is up to the UI). */
-export type SoundCueKind = 'keys' | 'elevator' | 'pingpong' | 'table' | 'arcade' | 'firework_launch' | 'firework_boom';
+export type SoundCueKind =
+  | 'keys'
+  | 'elevator'
+  | 'pingpong'
+  | 'table'
+  | 'arcade'
+  | 'firework_launch'
+  | 'firework_boom'
+  // office life: pets, the robot vacuum, bathroom, coffee machine, pizza delivery, yawns and room parties
+  | 'bark'
+  | 'meow'
+  | 'robot_start'
+  | 'robot_dock'
+  | 'robot_hum'
+  | 'door'
+  | 'flush'
+  | 'tap'
+  | 'coffee'
+  | 'pizza'
+  | 'yawn'
+  | 'party'
+  // weather outside: rain and wind are beds (the world keeps sending their level while they last), thunder and birds one-offs
+  | 'rain'
+  | 'wind'
+  | 'thunder'
+  | 'bird';
 
 export interface SoundCue {
   kind: SoundCueKind;

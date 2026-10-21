@@ -69,6 +69,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   const soundCbs = new Set<(c: SoundCue) => void>();
   const roomMenuCbs = new Set<(roomId: string, at: { x: number; y: number }) => void>();
   let cues = new SoundCues(sim, camera);
+  cues.env = () => ({ weather: renderer.weather, night: renderer.night });
   let selection: Selection = null;
   let hover: string | null = null;
   let mouse: { x: number; y: number } | null = null;
@@ -413,6 +414,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     overlay = new Overlay(renderer.ctx, sim, renderer, camera);
     debug = createDebug(sim, renderer, camera, markMoved);
     cues = new SoundCues(sim, camera);
+    cues.env = () => ({ weather: renderer.weather, night: renderer.night });
     lastCols = -1;
     setHover(null);
   };

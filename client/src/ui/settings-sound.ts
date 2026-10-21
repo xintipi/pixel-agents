@@ -10,6 +10,8 @@ const CATEGORY_UI: Readonly<Record<SoundCategory, { label: string; hint: string;
   keys: { label: tr('Keyboard'), hint: tr('Soft typing from whoever is working in the rooms in view.'), sample: 'keys' },
   elevator: { label: tr('Elevator'), hint: tr('"Ding" when someone arrives or leaves.'), sample: 'elevator' },
   social: { label: tr('Hangouts'), hint: tr('Ping-pong and arcade games in the lounge.'), sample: 'pingpong' },
+  life: { label: tr('Office life'), hint: tr('The dog and the cat, the robot vacuum, the bathroom, the coffee machine, the pizza doorbell, yawns and parties.'), sample: 'meow' },
+  weather: { label: tr('Weather'), hint: tr('Rain, wind, distant thunder and birds outside, louder the more of the outside is in view.'), sample: 'bird' },
 };
 
 export class SoundSettingsGroup {
@@ -62,7 +64,7 @@ export class SoundSettingsGroup {
       'div',
       { class: 'ui-snd__details' },
       h('div', { class: 'ui-set ui-snd__vol' }, h('span', { class: 'ui-set__label', text: tr('Volume') }), this.volume, this.volumeOut),
-      h('div', { class: 'ui-set ui-set--stack' }, h('span', { class: 'ui-set__label', text: tr('Play') }), chipRow, h('span', { class: 'ui-set__hint', text: tr('Alerts: bell and click · Keyboard: typing in the rooms in view · Elevator: arrivals and departures · Groups: ping-pong and arcade.') })),
+      h('div', { class: 'ui-set ui-set--stack' }, h('span', { class: 'ui-set__label', text: tr('Play') }), chipRow, h('span', { class: 'ui-set__hint', text: tr('Alerts: bell, click and achievements · Keyboard: typing in the rooms in view · Elevator: arrivals and departures · Groups: ping-pong and arcade · Office life: pets, robot, bathroom, coffee, pizza and parties · Weather: rain, wind, thunder and birds.') })),
     );
 
     // background lofi: its own switch and volume (the click is the gesture that lets the browser play it)

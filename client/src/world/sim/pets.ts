@@ -10,6 +10,7 @@ import { mulberry32 } from '../../../../shared/hash';
 import { FOOT_DX, FOOT_DY } from '../constants';
 import { FREE, type WalkGrid } from '../path/grid';
 import { Robot } from './robot';
+import type { SoundCueKind } from '../api';
 
 /** Speeds (tiles/s). */
 const SPEED: Readonly<Record<PetKind, { walk: number; run: number }>> = {
@@ -171,6 +172,8 @@ export class PetHerd {
   ball: Ball | null = null;
   readonly robot = new Robot();
   private nextThink = new Map<string, number>();
+  /** Where the barks, meows and the robot's beeps go (the sim's sound list). */
+  sfx: ((kind: SoundCueKind, x: number, y: number) => void) | null = null;
 
   constructor(seed = 7) {
     this.pets = [new Pet('pet:dog', 'dog', seed ^ 0x9e3779b9), new Pet('pet:cat', 'cat', seed ^ 0x85ebca6b)];
@@ -242,6 +245,7 @@ export class PetHerd {
     if (!at) return;
     this.leaveSpot(world, dog);
     if (!this.goNear(world, dog, at.tx, at.ty, true, now)) return;
+    this.sfx?.('bark', dog.x, dog.y);
     dog.plan = { t: 'greet', who };
     dog.rest = 'sit';
     dog.restUntil = 0;
@@ -285,6 +289,7 @@ export class PetHerd {
     const p = this.pets.find((x) => x.id === id);
     if (!p) return false;
     p.setIcon('heart', 2400, now);
+    this.sfx?.(p.kind === 'dog' ? 'bark' : 'meow', p.x, p.y);
     if (!p.moving) {
       p.setPose('sit');
       p.restUntil = Math.max(p.restUntil, now + 4000);
@@ -295,7 +300,13 @@ export class PetHerd {
   /** `disco`: whoever is still sits and sways side to side to the beat (without deciding strolls). */
   update(world: PetWorld, dt: number, now: number, disco = false): void {
     if (this.ball && now >= this.ball.until) this.ball = null;
-    if (this.robot.dockTile) this.robot.update(world, dt, now);
+    if (this.robot.dockTile) {
+      const was = this.robot.state;
+      this.robot.update(world, dt, now);
+      const is = this.robot.state;
+      if (was === 'charge' && is === 'clean') this.sfx?.('robot_start', this.robot.x, this.robot.y);
+      else if (was !== 'charge' && is === 'charge') this.sfx?.('robot_dock', this.robot.x, this.robot.y);
+    }
     for (const p of this.pets) {
       if (p.riding) {
         // riding: goes along, sitting on top; gets off after a few laps or when the robot goes back to the dock
@@ -470,6 +481,7 @@ export class PetHerd {
         other.rest = 'sit';
         other.restUntil = 0;
         other.setIcon('alert', 1200, now);
+        this.sfx?.('bark', p.x, p.y);
         if (this.goNear(world, p, t.tx, t.ty, true, now)) {
           p.plan = { t: 'chase' };
           p.rest = 'sit';

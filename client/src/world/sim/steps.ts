@@ -1,6 +1,7 @@
 // Steps of a character's action queue. Created during planning (never per frame).
 import type { Dir, HeldItem, IconName, Pose } from '../../art/api';
 import type { Gathering } from '../social/gathering';
+import type { SoundCueKind } from '../api';
 
 export type Step =
   /** Walks (or runs) to tile (tx, ty); then, optionally, to the fine position (fx, fy) and turns to `dir`. */
@@ -15,7 +16,7 @@ export type Step =
   /** Leaves the current spot back to the approach tile (stand up). */
   | { t: 'exit' }
   /** Holds a pose for a while. */
-  | { t: 'act'; pose: Pose; ms: number; held?: HeldItem; dir?: Dir; icon?: IconName; machine?: string; seated?: boolean }
+  | { t: 'act'; pose: Pose; ms: number; held?: HeldItem; dir?: Dir; icon?: IconName; machine?: string; seated?: boolean; sound?: SoundCueKind }
   /** Waits for a condition (or the max time), in a pose. */
   | { t: 'until'; cond: () => boolean; minMs: number; maxMs: number; pose?: Pose; held?: HeldItem; dir?: Dir }
   /** Appears inside the elevator and steps out to the tile in front. */

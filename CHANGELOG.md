@@ -12,6 +12,13 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Sons da vida do escritório e do tempo lá fora.** Duas categorias novas em **Configurações › Sons**, sintetizadas
+  no navegador como as outras: **Vida do escritório** (o corgi late quando ganha carinho, vai comemorar ou corre atrás
+  do gato; o gato mia; o robô aspirador bipa ao sair e ao voltar para a base e zumbe enquanto limpa; porta e descarga
+  do banheiro, a torneira, o vapor da máquina de café, a campainha da pizza, bocejos de quem acorda e a buzina das
+  festas nas salas) e **Tempo** (chuva com trovão ao longe de vez em quando, vento, um vento mais baixo na neve e
+  passarinhos nos dias de sol, mais alto quanto mais da parte de fora aparece na tela). Só toca o que está na tela,
+  posicionado à esquerda ou à direita. Desbloquear uma conquista toca uma fanfarra curta (na categoria Alertas).
 - **Música lofi de fundo.** Em **Configurações › Sons**, uma chave **Música lofi** com volume próprio (desligada por
   padrão) toca dois lofis tranquilos em sequência, também com a aba escondida; durante a disco ela some e volta depois.
   As faixas são CC0, de OMF-Games no OpenGameArt (créditos em `client/public/assets/music/CREDITS.md`).

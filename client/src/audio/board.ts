@@ -1,8 +1,13 @@
 // Sound board: one AudioContext for everything (created only after a user gesture, as the
 // autoplay policy requires), master volume with a limiter and the scheduler that decides what plays.
 import { DiscoMusic } from './disco-music';
-import { masterGain, SoundScheduler, type SoundKind, type SoundSettings } from './scheduler';
-import { makeNoise, playVoice } from './synth';
+import { BED_KINDS, masterGain, SoundScheduler, type SoundKind, type SoundSettings } from './scheduler';
+import { makeLongNoise, makeNoise, playVoice, startBed, type Bed } from './synth';
+
+/** A bed with no level update for this long fades out (the weather changed, the tab hid, the category went off). */
+const BED_IDLE_MS = 1_500;
+/** Fade time constant (s) of the beds' level. */
+const BED_FADE = 0.6;
 
 export class SoundBoard {
   readonly scheduler = new SoundScheduler();
@@ -12,6 +17,9 @@ export class SoundBoard {
   private enabled = false;
   private volume = 0.6;
   private discoMusic: DiscoMusic | null = null;
+  private longNoise: AudioBuffer | null = null;
+  private beds = new Map<SoundKind, { bed: Bed; at: number }>();
+  private bedTimer: ReturnType<typeof setInterval> | null = null;
 
   configure(enabled: boolean, settings: SoundSettings): void {
     this.enabled = enabled;
@@ -63,6 +71,7 @@ export class SoundBoard {
         this.ac = ac;
         this.out = comp;
         this.noise = makeNoise(ac);
+        this.longNoise = makeLongNoise(ac);
       }
       if (this.ac.state === 'suspended') return this.ac.resume().catch(() => undefined);
     } catch {
@@ -79,11 +88,45 @@ export class SoundBoard {
     const hidden = typeof document !== 'undefined' && document.hidden;
     const gain = this.scheduler.decide(kind, performance.now(), { hidden, gain: opts.gain });
     if (gain === null) return false;
+    if (BED_KINDS.has(kind)) return this.bed(ac, kind as 'rain' | 'wind' | 'robot_hum', gain);
     try {
       playVoice(ac, this.out, kind, ac.currentTime + 0.01, { gain, pan: opts.pan, count: opts.count, rng: Math.random, noise: this.noise });
       return true;
     } catch {
       return false;
+    }
+  }
+
+  /** Keeps the loop of a bed at `gain` (starting it if needed); it fades out alone when the updates stop. */
+  private bed(ac: AudioContext, kind: 'rain' | 'wind' | 'robot_hum', gain: number): boolean {
+    let cur = this.beds.get(kind);
+    if (!cur) {
+      const bed = this.out ? startBed(ac, this.out, kind, this.longNoise) : null;
+      if (!bed) return false;
+      cur = { bed, at: 0 };
+      this.beds.set(kind, cur);
+    }
+    cur.at = performance.now();
+    cur.bed.level.gain.setTargetAtTime(Math.max(0.0001, gain), ac.currentTime, BED_FADE);
+    this.bedTimer ??= setInterval(() => this.reapBeds(), 500);
+    return true;
+  }
+
+  /** Beds without updates fade out and stop. */
+  private reapBeds(): void {
+    const ac = this.ac;
+    const now = performance.now();
+    for (const [kind, cur] of this.beds) {
+      if (ac && now - cur.at < BED_IDLE_MS) continue;
+      if (ac) {
+        cur.bed.level.gain.setTargetAtTime(0.0001, ac.currentTime, BED_FADE);
+        cur.bed.stop(ac.currentTime + BED_FADE * 5);
+      }
+      this.beds.delete(kind);
+    }
+    if (!this.beds.size && this.bedTimer) {
+      clearInterval(this.bedTimer);
+      this.bedTimer = null;
     }
   }
 }

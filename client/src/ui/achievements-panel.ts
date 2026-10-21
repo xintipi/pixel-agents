@@ -76,6 +76,8 @@ export class AchievementsPanel implements UiComponent {
   constructor(
     private readonly ctx: UiContext,
     toast: (n: Notice) => void,
+    /** Short fanfare for an unlock (the sound board decides whether it plays). */
+    fanfare: () => void = () => undefined,
   ) {
     // In ?mock=1 progress is separate: fake data does not count toward the real one.
     this.key = ctx.store.mock ? `${STORAGE_KEY}:mock` : STORAGE_KEY;
@@ -113,6 +115,7 @@ export class AchievementsPanel implements UiComponent {
       this.week.tasks += this.tracker.state.counts.tasks - before;
       this.syncTree(snap.serverTime);
       for (const f of finishes) ctx.world.celebrate?.(f.roomId, tr('🎉 {0} tasks done!', [f.tasks]), f.agentId);
+      if (unlocks.length) fanfare();
       for (const u of unlocks) {
         const a = ACHIEVEMENT_BY_ID.get(u.id)!;
         toast({ id: `ach:${u.id}`, level: 'success', text: tr('🏆 Achievement unlocked: {0} — {1}', [`${a.icon} ${a.name()}`, a.desc()]), agentId: u.agentId, at: snap.serverTime });

@@ -84,6 +84,18 @@ describe('agendador de sons', () => {
     expect(s.decide('pop', 10)).not.toBeNull();
   });
 
+  it('camas (chuva, vento, robô): atualizações de nível sem intervalo nem teto; seguem a categoria e a aba', () => {
+    const s = on();
+    for (let t = 0; t < 1_000; t += 10) expect(s.decide('rain', t)).not.toBeNull();
+    expect(s.decide('elevator', 500)).not.toBeNull();
+    expect(on({ weather: false }).decide('rain', 0)).toBeNull();
+    expect(on({ life: false }).decide('robot_hum', 0)).toBeNull();
+    expect(on({ life: false }).decide('meow', 0)).toBeNull();
+    expect(on().decide('wind', 0, { hidden: true })).toBeNull();
+    expect(on({ weather: false }).decide('bird', 0)).toBeNull();
+    expect(on({ life: false, weather: false }).decide('fanfare', 0)).not.toBeNull();
+  });
+
   it('valida as preferências de som', () => {
     expect(sanitizeSoundSettings(undefined)).toEqual(DEFAULT_SOUND_SETTINGS);
     expect(sanitizeSoundSettings({ volume: 0.3, keys: false })).toEqual({ ...DEFAULT_SOUND_SETTINGS, volume: 0.3, keys: false });

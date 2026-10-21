@@ -290,7 +290,7 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
   const day = new DayLauncher(ctx, (el) => root.append(el));
   topbar.addPanelButton(day.button);
   // Achievements: the trophy next to "My day", toasts and parties in the rooms.
-  const achievements = new AchievementsPanel(ctx, (n) => toasts.push(n));
+  const achievements = new AchievementsPanel(ctx, (n) => toasts.push(n), () => sound.board.play('fanfare'));
   topbar.addPanelButton(achievements.button);
   root.append(achievements.el);
   // Right click on a room (side list or office): rename.

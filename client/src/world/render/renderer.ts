@@ -124,7 +124,8 @@ export class Renderer {
   hourOverride: number | null = parseHourParam(typeof location === 'undefined' ? '' : location.search);
   /** Weather outside: null = the day's (weatherFor); debug.setWeather pins it. */
   weatherOverride: Weather | null = null;
-  private weather: Weather = 'clear';
+  /** Weather outside right now (the day's or the pinned one); also read by the sound cues. */
+  weather: Weather = 'clear';
   private hourNow = 12;
   /** Time-of-day clock (sky, lighting, wall clock); the timelapse swaps it for the replayed instant. */
   clock: () => number = () => Date.now();
