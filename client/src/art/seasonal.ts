@@ -1,4 +1,4 @@
-// Decorações procedurais em pixel art. Mesma escala dos móveis do escritório.
+// Procedural pixel-art decorations. Same scale as the office furniture.
 import { PixelBuf } from './core/pixbuf';
 import type { BufSprite } from './core/sprite';
 
@@ -74,7 +74,7 @@ export function renderSeasonalProp(kind: SeasonalProp): BufSprite {
     rect(21, 55, 4, 4, '#c93945');
     rect(19, 54, 2, 4, '#f07368');
   } else if (kind === 'mai' || kind === 'dao') {
-    // Tết: galhos floridos num vaso de cerâmica (mai amarela no sul, đào rosa no norte).
+    // Tết: flowering branches in a ceramic vase (yellow mai in the south, pink đào in the north).
     const [petal, light, heart] = kind === 'mai' ? ['#f2c23a', '#ffe27a', '#d9822b'] : ['#e886a6', '#ffc2d4', '#c2456d'];
     b.shadow(20, 59, 11, 2, '#252c39', 0.22);
     rect(13, 49, 15, 10, '#2f5f8f');
@@ -93,7 +93,7 @@ export function renderSeasonalProp(kind: SeasonalProp): BufSprite {
       b.set(x - 1, y - 1, light);
     }
   } else if (kind === 'kumquat') {
-    // Tết: pé de quất (kinkan) com frutinhas, num vaso vermelho.
+    // Tết: a quất (kumquat) tree with little fruits, in a red pot.
     b.shadow(20, 59, 9, 2, '#252c39', 0.2);
     rect(14, 50, 13, 9, '#b8323b');
     rect(13, 49, 15, 2, '#d64848');
@@ -106,7 +106,7 @@ export function renderSeasonalProp(kind: SeasonalProp): BufSprite {
       b.set(x, y, '#ffd27a');
     }
   } else if (kind === 'lantern') {
-    // Tết: lanterna vermelha pendurada, com franja dourada.
+    // Tết: hanging red lantern with a golden fringe.
     b.vline(20, 36, 41, '#8a6a3a');
     rect(16, 41, 9, 2, '#e3b24c');
     rect(13, 43, 15, 10, '#c9303c');

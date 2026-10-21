@@ -1,6 +1,6 @@
-// Terminal: a trava da config (só bind local), os status da rota, o transporte SSE
-// (init/append/reset/limite) com um JSONL temporário e parser injetado, o demo e o caminho do transcript
-// que o watcher informa.
+// Terminal: the config lock (local bind only), the route statuses, the SSE transport
+// (init/append/reset/limit) with a temporary JSONL and injected parser, the demo and the transcript path
+// that the watcher reports.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { appendFileSync, mkdirSync, renameSync, truncateSync, writeFileSync } from 'node:fs';
@@ -34,7 +34,7 @@ describe('trava do terminal (config)', () => {
     for (const host of ['127.0.0.1', 'localhost', '::1']) expect(terminalOffReason({}, host, false)).toBeUndefined();
     expect(terminalOffReason({}, '0.0.0.0', false)).toBe('the port is exposed on the network: HABBLAUD_HOST=0.0.0.0');
     for (const host of ['::', '192.168.0.10', 'meu-mac.local']) expect(terminalOffReason({}, host, false)).toMatch(/exposed on the network/);
-    // HABBLAUD_BIND só vale no Docker: não liga o modo Node exposto.
+    // HABBLAUD_BIND only applies in Docker: does not turn on exposed Node mode.
     expect(terminalOffReason({ HABBLAUD_BIND: '127.0.0.1' }, '0.0.0.0', false)).toBeDefined();
   });
 
@@ -45,7 +45,7 @@ describe('trava do terminal (config)', () => {
     expect(terminalOffReason({ HABBLAUD_BIND: '  ' }, '0.0.0.0', true)).toMatch(/HABBLAUD_BIND didn't reach/);
     expect(terminalOffReason({ HABBLAUD_BIND: '0.0.0.0' }, '0.0.0.0', true)).toBe('the port is exposed on the network: HABBLAUD_BIND=0.0.0.0');
     expect(terminalOffReason({ HABBLAUD_BIND: '192.168.0.10' }, '0.0.0.0', true)).toMatch(/exposed on the network/);
-    // No container o host do processo não conta (é sempre 0.0.0.0).
+    // In the container the process host doesn't count (it is always 0.0.0.0).
     expect(terminalOffReason({ HABBLAUD_BIND: '0.0.0.0' }, '127.0.0.1', true)).toBeDefined();
   });
 
@@ -76,9 +76,9 @@ describe('trava do terminal (config)', () => {
   });
 });
 
-// ------------------------------------------------------------------ servidor de teste
+// ------------------------------------------------------------------ test server
 
-/** Parser de teste: cada linha JSON {id, text} vira uma entrada 'user'; "boom" faz o parser falhar. */
+/** Test parser: each JSON line {id, text} becomes a 'user' entry; "boom" makes the parser fail. */
 function fakeParser(): TerminalParser {
   return {
     push(raw) {
@@ -104,7 +104,7 @@ interface Served {
   port: string;
   office: Office;
   terminals: TerminalStreams;
-  /** Caminho do transcript de cada agente (o que o watcher informaria). */
+  /** Transcript path of each agent (what the watcher would report). */
   paths: Map<string, string>;
   dir: string;
   close: () => Promise<void>;
@@ -158,15 +158,15 @@ async function serve(opts: { terminal?: boolean; streams?: Partial<TerminalOptio
 interface Sse {
   status: number;
   headers: http.IncomingHttpHeaders;
-  /** Corpo das respostas que não são SSE (erros JSON). */
+  /** Body of non-SSE responses (JSON errors). */
   body: string;
-  /** Texto cru do stream. */
+  /** Raw stream text. */
   raw: string;
   events: Array<{ event: string; data: unknown }>;
   close: () => void;
 }
 
-/** Abre uma requisição crua (dá para trocar o Host) e interpreta o stream SSE, se for um. */
+/** Opens a raw request (the Host can be changed) and parses the SSE stream, if it is one. */
 function open(base: string, path: string, opts: { method?: string; headers?: Record<string, string> } = {}): Promise<Sse> {
   const u = new URL(base);
   return new Promise((ok, fail) => {
@@ -205,7 +205,7 @@ function open(base: string, path: string, opts: { method?: string; headers?: Rec
 const inits = (s: Sse) => s.events.filter((e) => e.event === 'init').map((e) => e.data as TerminalInit);
 const appendIds = (s: Sse) => s.events.filter((e) => e.event === 'append').flatMap((e) => (e.data as TerminalEntry[]).map((x) => x.id));
 
-/** O que o cliente mostraria: `init` substitui tudo, `append` acrescenta. */
+/** What the client would show: `init` replaces everything, `append` adds. */
 function view(s: Sse): string[] {
   let ids: string[] = [];
   for (const e of s.events) {
@@ -219,7 +219,7 @@ const health = async (base: string) => (await (await fetch(`${base}/api/health`)
 
 const waitFor = (fn: () => void) => vi.waitFor(fn, { timeout: 3_000, interval: 10 });
 
-// ------------------------------------------------------------------ rota
+// ------------------------------------------------------------------ route
 
 describe('terminal: rota', () => {
   it('recurso desligado: 403 JSON; /api/health e meta.terminal dizem false', async () => {
@@ -273,7 +273,7 @@ describe('terminal: rota', () => {
       expect(post.status).toBe(405);
       expect(post.headers.allow).toBe('GET');
       expect((await open(env.base, route(MAIN), { method: 'HEAD' })).status).toBe(405);
-      // A rota genérica do agente continua igual.
+      // The generic agent route stays the same.
       expect((await fetch(`${env.base}/api/agents/${encodeURIComponent(MAIN)}`)).status).toBe(200);
     } finally {
       await env.close();
@@ -305,7 +305,7 @@ describe('terminal: rota', () => {
   });
 });
 
-// ------------------------------------------------------------------ transporte
+// ------------------------------------------------------------------ transport
 
 describe('terminal: transporte', () => {
   it('init com a conversa do transcript; depois append só com as linhas novas', async () => {
@@ -321,7 +321,7 @@ describe('terminal: transporte', () => {
       await waitFor(() => expect(inits(s)).toHaveLength(1));
       expect(s.raw).toMatch(/^retry: 2000\n\nevent: init\ndata: \{/);
       expect(inits(s)[0]).toEqual({ agentId: MAIN, entries: [user('a'), user('b')], truncated: false });
-      // Linha parcial só conta quando termina; uma linha que derruba o parser é pulada.
+      // A partial line only counts when it ends; a line that breaks the parser is skipped.
       appendFileSync(file, `${line('c')}\nboom\n${line('d').slice(0, 5)}`);
       await waitFor(() => expect(appendIds(s)).toEqual(['c']));
       appendFileSync(file, `${line('d').slice(5)}\n`);
@@ -350,7 +350,7 @@ describe('terminal: transporte', () => {
       await waitFor(() => expect(view(s)).toEqual(['x']));
       expect(inits(s).length).toBeGreaterThanOrEqual(2);
       expect(parsers).toBe(inits(s).length);
-      // Substituído (outro arquivo no mesmo caminho, inode novo).
+      // Replaced (another file at the same path, new inode).
       const tmp = join(env.dir, 'novo.jsonl');
       writeLines(tmp, [line('y'), line('z'), line('w'), line('v')]);
       const before = inits(s).length;
@@ -377,7 +377,7 @@ describe('terminal: transporte', () => {
       expect(init.entries.length).toBeLessThan(6);
       s.close();
 
-      // Arquivo inteiro dentro da janela (48 bytes), mas com mais entradas do que o limite de 3.
+      // Whole file inside the window (48 bytes), but with more entries than the limit of 3.
       const small = join(env.dir, 'small.jsonl');
       writeLines(small, ['c1', 'c2', 'c3', 'c4'].map((id) => JSON.stringify({ id })));
       env.paths.set(MAIN, small);
@@ -420,7 +420,7 @@ describe('terminal: transporte', () => {
       env.paths.set(MAIN, second);
       await waitFor(() => expect(inits(s)).toHaveLength(2));
       expect(inits(s)[1].entries.map((e) => e.id)).toEqual(['novo']);
-      // Sessão encerrada (o watcher esquece o caminho): continua no último transcript.
+      // Session ended (the watcher forgets the path): stays on the last transcript.
       env.paths.delete(MAIN);
       appendLines(second, [line('fim')]);
       await waitFor(() => expect(view(s)).toEqual(['novo', 'fim']));
@@ -448,7 +448,7 @@ describe('terminal: transporte', () => {
   it('parser por agente (parserFor, o da ferramenta dele); sem parser próprio, o padrão; um novo a cada init', async () => {
     const OTHER = '.codex:019a0000-0000-7000-8000-000000000001';
     let codexParsers = 0;
-    /** Parser "de outra ferramenta": as mesmas linhas viram entradas com o prefixo "cx-". */
+    /** "Other tool" parser: the same lines become entries with the "cx-" prefix. */
     const codexParser = (): TerminalParser => {
       codexParsers++;
       const base = fakeParser();
@@ -472,7 +472,7 @@ describe('terminal: transporte', () => {
       appendLines(b, [line('b2')]);
       await waitFor(() => expect(view(sb)).toEqual(['cx-b1', 'cx-b2']));
       expect(codexParsers).toBe(1);
-      // Truncado: parser novo, de novo o da ferramenta.
+      // Truncated: new parser, again the tool's.
       truncateSync(b, 0);
       appendLines(b, [line('b3')]);
       await waitFor(() => expect(view(sb)).toEqual(['cx-b3']));
@@ -520,7 +520,7 @@ describe('terminal: agentes do demo', () => {
       expect(inits(s)[0]).toEqual({ agentId: demo.id, entries: items, truncated: false });
       items.push(user('d3'));
       await waitFor(() => expect(appendIds(s)).toEqual(['d3']));
-      // A janela anda (d1 sai): nada é reenviado.
+      // The window moves (d1 leaves): nothing is resent.
       items.shift();
       items.push(user('d4'));
       await waitFor(() => expect(appendIds(s)).toEqual(['d3', 'd4']));

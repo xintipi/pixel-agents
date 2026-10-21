@@ -1,224 +1,329 @@
-// Bichos do escritório em pixel art, no mesmo traço dos personagens (art/character): rampas de 5 tons (sombras
-// frias, brilhos quentes), partes carimbadas de um desenho em texto (stamp) e o contorno escuro no fim (outline).
-// Um cachorro caramelo de orelhas caídas e um gato laranja rajado, de perfil olhando para a direita (a esquerda é
-// o espelho). Poses: andando (2 quadros), correndo (2, passada larga), sentado (2, o rabo abanando ou a ponta
-// balançando) e dormindo (2, a respiração). Âncora nos pés, como os personagens (uns 13 px de altura: metade deles).
+// Office pets in pixel art, in the same style as the characters (art/character): 5-tone ramps (cool
+// shadows, warm highlights), parts stamped from a text drawing (stamp) and the dark outline at the end (outline).
+// A corgi (tan and white, short legs, huge upright ears, fluffy white butt and a short little tail) and a
+// British Longhair cat (blue-gray, chest ruff, round face, copper eyes and a feather-duster tail).
+//
+// Views: in profile facing right (left is the mirror), from the front ('down', coming toward the camera) and from
+// behind ('up', heading to the back) — whoever walks vertically shows from the front or from behind, like the characters.
+// Poses: walking and running (4 frames: the paws cross and the body rises mid-stride), sitting (2: the tail) and
+// sleeping (2: breathing). Sitting and sleeping are always in profile. Anchor at the feet.
 import { ramp } from './core/color';
 import { PixelBuf, type Palette } from './core/pixbuf';
 import type { BufSprite } from './core/sprite';
 
 export type PetKind = 'dog' | 'cat';
 export type PetPose = 'walk' | 'run' | 'sit' | 'sleep';
+/** Where the pet faces: in profile, from the front (down on screen) or from behind (up). */
+export type PetFacing = 'side' | 'down' | 'up';
 
 export const PET_POSES: readonly PetPose[] = ['walk', 'run', 'sit', 'sleep'];
-export const PET_FRAMES = 2;
-/** Duração de cada quadro (ms). */
-export const PET_FRAME_MS: Readonly<Record<PetPose, number>> = { walk: 170, run: 110, sit: 420, sleep: 1300 };
+export const PET_FACINGS: readonly PetFacing[] = ['side', 'down', 'up'];
+/** Frames of each pose. */
+export const PET_FRAME_COUNT: Readonly<Record<PetPose, number>> = { walk: 4, run: 4, sit: 2, sleep: 2 };
+/** Duration of each frame (ms). */
+export const PET_FRAME_MS: Readonly<Record<PetPose, number>> = { walk: 130, run: 85, sit: 420, sleep: 1300 };
 
 const W = 28;
-const H = 18;
-/** Linha do chão (os pés ficam em cima dela). */
-const FLOOR = 16;
+const H = 20;
+/** Ground line (the feet stand on it). */
+const FLOOR = 17;
+/** Margin of the final sheet around the drawing area. */
+const PAD_X = 2;
+const PAD_Y = 3;
 
-// Letras das partes: o/O/H/d/D = pelo (base, claro, brilho, escuro, mais escuro); w/W = pelo claro da barriga e do
-// focinho; e = olho; E = brilho do olho; n = nariz; p = rosa (orelha, língua); c/t = coleira e plaquinha;
-// s = listra (gato); g = íris verde (gato).
+// Letters: o/O/H/d/D = fur (base, light, highlight, dark, darkest); w/W/v = white/cream (base, highlight, shadow);
+// e = eye; E = eye highlight; k = pupil; n = nose; p = pink (ear, tongue); c/t = collar and tag.
 function palette(fur: string, cream: string, extra: Record<string, string>): Palette {
   const f = ramp(fur, 0.09);
   const c = ramp(cream, 0.06);
-  return { o: f.base, O: f.lt, H: f.hi, d: f.dk, D: f.dd, w: c.base, W: c.hi, ...extra };
+  return { o: f.base, O: f.lt, H: f.hi, d: f.dk, D: f.dd, w: c.base, W: c.hi, v: c.dk, ...extra };
 }
 
-const DOG_PAL = palette('#d2914c', '#f6e6c9', { e: '#2b2230', E: '#fff4e6', n: '#2b2230', p: '#e49aa4', c: '#d9484f', t: '#f4c84a' });
-const CAT_PAL = palette('#ee9d48', '#fbeedb', { e: '#1f2a1f', g: '#5fc26a', n: '#e57b8e', p: '#f0a6b0', s: '#c0692a' });
+const CORGI = palette('#d9822f', '#f7ecdc', { e: '#2a1f26', E: '#fff6e8', n: '#2a1f26', p: '#e98f9c', c: '#3f78c4', t: '#f4c84a' });
+const BRIT = palette('#8e97ab', '#d6dbe6', { e: '#e08a2c', E: '#ffd28a', k: '#2a2230', n: '#a7798a', p: '#d9a3b0' });
 
 type Part = readonly string[];
+const put = (b: PixelBuf, rows: Part, x: number, y: number, pal: Palette) => b.stamp(rows, x, y, pal);
 
-const stamp = (b: PixelBuf, rows: Part, x: number, y: number, pal: Palette) => b.stamp(rows, x, y, pal);
-
-// ---------------------------------------------------------------- cachorro
-
-/** Cabeça de perfil: orelha caída atrás, focinho claro, nariz na ponta. 10×8. */
-const DOG_HEAD: Part = [
-  '...oooo...',
-  '..oOHHoo..',
-  '.doOOoooo.',
-  '.doOoEoww.',
-  'ddooooewww',
-  'ddooooowwn',
-  '.ddoooowwp',
-  '..ddooooo.',
-];
-/** Corpo andando: lombo com brilho, barriga clara, parte de baixo na sombra. 14×7. */
-const DOG_BODY: Part = [
-  '..oOOOOOOoo...',
-  '.oOOOoooooooo.',
-  '.ooooooooooooo',
-  '.ooooooooooooo',
-  '..dowwwwwwwood',
-  '..ddwwwwwwwodd',
-  '...dddddddddd.',
-];
-/** Rabo levantado em gancho (andando) e esticado (correndo). */
-const DOG_TAIL_UP: Part = ['.oo', 'oO.', 'o..', 'd..'];
-const DOG_TAIL_BACK: Part = ['oooo', 'ddd.'];
-/** Pernas: perto (pelo) e longe (sombra), 2×3 com a pata mais escura. */
-const LEG_NEAR: Part = ['oo', 'oo', 'dd'];
-const LEG_FAR: Part = ['dd', 'dd', 'DD'];
-/** Sentado: garupa redonda, peito claro, patas da frente retas. 12×8. */
-const DOG_SIT_BODY: Part = [
-  '....oooooo..',
-  '...ooooooooo',
-  '..oooooowwoo',
-  '.ooooooowwoo',
-  '.oooooodwwdo',
-  'oooooood.wwd',
-  'ooooodd..ww.',
-  'ddddd....dd.',
-];
-/** Dormindo enrolado: cabeça pousada à direita, rabo dando a volta na frente. 16×7. */
-const DOG_SLEEP: Part = [
-  '......ooooo.....',
-  '....ooOOOooooo..',
-  '...oooooooooodo.',
-  '..ooooooooooodoo',
-  '.dowwwwwwwwooDwn',
-  '.oodwwwwwwwoooww',
-  '..dddddddddddd..',
+/**
+ * 4-frame stride: how far the near back paw and near front paw go forward (+) or back (−), and the bounce
+ * of the body (rises on the frame where the paws cross). The far ones do the opposite.
+ */
+const GAIT: readonly { back: number; front: number; bob: number }[] = [
+  { back: 1, front: -1, bob: 0 },
+  { back: 0, front: 0, bob: -1 },
+  { back: -1, front: 1, bob: 0 },
+  { back: 0, front: 0, bob: -1 },
 ];
 
-function dog(pose: PetPose, f: number, b: PixelBuf): void {
-  const P = DOG_PAL;
+// ================================================================ corgi
+
+/** Head in profile: big upright ears, white muzzle mask, black nose. 11×9. */
+const CORGI_HEAD: Part = [
+  '..oo..oo...',
+  '..oOo.oOo..',
+  '..oOo.oOo..',
+  '.ooooooooo.',
+  'ooooHooooo.',
+  'oooooeEowww',
+  'oooooooowwn',
+  '.oowwwwwwwp',
+  '..wwwwwww..',
+];
+/** Long, low body: tan back, white belly and butt. 15×6. */
+const CORGI_BODY: Part = [
+  '..oOOOOOOOOOoo.',
+  '.ooooOoooooooow',
+  'wooooooooooooww',
+  'wwooooooooooww.',
+  'wwwvwwwwwwwwvw.',
+  '.wvvvvvvvvvvv..',
+];
+/** Short little paws with white socks: near and far. */
+const CORGI_LEG: Part = ['oo', 'ww', 'ww'];
+const CORGI_LEG_FAR: Part = ['dd', 'vv', 'vv'];
+
+/** From the front: upright ears, white stripe down the middle of the face, white chest. 12×9 + body 10×4. */
+const CORGI_FRONT_HEAD: Part = [
+  '.oo......oo.',
+  '.oOo....oOo.',
+  '.oOoo..ooOo.',
+  '.oooowwoooo.',
+  'oooowwwwoooo',
+  'ooeEowwoeEoo',
+  'oooowwwwoooo',
+  '.ooowwnwwoo.',
+  '..owwwpwwo..',
+];
+const CORGI_FRONT_BODY: Part = ['..owwwwwo.', '.oowwwwwoo', '.oowwwwwoo', '.oovwwwvoo'];
+/** From behind: the ears from the back, the back and the white butt with the little tail. 12×7 + body 10×6. */
+const CORGI_BACK_HEAD: Part = [
+  '.oo......oo.',
+  '.oOo....oOo.',
+  '.oOoo..ooOo.',
+  '.oooooooooo.',
+  'oooooOOooooo',
+  'oooooooooooo',
+  '.oooooooooo.',
+];
+const CORGI_BACK_BODY: Part = ['.oooOOooo.', 'oooooooooo', 'oooooooooo', 'oowwoowwoo', 'owwwwwwwwo', '.wwwvvwww.'];
+/** Sitting in profile: rump on the ground, puffed white chest, front legs straight. 11×8. */
+const CORGI_SIT: Part = [
+  '....oooooo.',
+  '...oooooooo',
+  '..ooooooowo',
+  '.oooooooowo',
+  'woooooooww.',
+  'wwooooo.ww.',
+  'wwwvwww.ww.',
+  '.vvvvvv.vv.',
+];
+/** Sleeping stretched out on its side, head resting on the paws. 18×6. */
+const CORGI_SLEEP: Part = [
+  '..........oo.oo...',
+  '...oOOOOOoooooooo.',
+  '.woooooooooooooooo',
+  'wwooooooooooooooww',
+  'wwwvwwwwwwwwwwwwwn',
+  '.vvvvvvvvvvvvvvvv.',
+];
+
+function corgi(pose: PetPose, f: number, facing: PetFacing, b: PixelBuf): void {
+  const P = CORGI;
   if (pose === 'sleep') {
-    stamp(b, DOG_SLEEP, 5, FLOOR - 7 - f, P);
-    // o rabo na frente sobe junto com a barriga
-    b.set(6, FLOOR - 2 - f, P.O!);
-    b.set(5, FLOOR - 3 - f, P.o!);
+    const up = f === 1 ? 1 : 0;
+    put(b, CORGI_SLEEP, 4, FLOOR - 6 - up, P);
+    // closed eye
+    b.hline(18, 19, FLOOR - 4 - up, P.d!);
     return;
   }
   if (pose === 'sit') {
-    const bx = 7;
+    const bx = 8;
     const by = FLOOR - 8;
-    // rabo no chão abanando (quadro 0 para trás, 1 levantado)
-    if (f === 0) stamp(b, ['.ooo', 'ddd.'], bx - 4, by + 6, P);
-    else stamp(b, ['oo.', '.oo', '.dd'], bx - 3, by + 4, P);
-    stamp(b, DOG_SIT_BODY, bx, by, P);
-    stamp(b, DOG_HEAD, bx + 5, by - 7, P);
-    // coleira no pescoço, com a plaquinha
-    stamp(b, ['cccccc', '..t...'], bx + 6, by, P);
+    // little tail wagging
+    put(b, f === 0 ? ['oo'] : ['o.', '.o'], bx - 2, by + 4 - f, P);
+    put(b, CORGI_SIT, bx, by, P);
+    put(b, CORGI_HEAD, bx + 4, by - 8, P);
+    put(b, ['ccccc', '..t..'], bx + 6, by, P);
     return;
   }
+  const g = GAIT[f % GAIT.length];
   const run = pose === 'run';
-  const bob = run && f === 1 ? -1 : 0;
+  const k = run ? 2 : 1;
+  const bob = g.bob * (run ? 2 : 1);
+  if (facing === 'down') {
+    const bx = 9;
+    const by = FLOOR - 5 + bob;
+    // front paws alternating (one lifts 1 px)
+    put(b, ['ww'], bx + 2, FLOOR - 1 - (g.front > 0 ? 1 : 0), P);
+    put(b, ['ww'], bx + 6, FLOOR - 1 - (g.front < 0 ? 1 : 0), P);
+    put(b, CORGI_FRONT_BODY, bx, by, P);
+    put(b, CORGI_FRONT_HEAD, bx - 1, by - 9, P);
+    put(b, ['cccccc'], bx + 2, by, P);
+    return;
+  }
+  if (facing === 'up') {
+    const bx = 9;
+    const by = FLOOR - 6 + bob;
+    put(b, ['oo'], bx + 1, FLOOR - 1 - (g.back > 0 ? 1 : 0), P);
+    put(b, ['oo'], bx + 7, FLOOR - 1 - (g.back < 0 ? 1 : 0), P);
+    put(b, CORGI_BACK_BODY, bx, by, P);
+    put(b, CORGI_BACK_HEAD, bx - 1, by - 6, P);
+    // little tail wagging
+    b.set(bx + 4 + (f % 2), by + 3, P.O!);
+    return;
+  }
   const bx = 5;
-  const by = FLOOR - 10 + bob;
-  // pernas longe primeiro (atrás do corpo), depois o corpo, as pernas perto e a cabeça
-  const spread = run ? 2 : 1;
+  const by = FLOOR - 9 + bob;
   const legY = by + 6;
-  const farB = f === 0 ? bx + 4 + spread : bx + 3;
-  const farF = f === 0 ? bx + 9 - spread : bx + 10;
-  const nearB = f === 0 ? bx + 2 : bx + 3 + spread;
-  const nearF = f === 0 ? bx + 11 : bx + 10 - spread;
-  stamp(b, LEG_FAR, farB, legY + (run ? 0 : 1), P);
-  stamp(b, LEG_FAR, farF, legY + (run ? 0 : 1), P);
-  stamp(b, DOG_BODY, bx, by, P);
-  stamp(b, LEG_NEAR, nearB, legY + 1, P);
-  stamp(b, LEG_NEAR, nearF, legY + 1, P);
-  if (run) stamp(b, DOG_TAIL_BACK, bx - 3, by + 1, P);
-  else stamp(b, DOG_TAIL_UP, bx - 1, by - 3, P);
-  stamp(b, DOG_HEAD, bx + 10, by - 5 + (run && f === 1 ? 1 : 0), P);
-  stamp(b, ['ccc', '.t.'], bx + 11, by + 2, P);
+  // far paws (behind the body), body, near paws, head
+  put(b, CORGI_LEG_FAR, bx + 3 - g.back * k, legY, P);
+  put(b, CORGI_LEG_FAR, bx + 10 - g.front * k, legY, P);
+  put(b, CORGI_BODY, bx, by, P);
+  put(b, CORGI_LEG, bx + 2 + g.back * k, legY, P);
+  put(b, CORGI_LEG, bx + 11 + g.front * k, legY, P);
+  // short little tail (running, stretched)
+  put(b, run ? ['oo'] : ['o', 'o'], bx - (run ? 2 : 1), by + (run ? 1 : 0), P);
+  put(b, CORGI_HEAD, bx + 11, by - 7 + (run && f % 2 ? 1 : 0), P);
+  put(b, ['ccc', '.t.'], bx + 12, by + 1, P);
 }
 
-// ---------------------------------------------------------------- gato
+// ================================================================ British Longhair
 
-/** Cabeça de perfil: orelhas pontudas com o rosa por dentro, olho verde, focinho claro e narizinho rosa. 9×7. */
-const CAT_HEAD: Part = [
-  '.o.....o.',
-  '.po...po.',
-  '.ooooooo.',
-  'oooOooooo',
-  'ooooogeww',
-  'oooooooww',
-  '.ooooowwn',
+/** Head in profile: round and furry, small ears, copper eye, ruff below. 10×9. */
+const BRIT_HEAD: Part = [
+  '..o...o...',
+  '.ooo.ooo..',
+  'oooooooooo',
+  'ooOHOooooo',
+  'oooooeEoow',
+  'ooooooooww',
+  'ooooooowwn',
+  '.owwwwwwww',
+  '..wwvwwvw.',
 ];
-/** Corpo andando com as listras no lombo. 12×5. */
-const CAT_BODY: Part = [
-  '.oOsOOsOOso.',
-  'oooooooooooo',
-  'osooosooosoo',
-  '.owwwwwwwwo.',
-  '..dddddddd..',
+/** Full, fluffy body, fringe of fur below. 14×7. */
+const BRIT_BODY: Part = [
+  '..oOOOOOOOOoo.',
+  '.ooOoooOoooooo',
+  'oooooooooooooo',
+  'oooooooooooooo',
+  'oowwwwwwwwwwoo',
+  '.wvwvwwvwwvwo.',
+  '..v.v..v.v....',
 ];
-/** Rabo comprido subindo em gancho, com anéis. */
-const CAT_TAIL_UP: Part = ['.oo', 'os.', 'o..', 's..', 'o..'];
-const CAT_TAIL_BACK: Part = ['osoos'];
-const CAT_LEG_NEAR: Part = ['o', 'o', 'd'];
-const CAT_LEG_FAR: Part = ['d', 'd', 'D'];
-/** Sentado, bem ereto: peito claro, patas juntas. 8×8. */
-const CAT_SIT_BODY: Part = [
-  '..oooo..',
-  '.osooso.',
-  '.oowwoo.',
-  'oooWwoo.',
-  'osowwoso',
-  'ooowwooo',
-  'ooo.wo.o',
-  'ddd.dd.d',
+const BRIT_LEG: Part = ['oo', 'ww'];
+const BRIT_LEG_FAR: Part = ['dd', 'vv'];
+/** Feather-duster tail: plumed, upright with a curved tip (walking) or back (running). */
+const BRIT_TAIL_UP: Part = ['.ooo', 'ooOo', 'oOo.', 'ooo.', 'oo..', 'oo..'];
+const BRIT_TAIL_BACK: Part = ['.oooo', 'ooOoo', '.ooo.'];
+
+/** From the front: round face, big copper eyes, white ruff. 12×9 + body 12×5. */
+const BRIT_FRONT_HEAD: Part = [
+  '.o........o.',
+  '.oo......oo.',
+  '.oooooooooo.',
+  'oooOHooooooo',
+  'ooeEkooeEkoo',
+  'ooeeeooeeeoo',
+  'ooooonnooooo',
+  '.oowwwwwwoo.',
+  '.owwwvvwwwo.',
 ];
-/** Dormindo de pãozinho: listras no lombo, rabo abraçando o corpo. 14×6. */
-const CAT_SLEEP: Part = [
-  '....osoosoo...',
-  '..oooooooooooo',
-  '.oosooosooodoo',
-  '.ooooooooooown',
-  '.dswwwwwwwooww',
-  '..dsosoosdddd.',
+const BRIT_FRONT_BODY: Part = ['.owwwwwwwwo.', 'oowwwwwwwwoo', 'ooowwwwwwooo', '.ooovwwvooo.', '..ww....ww..'];
+/** From behind: round head, little ears, the feather-duster tail upright over the back. */
+const BRIT_BACK_HEAD: Part = ['.o........o.', '.oo......oo.', '.oooooooooo.', 'oooOHooooooo', 'oooooooooooo', '.oooooooooo.'];
+const BRIT_BACK_BODY: Part = ['.oooooooooo.', 'oooooooooooo', 'oooOoooOoooo', 'oooooooooooo', '.oooooooooo.', '..dd....dd..'];
+/** Sitting in profile: a round loaf of fur, ruff on the chest, paws together. 10×9. */
+const BRIT_SIT: Part = [
+  '...oooooo.',
+  '..oooooooo',
+  '.ooooooowo',
+  'oooOoooowo',
+  'oooooooowo',
+  'ooooooowwo',
+  'oooooooww.',
+  '.oooooo.ww',
+  '..vvvvv.vv',
+];
+/** Sleeping curled up: a ball of fur with the tail wrapped around. 16×6. */
+const BRIT_SLEEP: Part = [
+  '.....oOOOoo..o.o',
+  '...oooooooooooo.',
+  '..oooooooooooooo',
+  '.ooooooooooooowo',
+  '.oOOOOOOooooowwn',
+  '..oooooooovvvvv.',
 ];
 
-function cat(pose: PetPose, f: number, b: PixelBuf): void {
-  const P = CAT_PAL;
+function brit(pose: PetPose, f: number, facing: PetFacing, b: PixelBuf): void {
+  const P = BRIT;
   if (pose === 'sleep') {
-    stamp(b, CAT_SLEEP, 6, FLOOR - 6 - f, P);
+    const up = f === 1 ? 1 : 0;
+    put(b, BRIT_SLEEP, 6, FLOOR - 6 - up, P);
+    b.hline(18, 19, FLOOR - 3 - up, P.D!);
     return;
   }
   if (pose === 'sit') {
     const bx = 9;
-    const by = FLOOR - 8;
-    // rabo no chão: a ponta balança
-    if (f === 0) stamp(b, ['....s', 'osoos'], bx - 5, by + 6, P);
-    else stamp(b, ['...s.', 'osoo.'], bx - 5, by + 6, P);
-    stamp(b, CAT_SIT_BODY, bx, by, P);
-    stamp(b, CAT_HEAD, bx + 2, by - 6, P);
+    const by = FLOOR - 9;
+    // feather-duster tail curled on the ground, the tip sways
+    put(b, f === 0 ? ['....oo', 'oooooo', '.oooo.'] : ['.....o', 'ooooo.', '.oooo.'], bx - 6, by + 6, P);
+    put(b, BRIT_SIT, bx, by, P);
+    put(b, BRIT_HEAD, bx + 2, by - 7, P);
     return;
   }
+  const g = GAIT[f % GAIT.length];
   const run = pose === 'run';
-  const bob = run && f === 1 ? -1 : 0;
+  const k = run ? 2 : 1;
+  const bob = g.bob * (run ? 2 : 1);
+  if (facing === 'down') {
+    const bx = 8;
+    const by = FLOOR - 5 + bob;
+    put(b, BRIT_FRONT_BODY, bx, by, P);
+    // the front paws take turns (one disappears behind the ruff)
+    if (g.front > 0) b.set(bx + 2, FLOOR - 1, P.v!);
+    if (g.front < 0) b.set(bx + 9, FLOOR - 1, P.v!);
+    put(b, BRIT_FRONT_HEAD, bx, by - 8, P);
+    return;
+  }
+  if (facing === 'up') {
+    const bx = 8;
+    const by = FLOOR - 6 + bob;
+    put(b, BRIT_BACK_BODY, bx, by, P);
+    put(b, BRIT_BACK_HEAD, bx, by - 5, P);
+    // the tail upright, swaying from side to side
+    put(b, ['.oo.', 'oOoo', 'oOoo', 'oooo', '.dd.', '.dd.'], bx + 4 + (f % 2 ? 1 : -1), by - 10, P);
+    return;
+  }
   const bx = 7;
-  const by = FLOOR - 8 + bob;
-  const spread = run ? 2 : 1;
-  const legY = by + 4;
-  const farB = f === 0 ? bx + 3 + spread : bx + 2;
-  const farF = f === 0 ? bx + 8 - spread : bx + 9;
-  const nearB = f === 0 ? bx + 1 : bx + 2 + spread;
-  const nearF = f === 0 ? bx + 10 : bx + 9 - spread;
-  stamp(b, CAT_LEG_FAR, farB, legY, P);
-  stamp(b, CAT_LEG_FAR, farF, legY, P);
-  stamp(b, CAT_BODY, bx, by, P);
-  stamp(b, CAT_LEG_NEAR, nearB, legY + 1, P);
-  stamp(b, CAT_LEG_NEAR, nearF, legY + 1, P);
-  if (run) stamp(b, CAT_TAIL_BACK, bx - 5, by + 1, P);
-  else stamp(b, CAT_TAIL_UP, bx - 2, by - 4, P);
-  stamp(b, CAT_HEAD, bx + 9, by - 4 + (run && f === 1 ? 1 : 0), P);
+  const by = FLOOR - 9 + bob;
+  const legY = by + 6;
+  put(b, BRIT_LEG_FAR, bx + 3 - g.back * k, legY, P);
+  put(b, BRIT_LEG_FAR, bx + 9 - g.front * k, legY, P);
+  if (run) put(b, BRIT_TAIL_BACK, bx - 5, by, P);
+  else put(b, BRIT_TAIL_UP, bx - 3, by - 5, P);
+  put(b, BRIT_BODY, bx, by, P);
+  put(b, BRIT_LEG, bx + 2 + g.back * k, legY + 1, P);
+  put(b, BRIT_LEG, bx + 10 + g.front * k, legY + 1, P);
+  put(b, BRIT_HEAD, bx + 10, by - 6 + (run && f % 2 ? 1 : 0), P);
 }
 
-/** Sprite do bicho na pose e quadro pedidos (olhando para a direita; `left` espelha). */
-export function renderPet(kind: PetKind, pose: PetPose, frame: number, left = false): BufSprite {
-  const f = ((Math.floor(frame) % PET_FRAMES) + PET_FRAMES) % PET_FRAMES;
-  const b = new PixelBuf(W, H);
-  if (kind === 'dog') dog(pose, f, b);
-  else cat(pose, f, b);
+/**
+ * Pet sprite in the requested pose, frame and view (in profile facing right; `left` mirrors; sitting and
+ * sleeping are always in profile).
+ */
+export function renderPet(kind: PetKind, pose: PetPose, frame: number, left = false, facing: PetFacing = 'side'): BufSprite {
+  const n = PET_FRAME_COUNT[pose];
+  const f = ((Math.floor(frame) % n) + n) % n;
+  const view: PetFacing = pose === 'sit' || pose === 'sleep' ? 'side' : facing;
+  const inner = new PixelBuf(W, H);
+  if (kind === 'dog') corgi(pose, f, view, inner);
+  else brit(pose, f, view, inner);
+  // sheet with a margin (ears, tail and the outline never touch the edge)
+  const b = new PixelBuf(W + 2 * PAD_X, H + PAD_Y);
+  b.draw(inner, PAD_X, PAD_Y);
   b.outline();
-  const buf = left ? b.flipped() : b;
-  return { buf, ax: W / 2, ay: FLOOR };
+  const buf = left && view === 'side' ? b.flipped() : b;
+  return { buf, ax: (W + 2 * PAD_X) / 2, ay: FLOOR + PAD_Y };
 }

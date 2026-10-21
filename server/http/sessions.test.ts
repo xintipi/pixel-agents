@@ -1,7 +1,7 @@
-// Histórico do terminal (rotas /api/sessions/*): a trava (recurso desligado ou Host que não é local = 403),
-// a validação de conta/id/caminho contra path traversal (400/404), métodos (405) e o SSE de uma sessão
-// encerrada (init com a conversa do transcript, append do que for acrescentado), com o parser real. Como no
-// servidor, as rotas passam pelo HistorySet (o do Claude Code e, num teste, o de outra ferramenta).
+// Terminal history (/api/sessions/* routes): the lock (feature off or non-local Host = 403),
+// account/id/path validation against path traversal (400/404), methods (405) and the SSE of an ended
+// session (init with the transcript conversation, append of what gets added), with the real parser. As in the
+// server, the routes go through the HistorySet (Claude Code's and, in one test, another tool's).
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -100,7 +100,7 @@ interface Res {
   close: () => void;
 }
 
-/** Requisição crua (caminho sem normalização, Host trocável); interpreta o SSE, se for um. */
+/** Raw request (path without normalization, swappable Host); parses the SSE, if it is one. */
 function request(base: string, path: string, opts: { method?: string; headers?: Record<string, string> } = {}): Promise<Res> {
   const u = new URL(base);
   return new Promise((ok, fail) => {
@@ -231,7 +231,7 @@ describe('histórico de sessões: validação (path traversal)', () => {
         `/api/sessions/${encodeURIComponent(env.dir)}/${SID}/terminal`,
         `/api/sessions/.claude-outra/${SID}/terminal`,
         terminalRoute('.claude', '00000000-0000-4000-8000-000000000999'),
-        // Segmentos ".." (crus ou %2e%2e): a URL normalizada sai de /api/sessions/ (rota desconhecida).
+        // ".." segments (raw or %2e%2e): the normalized URL leaves /api/sessions/ (unknown route).
         `/api/sessions/.claude/../../segredo/terminal`,
         `/api/sessions/.claude/%2e%2e/terminal`,
       ];
@@ -240,7 +240,7 @@ describe('histórico de sessões: validação (path traversal)', () => {
         expect(r.status, path).toBe(404);
         expect(r.events).toEqual([]);
       }
-      // Link dentro de projects/ apontando para fora: 404.
+      // Link inside projects/ pointing outside: 404.
       const linked = '00000000-0000-4000-8000-0000000000c3';
       symlinkOrSkip(skip, join(env.root, 'segredo.jsonl'), join(env.dir, 'projects', encodeCwd(CWD), `${linked}.jsonl`));
       mkdirSync(join(env.dir, 'projects', 'vazio'), { recursive: true });
@@ -256,7 +256,7 @@ describe('histórico de sessões: validação (path traversal)', () => {
 
 describe('histórico de sessões: outra ferramenta', () => {
   const XID = '019a0000-0000-7000-8000-0000000000d4';
-  /** Provedor fictício da conta ".codex": uma sessão, lida com um parser próprio (cada linha vira "cx-<n>"). */
+  /** Fake provider for the ".codex" account: one session, read with its own parser (each line becomes "cx-<n>"). */
   const codexHistory = (root: string): HistoryProvider => {
     const path = join(root, 'rollout.jsonl');
     writeFileSync(path, 'a\nb\n');
@@ -288,7 +288,7 @@ describe('histórico de sessões: outra ferramenta', () => {
       expect(init.agentId).toBe(`session:.codex:${XID}`);
       expect(init.entries.map((e) => e.id)).toEqual(['cx-1', 'cx-2']);
       s.close();
-      // A conta do Claude Code continua com o parser dele; a desconhecida, com os erros de sempre.
+      // The Claude Code account keeps its parser; the unknown one, the usual errors.
       const c = await request(env.base, terminalRoute('.claude', SID));
       await waitFor(() => expect(c.events.filter((e) => e.event === 'init')).toHaveLength(1));
       expect((c.events[0].data as TerminalInit).entries.map((e) => e.kind)).toEqual(['user', 'assistant']);
@@ -318,7 +318,7 @@ describe('histórico de sessões: SSE da sessão encerrada', () => {
         ['assistant', 'Pronto: o carrinho soma o frete.'],
       ]);
       expect(env.terminals.size).toBe(1);
-      // Retomada com /resume: o transcript cresce e o stream acompanha.
+      // Resumed with /resume: the transcript grows and the stream follows.
       appendLines(env.transcript, [L.prompt('Mais uma coisa')]);
       await waitFor(() => {
         const appended = s.events.filter((e) => e.event === 'append').flatMap((e) => e.data as TerminalEntry[]);

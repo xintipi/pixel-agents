@@ -1,16 +1,16 @@
-// Novo agente pelo escritório. Do jeito que roda sozinho: uma sessão em segundo plano do Claude Code
-// (`claude --bg -n <nome> -- <pedido>`, na pasta escolhida), que começa na hora, aparece no escritório como qualquer
-// sessão e recebe mensagens e pedidos de permissão pelo Habblaud (`claude attach <id>` abre no terminal do Mac).
-// O Claude Code só faz isso numa pasta que já é confiável para ele (o aviso de confiança foi aceito no terminal); se
-// a pasta não é, ou o `claude` não está aqui, cai no link `claude://code/new?folder=<pasta>&q=<pedido>` (o do "New
-// Claude Code Session Here" do Finder), que abre a tela de sessão nova do app preenchida: aí ela começa quando a
-// pessoa aperta Enter lá. Quem roda precisa estar no computador do app:
-// - modo Node: o próprio servidor;
-// - Docker: o auxiliar do host (scripts/codex-bridge.ts, npm run codex:bridge) busca os pedidos em
-//   POST /api/host/spawn/poll, confere a pasta, roda e confirma em POST /api/host/spawn/ack.
-// Anexos (spawn/attachments.ts): quem roda grava os arquivos em ~/.habblaud/attachments/ e põe os caminhos no fim
-// do pedido. Sem shell (execFile), com prazo, e o pedido vai depois de `--` (nunca vira opção nem subcomando).
-// Node puro e sem dependências: também é importado pelo auxiliar do host (via tsx).
+// New agent from the office. The way it runs on its own: a Claude Code background session
+// (`claude --bg -n <name> -- <request>`, in the chosen folder), which starts right away, shows up in the office like any
+// session and receives messages and permission requests via Habblaud (`claude attach <id>` opens it in the Mac terminal).
+// Claude Code only does this in a folder it already trusts (the trust prompt was accepted in the terminal); if
+// the folder isn't, or `claude` isn't here, it falls back to `claude://code/new?folder=<folder>&q=<request>` (the "New
+// Claude Code Session Here" one from Finder), which opens the app's new-session screen pre-filled: it then starts when the
+// person presses Enter there. Whoever runs it must be on the app's computer:
+// - Node mode: the server itself;
+// - Docker: the host helper (scripts/codex-bridge.ts, npm run codex:bridge) fetches the requests from
+//   POST /api/host/spawn/poll, checks the folder, runs it and confirms on POST /api/host/spawn/ack.
+// Attachments (spawn/attachments.ts): the runner writes the files to ~/.habblaud/attachments/ and appends the paths to
+// the request. No shell (execFile), with a timeout, and the request goes after `--` (never becomes an option or subcommand).
+// Plain Node with no dependencies: also imported by the host helper (via tsx).
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { statSync } from 'node:fs';
@@ -18,24 +18,24 @@ import { isAbsolute } from 'node:path';
 import { tr } from '../../shared/i18n';
 import { attachmentsRoot, promptWithAttachments, writeAttachments, type Attachment, type AttachmentStore } from './attachments';
 
-/** Tamanho máximo do pedido (o link inteiro vai pela linha de comando do `open`). */
+/** Maximum request size (the whole link goes through the `open` command line). */
 export const PROMPT_MAX = 8_000;
 export const FOLDER_MAX = 1_024;
-/** Prazo do `open`. */
+/** Timeout for `open`. */
 export const OPEN_TIMEOUT_MS = 10_000;
-/** Prazo do `claude --bg` (ele sobe o serviço de segundo plano na primeira vez e volta). */
+/** Timeout for `claude --bg` (it starts the background service the first time and returns). */
 export const CLI_TIMEOUT_MS = 30_000;
 const NAME_MAX = 48;
-/** O auxiliar conta como presente até este tempo depois da última rodada. */
+/** The helper counts as present until this long after its last poll. */
 export const HOST_PRESENCE_MS = 10_000;
 /**
- * Pedido buscado e não confirmado vira falha; pedido que ninguém buscou também. Quem roda pode levar o `claude --bg`
- * mais o `open` (CLI_TIMEOUT_MS + OPEN_TIMEOUT_MS): o prazo de "buscado" cobre os dois com folga, e a página espera
- * mais que a soma dos dois prazos (client/src/ui/spawn.ts), para nunca dizer "não confirmou" de algo que ainda abre.
+ * A request fetched and not confirmed becomes a failure; so does a request nobody fetched. The runner may take `claude --bg`
+ * plus `open` (CLI_TIMEOUT_MS + OPEN_TIMEOUT_MS): the "fetched" timeout covers both with slack, and the page waits
+ * longer than both timeouts combined (client/src/ui/spawn.ts), so it never says "not confirmed" about something still opening.
  */
 export const SENT_TIMEOUT_MS = CLI_TIMEOUT_MS + OPEN_TIMEOUT_MS + 10_000;
 export const QUEUED_TIMEOUT_MS = 30_000;
-/** Pedidos resolvidos ficam este tempo para o GET. */
+/** Resolved requests stay this long for the GET. */
 export const KEEP_MS = 10 * 60_000;
 const MAX_OPEN = 5;
 const ERROR_MAX = 300;
@@ -47,7 +47,7 @@ export interface SpawnRequest {
 
 export type SpawnStatus = 'queued' | 'sent' | 'opened' | 'failed';
 
-/** Como abriu: `cli` = já está rodando em segundo plano; `app` = tela do app preenchida, esperando o Enter no Mac. */
+/** How it opened: `cli` = already running in the background; `app` = app screen pre-filled, waiting for Enter on the Mac. */
 export type SpawnHow = 'cli' | 'app';
 
 export interface SpawnInfo {
@@ -56,18 +56,18 @@ export interface SpawnInfo {
   status: SpawnStatus;
   error?: string;
   how?: SpawnHow;
-  /** Com how `app` depois de tentar o `claude --bg`: por que não rodou sozinho. */
+  /** With how `app` after trying `claude --bg`: why it didn't run on its own. */
   note?: string;
 }
 
 export type OpenResult = { ok: true } | { ok: false; error: string };
 export type Opener = (url: string) => Promise<OpenResult>;
 export type CliResult = { ok: true; id: string } | { ok: false; error: string };
-/** Roda o pedido como sessão em segundo plano do Claude Code. */
+/** Runs the request as a Claude Code background session. */
 export type CliRunner = (req: SpawnRequest) => Promise<CliResult>;
 export type LaunchResult = { ok: true; how: SpawnHow; note?: string } | { ok: false; error: string };
 
-/** Confere o corpo de POST /api/spawn; devolve o pedido ou o motivo da recusa. */
+/** Validates the body of POST /api/spawn; returns the request or the reason for rejection. */
 export function parseSpawn(raw: unknown): SpawnRequest | { error: string } {
   const r = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const folder = typeof r.folder === 'string' ? r.folder.trim() : '';
@@ -79,7 +79,7 @@ export function parseSpawn(raw: unknown): SpawnRequest | { error: string } {
   return { folder, prompt };
 }
 
-/** O link que o app do Claude entende (claude://code/new; `q` = pedido já escrito). */
+/** The link the Claude app understands (claude://code/new; `q` = request already typed). */
 export function spawnUrl(req: SpawnRequest): string {
   const q = new URLSearchParams();
   q.set('folder', req.folder);
@@ -88,20 +88,20 @@ export function spawnUrl(req: SpawnRequest): string {
   return `claude://code/new?${q.toString().replace(/\+/g, '%20')}`;
 }
 
-/** Nome da sessão em segundo plano: "Habblaud: " + começo da 1ª linha do pedido. */
+/** Background session name: "Habblaud: " + start of the request's 1st line. */
 export function sessionName(prompt: string): string {
   const line = prompt.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
   const cut = line.length > NAME_MAX ? `${line.slice(0, NAME_MAX - 1)}…` : line;
   return cut ? `Habblaud: ${cut}` : 'Habblaud';
 }
 
-/** Argumentos do `claude`: o pedido depois de `--` (um pedido "doctor" ou "-x" continua sendo pedido). */
+/** `claude` arguments: the request after `--` (a "doctor" or "-x" request is still a request). */
 export function cliArgs(req: SpawnRequest): string[] {
   const args = ['--bg', '-n', sessionName(req.prompt)];
   return req.prompt.trim() ? [...args, '--', req.prompt] : args;
 }
 
-/** `claude --bg` na pasta do pedido; devolve o id curto que ele imprime ("backgrounded · 7eacc670 · nome"). */
+/** `claude --bg` in the request's folder; returns the short id it prints ("backgrounded · 7eacc670 · name"). */
 export function createCliRunner(bin: string, timeoutMs = CLI_TIMEOUT_MS): CliRunner {
   return (req) =>
     new Promise((ok) => {
@@ -115,14 +115,14 @@ export function createCliRunner(bin: string, timeoutMs = CLI_TIMEOUT_MS): CliRun
     });
 }
 
-/** Frase para a tela quando o `claude --bg` não rodou. */
+/** Sentence for the screen when `claude --bg` didn't run. */
 export function cliNote(error: string): string {
   return /not trusted/i.test(error)
     ? tr('the folder isn\'t trusted by Claude Code yet: run `claude` in it once on the computer and accept the warning')
     : error;
 }
 
-/** Roda em segundo plano; se não der, abre a tela do app preenchida (e diz por quê). */
+/** Runs in the background; if that fails, opens the pre-filled app screen (and says why). */
 export async function launch(req: SpawnRequest, open: Opener, cli?: CliRunner): Promise<LaunchResult> {
   let note: string | undefined;
   if (cli) {
@@ -135,7 +135,7 @@ export async function launch(req: SpawnRequest, open: Opener, cli?: CliRunner): 
   return note ? { ok: true, how: 'app', note } : { ok: true, how: 'app' };
 }
 
-/** A pasta existe neste computador (o auxiliar confere antes de abrir; o Docker não enxerga as pastas do host). */
+/** The folder exists on this computer (the helper checks before opening; Docker can't see the host folders). */
 export function folderProblem(folder: string, stat: (p: string) => { isDirectory(): boolean } = statSync): string | undefined {
   try {
     return stat(folder).isDirectory() ? undefined : tr('not a folder');
@@ -144,7 +144,7 @@ export function folderProblem(folder: string, stat: (p: string) => { isDirectory
   }
 }
 
-/** `open`/`xdg-open`/`start` sem shell. */
+/** `open`/`xdg-open`/`start` without a shell. */
 export function createOpener(platform: NodeJS.Platform = process.platform, timeoutMs = OPEN_TIMEOUT_MS): Opener {
   const [bin, pre] = platform === 'darwin' ? ['open', []] : platform === 'win32' ? ['cmd', ['/c', 'start', '""']] : ['xdg-open', []];
   return (url) =>
@@ -164,22 +164,22 @@ interface Entry {
   at: number;
 }
 
-/** Um pedido para o auxiliar do host, com os anexos em base64. */
+/** A request for the host helper, with the attachments in base64. */
 export interface PolledSpawn extends SpawnRequest {
   id: string;
   files: Array<{ name: string; type: string; data: string }>;
 }
 
 export interface SpawnServiceOptions {
-  /** Modo Node: abre aqui mesmo. Ausente (Docker): fica na fila para o auxiliar do host. */
+  /** Node mode: opens right here. Absent (Docker): stays queued for the host helper. */
   opener?: Opener;
-  /** Modo Node: roda em segundo plano antes de cair no app (ausente = só o app). */
+  /** Node mode: runs in the background before falling back to the app (absent = app only). */
   cli?: CliRunner;
-  /** Confere a pasta antes de abrir no modo direto (padrão: statSync). */
+  /** Checks the folder before opening in direct mode (default: statSync). */
   folderProblem?: (folder: string) => string | undefined;
-  /** Anexos enviados antes do pedido (POST /api/spawn/attachments); ausente = pedidos sem anexos. */
+  /** Attachments sent before the request (POST /api/spawn/attachments); absent = requests without attachments. */
   attachments?: AttachmentStore;
-  /** Modo direto: grava os anexos e devolve os caminhos (padrão: ~/.habblaud/attachments/). */
+  /** Direct mode: writes the attachments and returns the paths (default: ~/.habblaud/attachments/). */
   writeFiles?: (spawnId: string, files: readonly Attachment[]) => string[];
   now?: () => number;
   newId?: () => string;
@@ -196,7 +196,7 @@ export class SpawnService {
     this.now = opts.now ?? Date.now;
   }
 
-  /** Dá para abrir agora: modo direto, ou o auxiliar do host passou há pouco. */
+  /** Can open now: direct mode, or the host helper polled recently. */
   available(): boolean {
     return !!this.opts.opener || this.now() - this.hostSeenAt <= HOST_PRESENCE_MS;
   }
@@ -236,7 +236,7 @@ export class SpawnService {
     return e && { ...e.info };
   }
 
-  /** Rodada do auxiliar: marca presença e entrega os pedidos na fila (ele monta o link: não abre um vindo de fora). */
+  /** Helper poll: marks presence and hands over the queued requests (it builds the link: never opens one from outside). */
   poll(): PolledSpawn[] {
     this.hostSeenAt = this.now();
     this.prune();
@@ -284,7 +284,7 @@ export class SpawnService {
     this.resolve(e, await launch(req, opener, this.opts.cli));
   }
 
-  /** Os anexos do pedido saem da memória (e do teto do AttachmentStore). */
+  /** The request's attachments leave memory (and the AttachmentStore cap). */
   private dropFiles(e: Entry): void {
     this.opts.attachments?.release(e.files.reduce((n, f) => n + f.data.length, 0));
     e.files = [];

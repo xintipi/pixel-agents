@@ -1,4 +1,4 @@
-// Eventos do GitHub: textos (avisos/atividades/faixas) e ciclo de vida dos efeitos das salas.
+// GitHub events: texts (notices/activities/banners) and lifecycle of the room effects.
 import { describe, expect, it } from 'vitest';
 import { ALARM_MS, bannerOf, describeGitHubEvent, GITHUB_TOOL, PARTY_MS, RoomEffects } from './github';
 
@@ -18,7 +18,7 @@ describe('textos', () => {
   it('atividade com o marcador, curta e mascarada; CI vermelho com error', () => {
     const a = describeGitHubEvent({ kind: 'ci_failed', branch: 'main', workflow: 'build-test' }, 'A', 'b').activity;
     expect(a).toMatchObject({ kind: 'git', icon: '🚨', text: 'CI failed: build-test', tool: GITHUB_TOOL, error: true });
-    // workflow genérico ("CI") não diz nada: vale a branch
+    // generic workflow ("CI") says nothing: the branch counts
     expect(describeGitHubEvent({ kind: 'ci_failed', branch: 'feat/x', workflow: 'CI' }, 'A', 'b').activity.text).toBe('CI failed: feat/x');
     expect(describeGitHubEvent({ kind: 'ci_passed', number: 3 }, 'A', 'b').activity.text).toBe('CI passed: PR #3');
     const long = describeGitHubEvent({ kind: 'push', branch: `feat/${'x'.repeat(80)}` }, 'A', 'b').activity;
@@ -51,7 +51,7 @@ describe('efeitos das salas', () => {
     const fx = new RoomEffects();
     fx.apply('/r', { kind: 'ci_failed', branch: 'main' }, T0, 'ag1');
     expect(fx.get('/r', T0 + 60_000)).toMatchObject({ kind: 'alarm', text: 'CI failed (main)', agentId: 'ag1' });
-    // CI verde em outra sala não apaga
+    // green CI in another room doesn't clear it
     expect(fx.apply('/outra', { kind: 'ci_passed' }, T0 + 1_000)).toBe(false);
     expect(fx.get('/r', T0 + 2_000)?.kind).toBe('alarm');
     expect(fx.apply('/r', { kind: 'ci_passed', branch: 'main' }, T0 + 5_000, 'ag2')).toBe(true);

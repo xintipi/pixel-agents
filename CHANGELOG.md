@@ -12,6 +12,36 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Robô aspirador.** Um robozinho passeia limpando o prédio, com a luz verde; com pouca bateria (luz laranja
+  piscando) volta para a base no lounge e carrega (luz azul). De vez em quando o gato sobe nele enquanto carrega e
+  sai de carona.
+- **Festa da pizza.** Quando a árvore do trabalho sobe de estágio, o entregador sai do elevador, deixa as caixas
+  na mesa da copa e vai embora; quem está à toa vai comer uma fatia e o cachorro senta perto pedindo.
+- **Aquário.** No lugar da palmeira do lounge, um aquário com peixinhos e bolhas; um clique joga comida e os peixes
+  sobem para pegar. O gato às vezes fica sentado olhando.
+- **Virada de ano.** Nos últimos 5 minutos de 31/12 (e da véspera do Tết) aparece a contagem regressiva no céu; à
+  meia-noite, festa em todas as salas, todo mundo comemorando e fogos de artifício lá fora por 10 minutos, com som
+  (o assobio subindo, o estouro e o crepitar, de cada lado conforme o fogo na tela; com os sons do escritório ligados).
+- **Cochilo com consequência.** Quem cochila na mesa ronca cada vez mais alto (mais "zzz"); depois de uns minutos,
+  um colega à toa vai até lá dar um toque no ombro, ou o cachorro vai dar uma lambida, e a pessoa acorda e se
+  espreguiça.
+- **Disco secreta.** Shift + D (ou digitar `disco`) no escritório, fora de um campo de texto, apaga as luzes e liga a boate por
+  30 s: globo espelhado no teto de cada sala, fachos coloridos no chão, todo mundo dançando na mesa, os bichos
+  rebolando e uma trilha de discoteca sintetizada no navegador (toca mesmo com os sons do escritório desligados, no
+  volume mestre). De novo, desliga.
+- **Bichos mais levados.** O cachorro de vez em quando corre atrás do gato (que foge correndo); o gato cochila em
+  sofás, poltronas e puffs (o lugar fica reservado para ele). Shift + clique no chão joga uma bola: o cachorro vai
+  buscar e traz de volta na boca.
+- **Corgi e gato britânico de pelo longo.** Os bichos foram redesenhados: um corgi caramelo e branco e um britânico
+  cinza-azulado de olhos cor de cobre, agora de frente e de costas quando andam na vertical e com passada de 4
+  quadros.
+- **Almoço e trà sữa.** Das 11:45 às 13:15 quem está à toa vai comer um phở na copa ou num sofá; das 14:30 às 16:00,
+  pega um trà sữa (chá com leite e bolinhas de tapioca) e senta para tomar.
+- **Tempo lá fora.** Um tempo por dia, sorteado pela data: sol (com passarinhos cruzando o céu), chuva (gotas,
+  respingos e os vidros molhados), vento (folhas voando) ou, no inverno (dezembro a fevereiro), neve (flocos
+  balançando, o chão branco e neve no parapeito das janelas). Só do lado de fora do prédio.
+- **Árvore do trabalho.** O vaso de ficus da recepção vira uma árvore que cresce com as tarefas concluídas na semana:
+  broto, muda, arvoreta, árvore e, com 60 tarefas, florida e com frutinhas. Recomeça toda segunda-feira.
 - **Cachorro e gato no escritório.** Um cachorro caramelo e um gato laranja rajado andam pelo prédio por conta
   própria: o gato cochila muito e gosta de deitar perto de quem está parado na mesa (e dorme junto de quem cochila);
   o cachorro passeia, às vezes corre, e vai correndo comemorar com quem acabou de entregar um pedido. Um clique num

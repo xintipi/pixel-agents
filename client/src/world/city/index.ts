@@ -1,15 +1,17 @@
-// Cena da cidade do Habblaud World: liga o stream (net/world-stream.ts: o do servidor local ou a cidade falsa do modo
-// demonstração), o estado, o meu jogador, a câmera, o desenho, a entrada, os cartões e o minimapa. Montada por app.ts
-// quando o botão Mundo abre a cena; o stream só existe com a cena na tela (abre ao mostrar, fecha ao esconder).
-// O social leve (Fase 5: like, cumprimentos, bater na porta, perfil, "Ir para", a praça e as fachadas) fica em
-// social.ts, ligado por poucos ganchos (mensagens, snapshot, quadro, desenho, cartões e teclas).
-// O meu personagem só entra na rua com a posição que o servidor validou (`pos` do snapshot ou da mensagem): nenhum
-// `move` sai de um lugar adivinhado. Ausente (`afk`), ele fica parado onde está; parado em cima de um banco, senta.
-// Visita (Fase 4): a até ENTER_RADIUS tiles da porta de um prédio, "Entrar (E)" manda o `enter`; o `building` que
-// chega abre a cena Visita (world/visit/) por cima, com a cidade parada (sem desenho, teclado nem `move`) e o stream
-// aberto; o `pos` que vem depois é a volta à rua, na porta. Recusas (`notice`) viram aviso na tela.
-// De volta à cidade na mesma página (resume.ts): a câmera e o zoom de quando fechou, a cidade de antes na tela até o
-// snapshot novo, e o `pos` inicial igual ao último não mexe em nada (outro lugar: direto, sem animar).
+// Habblaud World city scene: wires up the stream (net/world-stream.ts: the local server's or demo mode's fake
+// city), the state, my player, the camera, drawing, input, cards and the minimap. Mounted by app.ts
+// when the World button opens the scene; the stream only exists with the scene on screen (opens on show, closes on hide).
+// The light social features (Phase 5: like, greetings, knocking on doors, profile, "Go to", the square and the
+// facades) live in social.ts, wired through a few hooks (messages, snapshot, frame, drawing, cards and keys).
+// My character only enters the street at the position the server validated (`pos` from the snapshot or the message):
+// no `move` leaves from a guessed place. Away (`afk`), it stays where it is; standing on a bench, it sits.
+// Visit (Phase 4): within ENTER_RADIUS tiles of a building's door, "Enter (E)" sends `enter`; the `building` that
+// arrives opens the Visit scene (world/visit/) on top, with the city paused (no drawing, keyboard or `move`) and the
+// stream open; the `pos` that comes after is the return to the street, at the door. Rejections (`notice`) become
+// on-screen notices.
+// Back in the city on the same page (resume.ts): the camera and zoom from when it closed, the previous city on screen
+// until the new snapshot, and an initial `pos` equal to the last one changes nothing (another place: directly, no
+// animation).
 import * as artModule from '../../art';
 import type { ArtModule } from '../../art/api';
 import { TILE } from '../../art/api';
@@ -38,19 +40,19 @@ import { CityState, type CityEffect } from './state';
 
 const art: ArtModule = artModule;
 
-/** Zoom mínimo da cidade: ~200 lotes numa tela de 1400 × 900. */
+/** Minimum city zoom: ~200 lots on a 1400 × 900 screen. */
 export const CITY_MIN_ZOOM = 0.28;
-/** Zooms extras abaixo de 1 (a câmera do escritório só tem os inteiros por pixel do aparelho). */
+/** Extra zooms below 1 (the office camera only has integers per device pixel). */
 const LOW_LEVELS = [0.375, 0.5, 0.75];
-/** A aba em segundo plano repete a posição a cada isto (ms). */
+/** The background tab repeats the position every this many ms. */
 const KEEPALIVE_MS = 30_000;
 /**
- * "Entrar (E)" a até isto (tiles) da frente da porta (`lotDoor(lot).front`), a mesma conta do servidor do mundo (que dá
- * 1 tile de folga). TODO: usar `ENTER_RADIUS`/`doorDistance` de shared/world/city.ts quando o servidor publicar (o
- * arquivo tem hash no servidor).
+ * "Enter (E)" within this many tiles of the front of the door (`lotDoor(lot).front`), the same calculation as the
+ * world server (which gives 1 tile of slack). TODO: use `ENTER_RADIUS`/`doorDistance` from shared/world/city.ts when
+ * the server publishes it (the file is hashed on the server).
  */
 export const ENTER_RADIUS = 2;
-/** Um aviso até isto depois de um `enter` é a resposta da porta (fechado, cheio, longe...). */
+/** A notice within this long after an `enter` is the door's answer (closed, full, too far...). */
 const DOOR_NOTICE_MS = 5_000;
 
 class CityCamera extends Camera {
@@ -64,15 +66,15 @@ class CityCamera extends Camera {
 
 export interface CitySceneOptions {
   canvas: HTMLCanvasElement;
-  /** Onde entram o cartão, o minimapa, as dicas e os avisos (o #ui, com os estilos da interface). */
+  /** Where the card, minimap, hints and notices go (#ui, with the UI styles). */
   uiRoot: HTMLElement;
-  /** Abre o stream (net/world-stream.ts: o do servidor local ou o falso). Chamado a cada vez que a cena aparece. */
+  /** Opens the stream (net/world-stream.ts: the local server's or the fake one). Called every time the scene appears. */
   openStream: () => WorldStream;
-  /** As opções do escritório (dia/noite, nomes). */
+  /** The office options (day/night, names). */
   options: () => WorldOptions;
-  /** Margem coberta pela barra do topo (px CSS). */
+  /** Margin covered by the top bar (CSS px). */
   topInset: () => number;
-  /** Versão do Habblaud (o escritório da visita leva em `meta.version`). */
+  /** Habblaud version (the visit office carries it in `meta.version`). */
   version?: () => string;
 }
 
@@ -81,32 +83,32 @@ export interface CityScene {
   show(): void;
   hide(): void;
   zoomBy(factor: number): void;
-  /** Câmera de volta no jogador. */
+  /** Camera back on the player. */
   recenter(): void;
-  /** Câmera parada num ponto (tiles), sem seguir o jogador até ele andar (capturas, depuração). */
+  /** Camera fixed at a point (tiles), not following the player until they walk (screenshots, debugging). */
   lookAt(x: number, y: number, zoom?: number): void;
-  /** Esc: fecha o cartão aberto (true) ou não havia nada para fechar (false). */
+  /** Esc: closes the open card (true) or there was nothing to close (false). */
   escape(): boolean;
   destroy(): void;
-  /** Medição (depuração e o script de desempenho). */
+  /** Measurement (debugging and the performance script). */
   perf(): { frames: number; drawAvgMs: number; drawP95Ms: number; drawMaxMs: number; fps: number; buildings: number; zoom: number };
-  /** Zera a medição (para medir só o regime, sem o quadro que gera os sprites). */
+  /** Resets the measurement (to measure only the steady state, without the frame that generates the sprites). */
   perfReset(): void;
   readonly camera: Camera;
   readonly state: CityState;
-  /** Meu jogador (depuração e testes no navegador). */
+  /** My player (debugging and in-browser tests). */
   me(): { x: number; y: number; moving: boolean; seated: boolean } | null;
-  /** Ponto da tela (px CSS do canvas) de uma posição em tiles. */
+  /** Screen point (canvas CSS px) for a position in tiles. */
   toScreen(x: number, y: number): { x: number; y: number };
-  /** Entra no prédio (`enter`): da porta (a até ENTER_RADIUS tiles) ou, o meu, de qualquer lugar. */
+  /** Enters the building (`enter`): from the door (within ENTER_RADIUS tiles) or, mine, from anywhere. */
   enter(buildingId: string): void;
-  /** "Ver como os outros veem": entra no meu prédio assim que a cidade estiver pronta. */
+  /** "See how others see it": enters my building as soon as the city is ready. */
   visitOwn(): void;
-  /** A cena Visita aberta agora (null na rua). */
+  /** The Visit scene open now (null on the street). */
   visit(): VisitScene | null;
-  /** A frente da porta de um prédio da cidade (tiles), ou null (depuração e capturas). */
+  /** The front of a city building's door (tiles), or null (debugging and screenshots). */
   doorOf(buildingId: string): { x: number; y: number } | null;
-  /** Anda até (x, y) tiles pelo A*, como um clique no chão (depuração e capturas). */
+  /** Walks to (x, y) tiles via A*, like a click on the ground (debugging and screenshots). */
   walkTo(x: number, y: number): boolean;
 }
 
@@ -125,27 +127,27 @@ export function createCityScene(o: CitySceneOptions): CityScene {
   let lastTs = 0;
   let mouse: { x: number; y: number } | null = null;
   let keepAlive: ReturnType<typeof setInterval> | null = null;
-  /** O chunk em que estou (ao trocar, os chunks fora dos 3×3 saem do estado). */
+  /** The chunk I am in (on change, chunks outside the 3×3 leave the state). */
   let myChunk = '';
-  /** Dentro de um prédio: a cena Visita (a cidade fica parada por baixo, com o stream aberto). */
+  /** Inside a building: the Visit scene (the city stays paused underneath, with the stream open). */
   let visit: VisitScene | null = null;
-  /** Ao esconder: a câmera, o zoom e onde eu estava, para a cidade voltar igual (resume.ts). */
+  /** On hide: the camera, zoom and where I was, so the city comes back the same (resume.ts). */
   let resume: CityResume | null = null;
-  /** Reaberta com o personagem na rua: a cidade de antes fica na tela, parada, até o snapshot do stream novo. */
+  /** Reopened with the character on the street: the previous city stays on screen, paused, until the new stream's snapshot. */
   let resuming = false;
-  /** O snapshot da volta veio sem `pos`: o primeiro `pos` decide (o mesmo lugar ou direto para o novo). */
+  /** The snapshot on return came without `pos`: the first `pos` decides (the same place or straight to the new one). */
   let resumeAwaitingPos = false;
-  /** O último "Enquanto você estava fora" do stream (os carimbos vão para o quadro da recepção do meu prédio). */
+  /** The stream's last "While you were away" (the stamps go to the reception board of my building). */
   let awaySummary: AwaySummary | undefined;
-  /** O último `enter` mandado (os avisos logo depois são da porta). */
+  /** The last `enter` sent (notices right after are from the door). */
   let entering: { id: string; at: number } | null = null;
-  /** "Ver como os outros veem" pedido antes de a cidade estar pronta. */
+  /** "See how others see it" requested before the city was ready. */
   let pendingOwn = false;
   const finder = new PathFinder(buildWalkGrid({ x: 0, y: 0, w: 4, h: 4 }).grid);
   const frameMs: number[] = [];
   const rafGaps: number[] = [];
 
-  // ------------------------------------------------------------------ DOM: cartão, minimapa, dicas, avisos
+  // ------------------------------------------------------------------ DOM: card, minimap, hints, notices
 
   let social: CitySocial | null = null;
   const cards = new CityCards({
@@ -184,7 +186,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     toast: (text) => showToast(text),
     active: () => visible,
     teleported: () => {
-      // o teletransporte: a câmera vai junto (sem atravessar a cidade) e os chunks em volta se atualizam
+      // the teleport: the camera goes along (without crossing the city) and the surrounding chunks update
       if (!me) return;
       following = true;
       camera.stop();
@@ -212,7 +214,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     toastTimer = setTimeout(() => (toast.hidden = true), 2600);
   };
 
-  // ------------------------------------------------------------------ tamanho
+  // ------------------------------------------------------------------ size
 
   const resize = () => {
     const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
@@ -228,9 +230,9 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     camera.insets = { top: o.topInset(), right: 0, bottom: 0, left: 0 };
   };
 
-  // ------------------------------------------------------------------ meu jogador
+  // ------------------------------------------------------------------ my player
 
-  /** Põe o meu personagem na rua, na posição que o servidor validou (sem ela, espera o `pos`). */
+  /** Puts my character on the street, at the position the server validated (without it, waits for `pos`). */
   const placeMe = () => {
     const self = state.me;
     let p = state.startPos;
@@ -251,7 +253,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     loading.hidden = true;
   };
 
-  /** A câmera direto em mim (sem animar), com o zoom de agora. */
+  /** The camera straight on me (no animation), with the current zoom. */
   const snapCamera = () => {
     if (!me) return;
     following = true;
@@ -261,29 +263,29 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     camera.y = c.y;
   };
 
-  /** O primeiro snapshot depois de reabrir a cena: o `pos` igual ao último deixa tudo como estava. */
+  /** The first snapshot after reopening the scene: a `pos` equal to the last one leaves everything as it was. */
   const resumeFromSnapshot = () => {
     resuming = false;
     const pos = state.startPos;
     if (!pos) {
-      // o `pos` vem depois (o servidor local ainda não tinha): ele decide
+      // the `pos` comes later (the local server did not have it yet): it decides
       resumeAwaitingPos = true;
       return;
     }
     const how = resumePlacement(resume, pos);
     resume = null;
     if (how === 'keep') {
-      // nem o personagem nem a câmera mudam
+      // neither the character nor the camera change
       state.startPos = null;
       sender?.reset();
       return;
     }
-    // outro lugar (ou nada guardado): placeMe põe o personagem direto lá, com a câmera junto e o mesmo zoom
+    // another place (or nothing saved): placeMe puts the character straight there, with the camera along and the same zoom
     me = null;
     sender = null;
   };
 
-  /** Caminho do A* da minha posição até (x, y) tiles. */
+  /** A* path from my position to (x, y) tiles. */
   const walkTo = (x: number, y: number, run: boolean): boolean => {
     if (!me) return false;
     let goal = { x, y };
@@ -324,10 +326,10 @@ export function createCityScene(o: CitySceneOptions): CityScene {
         visit?.patch(eff.msg);
         break;
       case 'pos':
-        // dentro de um prédio, `pos` é a calçada em frente à porta: de volta à rua
+        // inside a building, `pos` is the sidewalk in front of the door: back to the street
         if (visit) endVisit();
         if (me && resumeAwaitingPos) {
-          // de volta à cidade, o primeiro `pos`: o mesmo lugar não mexe em nada; outro, personagem e câmera direto
+          // back in the city, the first `pos`: the same place changes nothing; another one, character and camera go straight there
           resumeAwaitingPos = false;
           const how = resumePlacement(resume, eff);
           resume = null;
@@ -340,15 +342,15 @@ export function createCityScene(o: CitySceneOptions): CityScene {
           me.correct(eff.x, eff.y);
           sender?.reset();
         } else {
-          // o nascimento (o servidor decide onde, no primeiro `view`)
+          // the spawn (the server decides where, on the first `view`)
           state.startPos = { x: eff.x, y: eff.y };
           placeMe();
           enterOwnIfPending();
         }
         break;
       case 'afk':
-        // Ausente: fica parado onde está (andar sozinho até um banco mandaria `move` e adiaria a saída da rua). Parado
-        // em cima de um banco, a cena desenha sentado, como os outros.
+        // Away: stays where it is (walking alone to a bench would send `move` and delay leaving the street). Standing
+        // on a bench, the scene draws it seated, like the others.
         break;
       case 'profile':
         if (cards.kind === 'player' && cards.id === eff.player.id) {
@@ -367,7 +369,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     }
   };
 
-  // ------------------------------------------------------------------ visita (Fase 4)
+  // ------------------------------------------------------------------ visit (Phase 4)
 
   const enter = (id: string) => {
     if (visit || !stream || !me) {
@@ -378,14 +380,14 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     stream.send([{ t: 'enter', buildingId: id }]);
   };
 
-  /** "Ver como os outros veem" pedido com a cidade ainda abrindo: entra assim que eu estiver na rua (com o `pos`). */
+  /** "See how others see it" requested with the city still opening: enters as soon as I am on the street (with `pos`). */
   const enterOwnIfPending = () => {
     if (!pendingOwn || !me || !state.connected || !state.myBuildingId) return;
     pendingOwn = false;
     enter(state.myBuildingId);
   };
 
-  /** O `building` chegou: a cena Visita abre (ou, já dentro do mesmo prédio, troca o interior inteiro). */
+  /** The `building` arrived: the Visit scene opens (or, already inside the same building, swaps the whole interior). */
   const startVisit = (inside: WorldSceneInside) => {
     entering = null;
     if (visit && visit.id === inside.id) {
@@ -413,7 +415,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       send: (cmds) => s?.send(cmds),
       toast: (text) => showToast(text),
       summaryStamps: () => awaySummary?.stamps ?? [],
-      // sem resposta ao `leave`: recomeça a cidade (o servidor local manda `view`, que o mundo entende como a volta)
+      // no response to `leave`: restart the city (the local server sends `view`, which the world takes as the return)
       stuck: () => {
         endVisit();
         stream?.send([{ t: 'view' }]);
@@ -421,7 +423,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     });
   };
 
-  /** De volta à rua: a cena Visita sai e a cidade volta a desenhar, com a câmera em mim. */
+  /** Back on the street: the Visit scene leaves and the city draws again, with the camera on me. */
   const endVisit = () => {
     if (!visit) return;
     const v = visit;
@@ -449,19 +451,19 @@ export function createCityScene(o: CitySceneOptions): CityScene {
         if (resuming) resumeFromSnapshot();
         placeMe();
         if (me) myChunk = '';
-        // um stream novo no meio da visita continua dentro; sem o interior, estou na rua
+        // a new stream in the middle of the visit stays inside; without the interior, I am on the street
         if (state.inside) startVisit(state.inside);
         else if (visit) endVisit();
         enterOwnIfPending();
-        // sem conexão com o servidor do mundo, nada desce: diz isso em vez de "Entrando na cidade…"
+        // with no connection to the world server, nothing comes down: say so instead of "Entering the city…"
         loading.textContent = state.connected ? tr('Entering the city…') : offline();
         loading.hidden = state.connected && !!me;
         return;
       }
       case 'message': {
-        // dentro de um prédio, a visita responde primeiro aos avisos do like e do carimbo de lá
+        // inside a building, the visit answers first to the like and stamp notices from there
         if (visit?.message(ev.msg)) return;
-        // o social vê a mensagem antes do estado (o valor de antes) e responde aos avisos dos comandos dele
+        // the social layer sees the message before the state (the previous value) and answers the notices of its own commands
         if (social?.message(ev.msg, performance.now())) return;
         if (ev.msg.t === 'away.summary') awaySummary = parseAwaySummary(ev.msg) ?? awaySummary;
         const eff = state.apply(ev.msg, performance.now());
@@ -469,14 +471,14 @@ export function createCityScene(o: CitySceneOptions): CityScene {
         return;
       }
       case 'status':
-        // o SSE com o servidor local caiu: o navegador reabre e um snapshot novo troca tudo
+        // the SSE with the local server dropped: the browser reopens it and a new snapshot replaces everything
         if (ev.status === 'retrying') {
           loading.textContent = offline();
           loading.hidden = false;
         }
         return;
       case 'error':
-        // comando recusado pelo servidor local; sem conexão com o mundo, o aviso fica até o snapshot da volta
+        // command rejected by the local server; with no connection to the world, the notice stays until the return snapshot
         if (ev.code === 'not_connected') {
           loading.textContent = offline();
           loading.hidden = false;
@@ -486,7 +488,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
   };
 
   const openStream = () => {
-    // de volta na mesma página com o personagem na rua: a cidade de antes continua na tela até o snapshot (sem piscar)
+    // back on the same page with the character on the street: the previous city stays on screen until the snapshot (no flicker)
     resuming = !!(resume?.me && me);
     resumeAwaitingPos = false;
     if (!resuming) {
@@ -590,7 +592,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
   };
 
   const input = new CityInput(o.canvas, camera, {
-    // dentro de um prédio, o teclado é da cena Visita
+    // inside a building, the keyboard belongs to the Visit scene
     active: () => visible && !visit,
     hover: (sx, sy, inside) => {
       mouse = inside ? { x: sx, y: sy } : null;
@@ -625,7 +627,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     camera.animateTo(c.x, c.y, camera.zoom, Date.now(), 360);
   };
 
-  // ------------------------------------------------------------------ laço
+  // ------------------------------------------------------------------ loop
 
   const loop = (ts: number) => {
     raf = requestAnimationFrame(loop);
@@ -642,7 +644,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       if (me && self && !resuming) {
         me.update(dt, input.intent());
         sender?.tick(now, me);
-        // o servidor não avisa quando deixa de assinar: ao trocar de chunk, saem os prédios fora dos 3×3
+        // the server does not say when it stops subscribing: on changing chunk, buildings outside the 3×3 leave
         const c = chunkOf(blockAt(me.x, me.y));
         const key = `${c.x},${c.y}`;
         if (key !== myChunk) {
@@ -663,7 +665,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       frameMs.push(renderer.lastFrameMs);
       if (frameMs.length > 240) frameMs.shift();
       updateHover();
-      // o cartão do prédio acompanha mudanças (likes, estado); some se o prédio sumiu
+      // the building card follows changes (likes, state); it goes away if the building disappeared
       if (cards.kind === 'building' && cards.id && !state.buildings.has(cards.id)) cards.hide();
       if (cards.kind === 'player' && cards.id && !state.players.has(cards.id)) cards.hide();
       if (me) {
@@ -679,7 +681,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
   const onVisibility = () => {
     lastTs = 0;
     input.clearKeys();
-    // de volta à aba: o próximo tick reenvia a posição, mesmo que algo tenha ficado preso enquanto ela estava escondida
+    // back on the tab: the next tick resends the position, even if something got stuck while it was hidden
     if (!document.hidden) sender?.reset();
   };
 
@@ -696,7 +698,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       layer.hidden = false;
       resize();
       if (resume) {
-        // a câmera e o zoom de quando a cena fechou (resume.ts)
+        // the camera and zoom from when the scene closed (resume.ts)
         camera.stop();
         camera.zoom = resume.zoom;
         camera.x = resume.camX;
@@ -709,16 +711,16 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       window.addEventListener('resize', resize);
       document.addEventListener('visibilitychange', onVisibility);
       keepAlive = setInterval(() => {
-        // dentro de um prédio, nenhum passo sai (lá dentro o servidor ignora e o tempo não conta para o afk)
+        // inside a building, no step goes out (inside, the server ignores it and the time does not count toward afk)
         if (document.hidden && me && sender && !visit) sender.keepAlive(me);
       }, KEEPALIVE_MS);
     },
     hide() {
       if (!visible) return;
-      // a cidade fechou: a visita vai junto (o stream fecha e o servidor local manda `view.off`)
+      // the city closed: the visit goes with it (the stream closes and the local server sends `view.off`)
       if (visit) endVisit();
       pendingOwn = false;
-      // para voltar igual: a câmera, o zoom e onde eu estava
+      // to come back the same: the camera, the zoom and where I was
       resume = { camX: camera.x, camY: camera.y, zoom: camera.zoom, following, me: me ? { x: me.x, y: me.y } : null };
       visible = false;
       cancelAnimationFrame(raf);
@@ -748,7 +750,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       camera.y = c.y;
     },
     escape() {
-      // dentro de um prédio, o Esc é da visita (fecha o cartão ou sai)
+      // inside a building, Esc belongs to the visit (closes the card or leaves)
       if (visit) return visit.escape();
       if (social?.escape()) return true;
       if (cards.open) {

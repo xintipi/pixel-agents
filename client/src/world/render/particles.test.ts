@@ -1,4 +1,4 @@
-// Partículas: pool fixo (sem crescer), vida útil e física básica.
+// Particles: fixed pool (doesn't grow), lifetime and basic physics.
 import { describe, expect, it } from 'vitest';
 import { Particles } from './particles';
 

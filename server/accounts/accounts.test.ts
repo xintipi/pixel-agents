@@ -9,7 +9,7 @@ import { rollover, STALE_AFTER_MS, usageFromCache, usageFromWindows, UsageStore 
 
 setQuiet(true);
 
-// Raiz absoluta também no Windows (lá o resolve põe a letra do drive).
+// Absolute root on Windows too (there resolve adds the drive letter).
 const H = resolve('/Users/fulano');
 
 describe('aliases de shell', () => {
@@ -75,13 +75,13 @@ describe('detecção de contas', () => {
   });
 
   it('pasta do Codex (CODEX_HOME) não vira conta do Claude Code, por nenhum caminho', () => {
-    // Um CODEX_HOME sintético: sessions/AAAA/MM/DD (rollouts), locks, config.toml e auth.json (nunca abertos).
+    // A synthetic CODEX_HOME: sessions/YYYY/MM/DD (rollouts), locks, config.toml and auth.json (never opened).
     const codex = join(home, '.codex');
     mkdirSync(join(codex, 'sessions', '2026', '10', '09'), { recursive: true });
     mkdirSync(join(codex, 'thread-writer-locks'), { recursive: true });
     writeFileSync(join(codex, 'config.toml'), 'model = "x"\n');
     writeFileSync(join(codex, 'auth.json'), '{}');
-    // CODEX_HOME com nome que a busca em $HOME pega (.claude*): só com sessions/AAAA/.
+    // CODEX_HOME with a name the $HOME search picks up (.claude*): only with sessions/YYYY/.
     const disfarcado = join(home, '.claude-codex');
     mkdirSync(join(disfarcado, 'sessions', '2026'), { recursive: true });
     for (const marca of ['thread-writer-locks', 'archived_sessions', 'config.toml', 'auth.json', 'sessions/2026']) {
@@ -93,7 +93,7 @@ describe('detecção de contas', () => {
       expect(isCodexHome(p), marca).toBe(true);
       expect(isClaudeDir(p), marca).toBe(false);
     }
-    // Contas do Claude Code continuam valendo: sessions/ vazio ou com <pid>.json, e projects/ sempre vence.
+    // Claude Code accounts still count: sessions/ empty or with <pid>.json, and projects/ always wins.
     writeFileSync(join(home, '.claude-conta2', 'sessions', '123.json'), '{}');
     for (const p of [join(home, '.claude'), join(home, '.claude-conta2')]) expect(isClaudeDir(p)).toBe(true);
     const misto = join(home, '.claude-misto');
@@ -105,7 +105,7 @@ describe('detecção de contas', () => {
 
     expect(discoverClaudeDirs({}, home)).toEqual([join(home, '.claude'), join(home, '.claude-conta2'), misto]);
     expect(codexDirsRefused({}, home)).toEqual([disfarcado]);
-    // CLAUDE_CONFIG_DIR e HABBLAUD_CLAUDE_DIRS apontando para o Codex: fora (o resto da lista segue igual).
+    // CLAUDE_CONFIG_DIR and HABBLAUD_CLAUDE_DIRS pointing to Codex: excluded (the rest of the list stays the same).
     expect(discoverClaudeDirs({ CLAUDE_CONFIG_DIR: codex }, home)).not.toContain(codex);
     expect(codexDirsRefused({ CLAUDE_CONFIG_DIR: codex }, home)).toEqual([disfarcado, codex]);
     expect(discoverClaudeDirs({ HABBLAUD_CLAUDE_DIRS: `~/.claude,~/.codex,/x/a` }, home)).toEqual([join(home, '.claude'), resolve('/x/a')]);
@@ -190,17 +190,17 @@ describe('uso (5h e semanal)', () => {
 
   it('janelas cujo reinício já passou ficam sem dados (nunca um 0% inventado)', () => {
     const u = usageFromWindows(windows, 'cache', NOW)!;
-    // Antes do reinício da semana, mas depois do da sessão de 5h.
+    // Before the weekly reset, but after the 5h session one.
     const r = rollover(u, Date.parse('2026-10-06T15:00:00Z'));
     expect(r.fiveHour).toBeUndefined();
     expect(r.sevenDay).toEqual({ utilization: 15, resetsAt: Date.parse('2026-10-09T23:00:00Z') });
-    // Sem horário de reinício: continua valendo.
+    // No reset time: still valid.
     expect(r.sevenDaySonnet).toEqual({ utilization: 3 });
     const later = rollover(u, Date.parse('2026-10-10T00:00:00Z'));
     expect(later.fiveHour).toBeUndefined();
     expect(later.sevenDay).toBeUndefined();
     expect(later).toMatchObject({ source: 'cache', fetchedAt: NOW });
-    // O original não é alterado.
+    // The original is not modified.
     expect(u.fiveHour?.utilization).toBe(42.5);
   });
 
@@ -226,7 +226,7 @@ describe('uso (5h e semanal)', () => {
       const set = svc.setProviderAccounts('codex', [
         { dir: join(tmp.dir, '.codex'), detected: det('.codex') },
         { dir: join(tmp.dir, 'b', '.codex'), detected: det('.codex') },
-        // Mesmo id de uma conta do Claude Code: desambiguado.
+        // Same id as a Claude Code account: disambiguated.
         { dir: join(tmp.dir, 'c', '.claude'), detected: det('.claude') },
       ]);
       expect(set.map((e) => [e.id, e.provider, e.detected.id, e.detected.provider])).toEqual([
@@ -235,14 +235,14 @@ describe('uso (5h e semanal)', () => {
         ['.claude~2', 'codex', '.claude~2', 'codex'],
       ]);
       expect(changes).toBe(1);
-      // Mesma lista de novo: mesmos ids, sem aviso de mudança.
+      // Same list again: same ids, no change notice.
       expect(svc.setProviderAccounts('codex', set.map((e) => ({ dir: e.dir, detected: det(basename(e.dir)) }))).map((e) => e.id)).toEqual([
         '.codex',
         '.codex~2',
         '.claude~2',
       ]);
       expect(changes).toBe(1);
-      // entries() = só o Claude Code (watcher, histórico e statusline); o resto vê todas.
+      // entries() = Claude Code only (watcher, history and statusline); everything else sees all.
       expect(svc.entries().map((e) => [e.id, e.provider])).toEqual([['.claude', 'claude']]);
       expect(svc.entriesOf('codex').map((e) => e.id)).toEqual(['.codex', '.codex~2', '.claude~2']);
       expect(svc.allEntries().map((e) => e.id)).toEqual(['.claude', '.codex', '.codex~2', '.claude~2']);
@@ -252,7 +252,7 @@ describe('uso (5h e semanal)', () => {
       expect(infos[0]).not.toHaveProperty('provider');
       expect(infos[1]).toMatchObject({ id: '.codex', provider: 'codex', sessions: 2, usageStatus: 'disabled', configDir: '/Users/x/.codex' });
 
-      // Uso empurrado pela fonte (origem 'codex'), com a conta sem cota.
+      // Usage pushed by the source (origin 'codex'), with the account without quota.
       changes = 0;
       expect(svc.setUsage('.codex', { source: 'codex', fetchedAt: NOW - 60_000, fiveHour: { utilization: 12.5, resetsAt: NOW + 3_600_000 } })).toBe(true);
       expect(changes).toBe(1);
@@ -261,7 +261,7 @@ describe('uso (5h e semanal)', () => {
       svc.setUsage('.codex~2', { source: 'codex', fetchedAt: NOW, noQuota: true });
       expect(svc.list(new Map()).find((a) => a.id === '.codex')).toMatchObject({ usageStatus: 'ok', usage: { source: 'codex', fiveHour: { utilization: 12.5 } } });
       expect(svc.list(new Map()).find((a) => a.id === '.codex~2')?.usage).toEqual({ source: 'codex', fetchedAt: NOW, noQuota: true });
-      // Envelhece como as outras origens (o refresh periódico percebe e avisa).
+      // Ages like the other origins (the periodic refresh notices and notifies).
       now = NOW + STALE_AFTER_MS;
       changes = 0;
       svc.refresh();
@@ -270,7 +270,7 @@ describe('uso (5h e semanal)', () => {
       expect(svc.clearUsage('.codex', 'codex')).toBe(true);
       expect(svc.usageView('.codex').status).toBe('disabled');
 
-      // Conta que saiu perde o uso guardado; lista vazia tira a ferramenta.
+      // An account that left loses its stored usage; an empty list removes the tool.
       svc.setProviderAccounts('codex', [{ dir: join(tmp.dir, '.codex'), detected: det('.codex') }]);
       expect(svc.usageView('.codex~2').status).toBe('disabled');
       svc.setProviderAccounts('codex', []);

@@ -9,7 +9,7 @@ const ROOT = join(import.meta.dirname, '..');
 const DIRS = ['client/src', 'shared', 'server', 'scripts'];
 const DICTS: Record<string, Readonly<Record<string, string>>> = { vi: VI };
 
-/** Primeiro argumento literal de cada tr('...') do código (sem os testes). */
+/** First literal argument of each tr('...') in the code (excluding tests). */
 export function collectKeys(root = ROOT): Map<string, string[]> {
   const keys = new Map<string, string[]>();
   const re = /\btr\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g;

@@ -1,6 +1,6 @@
-// O social leve no escritório (Fase 5): o "While you were away" (contagens, carimbos, a frase), as batidas novas
-// sem avisar o que já tinha acontecido, o "❤️ N today" do chip, a leitura do status (bloqueados, resumo, código) e o
-// FakeWorldApi (resumo visto, desbloquear sem conexão, batidas com o opt-in).
+// The light social features in the office (Phase 5): "While you were away" (counts, stamps, the sentence), new knocks
+// without notifying what had already happened, the chip's "❤️ N today", reading the status (blocked, summary, code) and
+// FakeWorldApi (summary seen, unblock offline, knocks with the opt-in).
 import { describe, expect, it } from 'vitest';
 import { FakeWorldApi, FAKE_SUMMARY, parseBuildingMeta, parseWorldStatus } from '../../net/world';
 import { awaySummaryView, dayLabel, likesTodayChip, newKnocks, summaryKey } from './away-summary';

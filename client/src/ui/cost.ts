@@ -1,17 +1,17 @@
-// Custo dos agentes na interface: a moeda em que aparece (dólar, ou real vietnamita pelo câmbio escolhido) e o aviso
-// de quem gasta rápido demais. O valor vem do próprio Claude Code (AgentStats.costUSD, linhas cost-state do
-// transcript); o Codex não grava custo, então os agentes dele ficam de fora. Puro: testável em node.
+// Agent cost in the UI: the currency it shows in (dollar, or Vietnamese dong at the chosen exchange rate) and the alert
+// for whoever spends too fast. The value comes from Claude Code itself (AgentStats.costUSD, cost-state lines of the
+// transcript); Codex does not record cost, so its agents are left out. Pure: testable in node.
 import type { AgentInfo } from '../../../shared/types';
 import { intlLocale, tr } from '../../../shared/i18n';
 
 export type CostCurrency = 'usd' | 'vnd';
-/** Aviso de gasto: desligado ou o valor (US$) gasto em COST_WINDOW_MS que dispara. */
+/** Spending alert: off or the amount (US$) spent within COST_WINDOW_MS that triggers it. */
 export type CostAlert = 'off' | '1' | '2' | '5';
 
-/** Câmbio padrão (VND por US$), só para a conversão aproximada; muda em Configurações › Custo. */
+/** Default exchange rate (VND per US$), only for the approximate conversion; change it in Settings › Cost. */
 export const DEFAULT_VND_RATE = 26_000;
 export const VND_RATE_LIMITS = { min: 1_000, max: 100_000 };
-/** Janela do aviso de gasto. */
+/** Spending alert window. */
 export const COST_WINDOW_MS = 10 * 60_000;
 
 export interface CostDisplay {
@@ -33,7 +33,7 @@ function fmt(currency: 'USD' | 'VND'): Intl.NumberFormat {
   return f;
 }
 
-/** Moeda e câmbio usados por formatCost (a UI chama ao carregar e a cada mudança das preferências). */
+/** Currency and exchange rate used by formatCost (the UI calls it on load and on each preferences change). */
 export function setCostDisplay(d: CostDisplay): void {
   display = { currency: d.currency, vndRate: clampVndRate(d.vndRate) };
 }
@@ -44,7 +44,7 @@ export function clampVndRate(v: unknown): number {
   return Math.round(Math.min(VND_RATE_LIMITS.max, Math.max(VND_RATE_LIMITS.min, n)));
 }
 
-/** Custo em dólares mostrado na moeda escolhida: "US$ 1,23", ou "≈ 32.000 ₫" (conversão pelo câmbio, arredondada). */
+/** Cost in dollars shown in the chosen currency: "US$ 1,23", or "≈ 32.000 ₫" (converted at the rate, rounded). */
 export function formatCost(usd: number, d: CostDisplay = display): string {
   if (d.currency === 'vnd') {
     const vnd = Math.round((usd * clampVndRate(d.vndRate)) / 100) * 100;
@@ -53,21 +53,21 @@ export function formatCost(usd: number, d: CostDisplay = display): string {
   return fmt('USD').format(usd).replace(/[  ]/g, ' ');
 }
 
-/** Valor do aviso em dólares (undefined: desligado). */
+/** Alert amount in dollars (undefined: off). */
 export function costAlertUsd(a: CostAlert): number | undefined {
   return a === 'off' ? undefined : Number(a);
 }
 
 export interface CostBurn {
   agentId: string;
-  /** Gasto (US$) dentro da janela, desde o último aviso deste agente. */
+  /** Spending (US$) within the window, since this agent's last alert. */
   spent: number;
 }
 
 /**
- * Quem gastou `threshold` dólares ou mais nos últimos COST_WINDOW_MS. Cada agente avisa uma vez por estouro: depois
- * do aviso, a conta recomeça do valor daquele momento. O custo que um agente já tinha quando apareceu não conta
- * (abrir a página não avisa de gastos antigos), e um custo que volta para trás (sessão nova no mesmo id) recomeça.
+ * Who spent `threshold` dollars or more in the last COST_WINDOW_MS. Each agent alerts once per overrun: after
+ * the alert, the count restarts from the value at that moment. The cost an agent already had when it appeared does not count
+ * (opening the page does not alert about old spending), and a cost that goes backwards (new session on the same id) restarts.
  */
 export class CostBurnWatch {
   private samples = new Map<string, { at: number; cost: number }[]>();
@@ -85,7 +85,7 @@ export class CostBurnWatch {
         continue;
       }
       if (list[list.length - 1].cost !== cost) list.push({ at: now, cost });
-      // A amostra mais antiga que ainda cobre o começo da janela fica (é a base do gasto na janela).
+      // The oldest sample that still covers the start of the window stays (it is the baseline for spending in the window).
       while (list.length > 1 && list[1].at <= now - COST_WINDOW_MS) list.shift();
       if (threshold === undefined) continue;
       const spent = cost - list[0].cost;
@@ -100,7 +100,7 @@ export class CostBurnWatch {
   }
 }
 
-/** Texto do aviso de gasto. */
+/** Spending alert text. */
 export function costBurnText(name: string, spent: number): string {
   return tr('{0} spent {1} in the last 10 minutes.', [name, formatCost(spent)]);
 }

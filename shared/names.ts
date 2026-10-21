@@ -5,8 +5,8 @@ export interface PersonName {
   look: 'f' | 'm';
 }
 
-// Nomes brasileiros para os personagens. Sem duplicatas e sem variações quase iguais
-// (ex.: Thiago/Tiago), para que cada personagem seja inconfundível no escritório.
+// Brazilian names for the characters. No duplicates and no near-identical variants
+// (e.g. Thiago/Tiago), so each character is unmistakable in the office.
 const F = [
   'Ana', 'Beatriz', 'Camila', 'Daniela', 'Eduarda', 'Fernanda', 'Gabriela', 'Helena', 'Isabela', 'Júlia',
   'Larissa', 'Mariana', 'Natália', 'Olívia', 'Paula', 'Rebeca', 'Sofia', 'Tatiana', 'Valentina', 'Yasmin',
@@ -25,13 +25,13 @@ const M = [
 ];
 
 export const NAME_POOL: readonly PersonName[] = Object.freeze(
-  // Intercala para que nomes vizinhos no pool alternem a dica visual.
+  // Interleaves so neighboring names in the pool alternate the visual hint.
   F.flatMap((f, i) => [{ name: f, look: 'f' as const }, ...(M[i] ? [{ name: M[i], look: 'm' as const }] : [])]),
 );
 
 /**
- * Escolhe um nome determinístico para `id`, evitando os já usados.
- * Se o pool esgotar, acrescenta um sufixo numérico ("Ana 2").
+ * Picks a deterministic name for `id`, avoiding those already used.
+ * If the pool runs out, appends a numeric suffix ("Ana 2").
  */
 export function pickName(id: string, used: ReadonlySet<string>): PersonName {
   const n = NAME_POOL.length;

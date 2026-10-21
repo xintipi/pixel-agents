@@ -29,7 +29,7 @@ describe('conquistas', () => {
     expect(t.state.counts).toMatchObject({ turns: 1, tests: 1, clean: 1 });
     expect(r.unlocks.map((u) => u.id)).toEqual(['first_turn']);
     expect(r.unlocks[0]).toMatchObject({ agentId: 'x', roomId: 'room-x' });
-    // de novo, nada novo
+    // again, nothing new
     expect(t.observe([agent('x', { recent: [...old, act('test')] })], 3000, 12).unlocks).toEqual([]);
   });
 
@@ -84,7 +84,7 @@ describe('conquistas', () => {
     const r = t.observe([agent('x', { tasks: all, recent: [act('done')] })], 10, 12);
     expect(r.finishes).toEqual([{ agentId: 'x', roomId: 'room-x', tasks: 3 }]);
     expect(t.state.counts.tasks).toBe(2);
-    // a mesma lista no pedido seguinte não comemora de novo
+    // the same list on the next request does not celebrate again
     expect(t.observe([agent('x', { tasks: all, recent: [act('done')] })], 20, 12).finishes).toEqual([]);
   });
 

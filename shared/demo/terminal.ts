@@ -1,15 +1,15 @@
-// Terminal dos agentes de demonstração: uma conversa fictícia e determinística montada
-// a partir do título e das atividades do agente simulado (nenhum dado real). Código puro.
+// Terminal of the demo agents: a fake, deterministic conversation built
+// from the simulated agent's title and activities (no real data). Pure code.
 //
-// Cada atividade vira uma ou mais entradas com ids derivados do id da atividade: quando o servidor
-// recalcula a lista com atividades novas, as antigas mantêm os mesmos ids (e só as novas são enviadas).
-// O conteúdo inventado (pensamentos, saídas de comandos, trechos de código) sai de um hash do id e só
-// depende da própria atividade e de dados fixos do agente: o histórico desliza (guarda só as últimas
-// atividades) sem mudar o que já foi mostrado.
+// Each activity becomes one or more entries with ids derived from the activity id: when the server
+// recomputes the list with new activities, the old ones keep the same ids (and only the new ones are sent).
+// The invented content (thoughts, command output, code snippets) comes from a hash of the id and only
+// depends on the activity itself and on fixed agent data: the history slides (keeps only the latest
+// activities) without changing what was already shown.
 //
-// Agentes do Codex ganham a conversa no jeito do Codex: comandos no shell (inclusive para ler e buscar: sed, rg),
-// edições por apply_patch (o patch inteiro, com a resposta "Success. Updated the following files"), update_plan,
-// web_search e spawn_agent.
+// Codex agents get the conversation in Codex style: shell commands (even for reading and searching: sed, rg),
+// edits via apply_patch (the whole patch, with the response "Success. Updated the following files"), update_plan,
+// web_search and spawn_agent.
 import type { Activity, AgentInfo, TerminalEntry } from '../types';
 import { SHELL_DONE_TOOL, SHELL_WAIT_TOOL } from '../activity';
 import { hash32 } from '../hash';
@@ -18,8 +18,8 @@ import { demoPatchText } from './permission';
 import { tr } from '../i18n';
 
 /**
- * O texto da atividade vem de describeTool, no idioma ativo: compara pelo começo do texto em PT ou da
- * tradução (o que vem antes da primeira lacuna), para a demonstração funcionar em qualquer idioma.
+ * The activity text comes from describeTool, in the active language: compares by the start of the PT text or of the
+ * translation (what comes before the first placeholder), so the demo works in any language.
  */
 function startsWithText(text: string, key: string): boolean {
   return text.startsWith(key.split('{0}')[0]) || text.startsWith(tr(key, ['\u0000']).split('\u0000')[0]);
@@ -30,12 +30,12 @@ type ToolEntry = Extract<TerminalEntry, { kind: 'tool' }>;
 interface Ctx {
   agent: AgentInfo;
   history: Activity[];
-  /** Pasta do projeto (para caminhos relativos), tirada do id da sala. */
+  /** Project folder (for relative paths), taken from the room id. */
   root: string;
   project: string;
-  /** Arquivos genéricos do projeto (buscas, git status), na linguagem que o nome do projeto sugere. */
+  /** Generic project files (searches, git status), in the language the project name suggests. */
   pool: readonly string[];
-  /** Agente do Codex: ferramentas e saídas no jeito dele. */
+  /** Codex agent: tools and output in its style. */
   codex: boolean;
 }
 
@@ -51,7 +51,7 @@ function poolFor(project: string): readonly string[] {
   return POOLS.ts;
 }
 
-/** `n` arquivos distintos do conjunto, escolhidos pelo hash. */
+/** `n` distinct files from the set, chosen by the hash. */
 function pickFiles(pool: readonly string[], seed: number, n: number): string[] {
   return Array.from({ length: Math.min(n, pool.length) }, (_, k) => pool[(seed + k) % pool.length]);
 }
@@ -68,7 +68,7 @@ const extOf = (file: string) => /\.([a-z0-9]+)$/i.exec(file)?.[1]?.toLowerCase()
 const baseName = (file: string) => file.replace(/^.*\//, '').replace(/\.[^.]+$/, '');
 const pascal = (s: string) => s.replace(/(^|[-_.\s])(\w)/g, (_, __, c: string) => c.toUpperCase());
 
-// ------------------------------------------------------------------ conteúdo inventado
+// ------------------------------------------------------------------ invented content
 
 const THOUGHTS = [
   tr('Before touching anything, it\'s worth understanding how this flow is built today.'),
@@ -85,7 +85,7 @@ const SUMMARIES = [
   tr('Finished. If you want, I can open a PR with these changes.'),
 ];
 
-/** Trecho de código plausível por extensão (para Read e Write). */
+/** Plausible code snippet per extension (for Read and Write). */
 function snippet(file: string): string[] {
   const name = pascal(baseName(file));
   switch (extOf(file)) {
@@ -130,7 +130,7 @@ function snippet(file: string): string[] {
   }
 }
 
-/** Par antigo → novo plausível por extensão (para Edit). */
+/** Plausible old → new pair per extension (for Edit). */
 function editPair(file: string, seed: number): [string, string] {
   const pairs: Record<string, Array<[string, string]>> = {
     tsx: [
@@ -154,7 +154,7 @@ function editPair(file: string, seed: number): [string, string] {
   return pick(pairs[key] ?? [['Allow: /', 'Allow: /\nDisallow: /admin']], seed);
 }
 
-/** Saída inventada (e coerente) de um comando de shell. */
+/** Invented (and coherent) output of a shell command. */
 function commandOutput(command: string, seed: number, ctx: Ctx): string {
   const branch = ctx.agent.gitBranch ?? 'main';
   const [f1, f2] = pickFiles(ctx.pool, seed, 2);
@@ -191,9 +191,9 @@ function commandOutput(command: string, seed: number, ctx: Ctx): string {
   return tr('✓ Command complete');
 }
 
-// ------------------------------------------------------------------ atividades → entradas
+// ------------------------------------------------------------------ activities → entries
 
-/** Chamada de ferramenta seguida do resultado. */
+/** Tool call followed by the result. */
 function call(out: TerminalEntry[], a: Activity, tool: string, title: string, result: string, input?: Pick<ToolEntry, 'input' | 'inputKind'>): void {
   const id = `${a.id}:t`;
   const entry: ToolEntry = { kind: 'tool', id, at: a.at, tool, title };
@@ -201,11 +201,11 @@ function call(out: TerminalEntry[], a: Activity, tool: string, title: string, re
   out.push(entry, { kind: 'result', id: `${a.id}:r`, at: a.at, toolUseId: id, text: result });
 }
 
-/** O texto da atividade depois do prefixo ("Shell terminou: x" → "x"). */
+/** The activity text after the prefix ("Shell finished: x" → "x"). */
 const afterColon = (s: string) => s.replace(/^[^:]*:\s*/, '');
 const quoted = (s: string) => /“(.+)”/.exec(s)?.[1];
 
-/** Comando lançado em segundo plano: na mesma leva (mesmo instante) vem o balão "Esperando o shell". */
+/** Command launched in the background: in the same batch (same instant) comes the "Waiting for the shell" bubble. */
 function isBackground(i: number, ctx: Ctx): boolean {
   const at = ctx.history[i].at;
   for (let k = i + 1; k < ctx.history.length && ctx.history[k].at === at; k++) {
@@ -226,7 +226,7 @@ function shellCall(out: TerminalEntry[], a: Activity, i: number, command: string
   call(out, a, tool, `${tool}(${firstLine}${command.includes('\n') ? ' …' : ''})`, result, { input: command, inputKind: 'command' });
 }
 
-/** Codex: edição por apply_patch (o patch é o que se aprova) e a resposta dele. */
+/** Codex: edit via apply_patch (the patch is what gets approved) and its response. */
 function patchCall(out: TerminalEntry[], a: Activity, file: string, lines: readonly string[], add: boolean): void {
   const result = `Success. Updated the following files:\n${add ? 'A' : 'M'} ${file}`;
   call(out, a, 'apply_patch', `apply_patch(${file})`, result, { input: demoPatchText(file, lines, add), inputKind: 'diff' });
@@ -236,7 +236,7 @@ function entriesFor(a: Activity, i: number, ctx: Ctx, out: TerminalEntry[]): voi
   const seed = hash32(a.id);
   const detail = a.detail?.trim();
   if (a.tool === SHELL_DONE_TOOL) {
-    // O rótulo da atividade vem cortado (≤ 46 caracteres): o comando (detalhe) diz mais.
+    // The activity label comes truncated (≤ 46 characters): the command (detail) says more.
     const took = /\(([^)]+)\)$/.exec(a.text)?.[1];
     const label = detail ? `${detail.split('\n')[0]}${took ? ` (${took})` : ''}` : afterColon(a.text);
     const failed = a.error === true;
@@ -255,7 +255,7 @@ function entriesFor(a: Activity, i: number, ctx: Ctx, out: TerminalEntry[]): voi
     out.push({ kind: 'assistant', id: `${a.id}:a`, at: a.at, text: tr('Left it running in the background: {0}. I\'ll be back as soon as it finishes.', [what]) });
     return;
   }
-  // Mensagem mandada pelo escritório: entra na conversa como um prompt seu.
+  // Message sent from the office: enters the conversation as a prompt of yours.
   if (a.tool === MESSAGE_TOOL) {
     out.push({ kind: 'user', id: `${a.id}:u`, at: a.at, text: detail ?? a.text });
     return;
@@ -382,7 +382,7 @@ function entriesFor(a: Activity, i: number, ctx: Ctx, out: TerminalEntry[]): voi
     case 'done': {
       const text = ctx.agent.kind === 'sub' && ctx.agent.title ? tr('Delivered: {0}. Summary sent to the main agent.', [ctx.agent.title]) : pick(SUMMARIES, seed);
       out.push({ kind: 'assistant', id: `${a.id}:a`, at: a.at, text });
-      // "Done in 2min 10s" (tr('Done in {0}'), no idioma ativo): a duração é o que vem depois do começo fixo.
+      // "Done in 2min 10s" (tr('Done in {0}'), in the active language): the duration is what comes after the fixed start.
       const head = tr('Done in {0}', ['\u0000']).split('\u0000')[0];
       const took = a.text.startsWith(head) ? a.text.slice(head.length).trim() || undefined : undefined;
       if (took) out.push({ kind: 'system', id: `${a.id}:s`, at: a.at, text: tr('Turn completed in {0}', [took]), level: 'info' });
@@ -397,7 +397,7 @@ function entriesFor(a: Activity, i: number, ctx: Ctx, out: TerminalEntry[]): voi
     default:
       break;
   }
-  // Qualquer outra coisa: uma ferramenta genérica com o detalhe como argumento.
+  // Anything else: a generic tool with the detail as argument.
   const tool = a.tool ?? TOOL_BY_KIND[a.kind] ?? tr('Tool');
   call(out, a, tool, detail ? `${tool}(${detail.split('\n')[0]})` : tool, tr('✓ Done'));
 }
@@ -418,15 +418,15 @@ const TOOL_BY_KIND: Partial<Record<Activity['kind'], string>> = {
   web: 'WebFetch',
 };
 
-/** Conversa fictícia do agente de demonstração (da mais antiga para a mais recente). */
+/** Fake conversation of the demo agent (from oldest to newest). */
 export function demoTerminalEntries(agent: AgentInfo, history: Activity[]): TerminalEntry[] {
   const slash = agent.roomId.indexOf('/');
   const root = slash >= 0 ? agent.roomId.slice(slash).replace(/\/+$/, '') : '';
   const project = root.replace(/^.*\//, '') || 'projeto';
   const ctx: Ctx = { agent, history, root, project, pool: poolFor(project), codex: agent.provider === 'codex' };
   const out: TerminalEntry[] = [];
-  // Sem nenhuma atividade ainda, o título (a tarefa) abre a conversa. Depois disso, os prompts vêm das
-  // próprias atividades: um id ligado ao histórico mudaria quando ele desliza e reapareceria no fim.
+  // With no activity yet, the title (the task) opens the conversation. After that, the prompts come from the
+  // activities themselves: an id tied to the history would change when it slides and reappear at the end.
   if (!history.length && agent.title) out.push({ kind: 'user', id: `${agent.id}:titulo:${hash32(agent.title).toString(36)}`, at: agent.startedAt, text: agent.title });
   history.forEach((a, i) => entriesFor(a, i, ctx, out));
   return out;

@@ -1,6 +1,6 @@
-// Histórico do terminal: listagem das sessões recentes (pastas temporárias com JSONLs sintéticos), ordem,
-// janela de 7 dias, limite, cache por mtime, aberta vs. encerrada, leitura só do começo e do fim, e a
-// validação de conta/id/caminho de resolve().
+// Terminal history: listing of recent sessions (temporary folders with synthetic JSONLs), order,
+// 7-day window, limit, mtime cache, open vs. closed, reading only the start and the end, and the
+// account/id/path validation of resolve().
 import { appendFileSync, mkdirSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -17,7 +17,7 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 const sid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
-/** Linha de conversa com o cwd do projeto (como o Claude Code grava). */
+/** Conversation line with the project's cwd (as Claude Code writes it). */
 const withCwd = (line: string, cwd: string) => JSON.stringify({ ...JSON.parse(line), cwd });
 
 let cleanups: Array<() => void> = [];
@@ -32,7 +32,7 @@ function setup(): { root: string; acc: (name: string) => HistoryAccount } {
   return { root: tmp.dir, acc: (name) => ({ id: name, dir: join(tmp.dir, name) }) };
 }
 
-/** Escreve o transcript <conta>/projects/<cwd codificado>/<sessionId>.jsonl com o mtime dado. */
+/** Writes the transcript <account>/projects/<encoded cwd>/<sessionId>.jsonl with the given mtime. */
 function session(acc: HistoryAccount, cwd: string, id: string, lines: string[], mtime: number): string {
   const path = join(acc.dir, 'projects', encodeCwd(cwd), `${id}.jsonl`);
   writeLines(path, lines);
@@ -51,7 +51,7 @@ describe('SessionHistory.list', () => {
     const d = acc('.claude-b');
     session(c, '/projetos/loja', sid(1), [withCwd(L.prompt('Arruma o carrinho', { at: NOW - 3 * HOUR }), '/projetos/loja'), L.raw('ai-title', { aiTitle: 'Carrinho de compras' })], NOW - 3 * HOUR);
     session(d, '/projetos/api', sid(2), [withCwd(L.prompt('Cria a rota de login', { at: NOW - 2 * HOUR }), '/projetos/api'), withCwd(L.assistant([L.text('Feito.')], { at: NOW - HOUR }), '/projetos/api')], NOW - HOUR);
-    // Fora da janela, nome que não é UUID e transcript de subagente: nada disso entra.
+    // Outside the window, a name that is not a UUID and a subagent transcript: none of these go in.
     session(c, '/projetos/velho', sid(3), [L.prompt('antigo', { at: NOW - 8 * 24 * HOUR })], NOW - HISTORY_MAX_AGE_MS - HOUR);
     session(c, '/projetos/loja', 'anotacoes', [L.prompt('x', { at: NOW - HOUR })], NOW - HOUR);
     writeLines(join(c.dir, 'projects', encodeCwd('/projetos/loja'), sid(1), 'subagents', 'agent-a1.jsonl'), [L.prompt('sub', { at: NOW - MIN })]);
@@ -62,7 +62,7 @@ describe('SessionHistory.list', () => {
       account: '.claude-b',
       project: '/projetos/api',
       projectDir: encodeCwd('/projetos/api'),
-      // Sem título no transcript: o primeiro prompt.
+      // No title in the transcript: the first prompt.
       title: 'Cria a rota de login',
       firstAt: NOW - 2 * HOUR,
       lastAt: NOW - HOUR,
@@ -77,7 +77,7 @@ describe('SessionHistory.list', () => {
     const { acc } = setup();
     const c = acc('.claude');
     const path = session(c, '/p', sid(1), [L.raw('ai-title', { aiTitle: 'Automatic' })], NOW - 2 * HOUR);
-    // Uma linha com horário no começo (senão a sessão nem entra) e nada com horário no fim do arquivo.
+    // A line with a timestamp at the start (otherwise the session does not even go in) and nothing with a timestamp at the end of the file.
     writeFileSync(path, `${L.prompt('oi', { at: NOW - 5 * HOUR })}\n${L.raw('ai-title', { aiTitle: 'Automático' })}\n`);
     utimesSync(path, (NOW - 2 * HOUR) / 1000, (NOW - 2 * HOUR) / 1000);
     mkdirSync(path.replace(/\.jsonl$/, ''), { recursive: true });
@@ -86,7 +86,7 @@ describe('SessionHistory.list', () => {
     expect(s.title).toBe('Renomeada');
     expect(s.lastAt).toBe(NOW - 5 * HOUR);
     expect(s.firstAt).toBe(NOW - 5 * HOUR);
-    // O cwd que as linhas sintéticas trazem.
+    // The cwd that the synthetic lines carry.
     expect(s.project).toBe('/projetos/demo');
   });
 
@@ -120,7 +120,7 @@ describe('SessionHistory.list', () => {
     const c = acc('.claude');
     session(c, '/a', sid(1), [L.prompt('open', { at: NOW - MIN })], NOW - MIN);
     session(c, '/b', sid(2), [L.prompt('encerrada', { at: NOW - HOUR })], NOW - HOUR);
-    // Só metadados, sem horário: a sessão recém-aberta entra; a encerrada sem conversa, não.
+    // Metadata only, no timestamp: the freshly opened session goes in; the closed one with no conversation does not.
     session(c, '/c', sid(3), [L.raw('permission-mode', { permissionMode: 'default' })], NOW - 2 * MIN);
     session(c, '/d', sid(4), [L.raw('permission-mode', { permissionMode: 'default' })], NOW - 3 * MIN);
     const open = new Map([[sid(1), '.claude:100'], [sid(3), '.claude:300']]);
@@ -193,14 +193,14 @@ describe('SessionHistory.resolve', () => {
     const { root, acc } = setup();
     const c = acc('.claude');
     session(c, '/p', sid(1), [L.prompt('oi')], NOW);
-    // Pasta de projeto que é um link para fora (junction: no Windows não pede privilégio).
+    // Project folder that is a link pointing outside (junction: on Windows it does not require privileges).
     mkdirSync(join(root, 'outra'), { recursive: true });
     writeFileSync(join(root, 'outra', `${sid(3)}.jsonl`), `${L.prompt('segredo')}\n`);
     symlinkSync(join(root, 'outra'), join(c.dir, 'projects', 'link'), 'junction');
     const h = history([c]);
     expect(h.resolve('.claude', sid(3))).toEqual({ status: 404, error: 'session not found' });
     expect('path' in h.resolve('.claude', sid(1))).toBe(true);
-    // Arquivo que é um link para fora também não.
+    // A file that is a link pointing outside is not accepted either.
     const outside = join(root, 'fora.jsonl');
     writeFileSync(outside, `${L.prompt('segredo')}\n`);
     symlinkOrSkip(skip, outside, join(c.dir, 'projects', encodeCwd('/p'), `${sid(2)}.jsonl`));

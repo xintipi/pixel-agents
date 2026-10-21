@@ -1,5 +1,6 @@
-// Jogadores: interpolação dos outros (atraso pela cadência das amostras: 5/s e 2,5/s sem tremer), movimento local com colisão pelo isWalkable, velocidade
-// nunca acima da de corrida (nem na diagonal), caminho do clique e o envio de `move` até 10 por segundo.
+// Players: interpolation of the others (delay by sample cadence: 5/s and 2.5/s without jitter), local movement with
+// collision via isWalkable, speed never above running speed (not even diagonally), click path and sending `move` up
+// to 10 per second.
 import { describe, expect, it } from 'vitest';
 import { isWalkable, lotOrigin, spawnPoint } from '../../../../shared/world/city';
 import { mulberry32 } from '../../../../shared/hash';
@@ -52,9 +53,9 @@ describe('interpolação dos outros jogadores', () => {
 });
 
 /**
- * Alguém andando reto a 3 tiles/s, com as amostras saindo do servidor a cada `cadence(t)` ms e chegando com 50 ms de
- * rede ±`jitter` (sorteio fixo); a cena desenha a 60 quadros por segundo como scene.ts (atraso por jogador, levado aos
- * poucos até o alvo). Devolve o x desenhado em cada quadro depois de `warmupMs`.
+ * Someone walking straight at 3 tiles/s, with samples leaving the server every `cadence(t)` ms and arriving with 50 ms
+ * of network ±`jitter` (fixed random draw); the scene draws at 60 frames per second like scene.ts (per-player delay,
+ * gradually brought to the target). Returns the drawn x on each frame after `warmupMs`.
  */
 function walkAndDraw(cadence: (t: number) => number, jitter: number, ms: number, warmupMs = 1500, fixedDelay?: number): Array<{ t: number; x: number; moving: boolean }> {
   const rng = mulberry32(7);
@@ -78,7 +79,7 @@ function walkAndDraw(cadence: (t: number) => number, jitter: number, ms: number,
   return out;
 }
 
-/** Quadros em que o desenho não saiu do lugar (ou voltou) andando. */
+/** Frames in which the drawing did not move (or went back) while walking. */
 const frozen = (xs: Array<{ x: number }>) => xs.filter((p, i) => i > 0 && p.x <= xs[i - 1]!.x).length;
 
 describe('interpolação com a cadência do servidor (5/s para os 20 mais perto, 2,5/s para os outros)', () => {
@@ -94,10 +95,10 @@ describe('interpolação com a cadência do servidor (5/s para os 20 mais perto,
     expect(at([200, 200, 200])).toBe(260);
     expect(at([400, 400])).toBe(460);
     expect(at([200, 430, 200])).toBe(490);
-    // 5 s parado (o servidor não manda nada) e de volta a 5/s: a pausa não vira cadência
+    // 5 s standing still (the server sends nothing) and back at 5/s: the pause does not become cadence
     expect(at([200, 5_000, 200])).toBe(260);
     expect(at([900, 900])).toBe(INTERP_MAX_MS);
-    // o atraso muda devagar: subindo, metade do relógio; descendo, um quarto
+    // the delay changes slowly: going up, half the clock; going down, a quarter
     expect(stepDelay(260, 460, 100)).toBe(310);
     expect(stepDelay(460, 260, 100)).toBe(435);
     expect(stepDelay(300, 310, 100)).toBe(310);
@@ -128,7 +129,7 @@ describe('interpolação com a cadência do servidor (5/s para os 20 mais perto,
 describe('movimento local', () => {
   it('não entra num lote e desliza pela borda', () => {
     const o = lotOrigin({ x: 3, y: 0 });
-    // na calçada norte, logo acima do lote, andando para baixo e para a direita: só o x muda
+    // on the north sidewalk, just above the lot, walking down and to the right: only x changes
     const r = stepMove(o.x + 3.5, o.y - 0.2, 0.5, 0.5);
     expect(r.blocked).toBe(true);
     expect(r.x).toBeCloseTo(o.x + 4);
@@ -153,7 +154,7 @@ describe('movimento local', () => {
     expect(p.running).toBe(true);
     const q = new LocalPlayer(spawnPoint().x + 0.5, spawnPoint().y + 0.5);
     q.update(1, { dx: -1, dy: 0, run: false });
-    // dt é limitado a 0,1 s por quadro
+    // dt is capped at 0.1 s per frame
     expect(spawnPoint().x + 0.5 - q.x).toBeCloseTo(WALK_TPS * 0.1);
     expect(q.dir).toBe('left');
   });
@@ -207,7 +208,7 @@ describe('envio de move', () => {
     expect(m.tick(MOVE_INTERVAL_MS * 3, { x: 1.3, y: 1, dir: 'right', moving: false })).toBe(true);
     expect(sent.map((x) => x.moving)).toEqual([true, true, false]);
     expect(sent[0]!.dir).toBe('e');
-    // em 1 s andando sem parar, no máximo 10
+    // in 1 s of walking nonstop, at most 10
     const many: unknown[] = [];
     const m2 = new MoveSender((msg) => many.push(msg));
     for (let t = 0; t < 1000; t += 16) m2.tick(t, { x: t / 100, y: 0, dir: 'down', moving: true });
@@ -228,16 +229,16 @@ describe('envio de move', () => {
 
 describe('MoveSender depois do keepAlive da aba em segundo plano (bug: dois relógios)', () => {
   it('o keepAlive não cala os ticks: andar depois dele ainda manda move', () => {
-    // No laço da cena o relógio é performance.now() (ms desde o carregamento); o keepAlive da aba escondida rodava com
-    // Date.now() (index.ts) e guardava essa hora, então cada tick via `now - lastAt` negativo e nunca mais mandava: o
-    // servidor ficava com a posição congelada enquanto o personagem andava na tela (enter/like → too_far até um `pos`
-    // chamar `reset`). Agora o keepAlive não recebe nem guarda hora nenhuma.
+    // In the scene loop the clock is performance.now() (ms since load); the hidden tab's keepAlive ran with
+    // Date.now() (index.ts) and stored that time, so every tick saw a negative `now - lastAt` and never sent again: the
+    // server kept the position frozen while the character walked on screen (enter/like → too_far until a `pos`
+    // called `reset`). Now keepAlive neither receives nor stores any time.
     const sent: { x: number; moving: boolean }[] = [];
     const m = new MoveSender((msg) => sent.push(msg));
-    const perf = 120_000; // ~2 min de página aberta
+    const perf = 120_000; // ~2 min with the page open
     expect(m.tick(perf, { x: 10, y: 10, dir: 'right', moving: false })).toBe(true);
-    m.keepAlive({ x: 10, y: 10, dir: 'right' }); // aba escondida por 30 s
-    // a aba volta e a pessoa anda 20 s
+    m.keepAlive({ x: 10, y: 10, dir: 'right' }); // tab hidden for 30 s
+    // the tab comes back and the person walks for 20 s
     let moved = 0;
     for (let t = perf + 30_000; t < perf + 50_000; t += 16) if (m.tick(t, { x: 10 + (t - perf) / 1000, y: 10, dir: 'right', moving: true })) moved++;
     expect(moved).toBeGreaterThan(0);
@@ -251,7 +252,7 @@ describe('MoveSender depois do keepAlive da aba em segundo plano (bug: dois rel�
     expect(m.tick(perf, { x: 10, y: 10, dir: 'right', moving: false })).toBe(true);
     m.keepAlive({ x: 10, y: 10, dir: 'right' });
     expect(sent).toHaveLength(2);
-    // a aba volta com o personagem parado onde estava: nada de novo a mandar, por mais que o tempo passe
+    // the tab comes back with the character standing where it was: nothing new to send, however much time passes
     expect(m.tick(perf + 30_000, { x: 10, y: 10, dir: 'right', moving: false })).toBe(false);
     expect(m.tick(perf + 60_000, { x: 10, y: 10, dir: 'right', moving: false })).toBe(false);
     expect(sent).toHaveLength(2);

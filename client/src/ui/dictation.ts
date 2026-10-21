@@ -1,7 +1,7 @@
-// Ditado: botão de microfone que grava no navegador (MediaRecorder), manda o áudio ao Habblaud (POST /api/dictation)
-// e devolve o texto transcrito pelo Whisper local do Mac, com o idioma detectado sozinho (português ou inglês; ver
-// server/dictation/whisper.ts). Fica no "Novo agente" e na caixa de mensagem (gaveta e terminal). O microfone só existe
-// em página segura (HTTPS ou localhost): fora disso o botão some.
+// Dictation: microphone button that records in the browser (MediaRecorder), sends the audio to Habblaud (POST /api/dictation)
+// and returns the text transcribed by the Mac's local Whisper, with the language detected automatically (Portuguese or English; see
+// server/dictation/whisper.ts). It lives in "New agent" and in the message box (drawer and terminal). The microphone only exists
+// on a secure page (HTTPS or localhost): otherwise the button disappears.
 import { tr } from '../../../shared/i18n';
 import { h, setText } from './dom';
 import { ICONS } from './icons';
@@ -9,10 +9,10 @@ import { ICONS } from './icons';
 export const MAX_RECORD_MS = 180_000;
 const POLL_MS = 600;
 const WAIT_MS = 150_000;
-/** Formatos em ordem de preferência: o Safari do iPhone grava mp4 (AAC); Chrome e Firefox, webm/ogg (Opus). */
+/** Formats in order of preference: iPhone Safari records mp4 (AAC); Chrome and Firefox, webm/ogg (Opus). */
 const MIME_TYPES = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
 
-/** Aviso de ditado pronto, com o idioma reconhecido (uma frase inteira por idioma, para traduzir). */
+/** Dictation-ready notice, with the recognized language (a whole sentence per language, for translation). */
 export function dictationDone(lang: string | undefined): string {
   if (lang === 'pt') return tr('Dictated in Portuguese: check the text.');
   if (lang === 'en') return tr('Dictated in English: check the text.');
@@ -35,7 +35,7 @@ interface DictationReply {
   error?: string;
 }
 
-/** Junta o texto ditado ao que já está no campo, na posição do cursor, com espaço/linha certos. */
+/** Joins the dictated text to what is already in the field, at the cursor position, with the right space/line. */
 export function insertDictation(value: string, start: number, end: number, text: string): { value: string; caret: number } {
   const t = text.trim();
   if (!t) return { value, caret: end };
@@ -85,7 +85,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 const AVAILABLE_TTL_MS = 30_000;
 let availableCache: { at: number; value: Promise<boolean> } | null = null;
 
-/** O ditado funciona daqui (navegador grava e o Mac tem o Whisper)? Uma consulta a cada 30 s, dividida entre as caixas. */
+/** Does dictation work from here (browser records and the Mac has Whisper)? One check every 30 s, shared among the boxes. */
 export function dictationAvailable(now = Date.now()): Promise<boolean> {
   if (!canRecord()) return Promise.resolve(false);
   if (availableCache && now - availableCache.at < AVAILABLE_TTL_MS) return availableCache.value;
@@ -98,9 +98,9 @@ export function dictationAvailable(now = Date.now()): Promise<boolean> {
 }
 
 export interface DictationButtonOptions {
-  /** Só o ícone (caixa de mensagem); gravando, mostra o tempo. */
+  /** Icon only (message box); while recording, shows the time. */
   compact?: boolean;
-  /** Chamado quando a gravação começa (a caixa guarda para qual agente era o ditado). */
+  /** Called when recording starts (the box remembers which agent the dictation was for). */
   onStart?: () => void;
 }
 
@@ -136,7 +136,7 @@ export class DictationButton {
     return this.state !== 'idle';
   }
 
-  /** Para a gravação sem transcrever (painel fechado). */
+  /** Stops recording without transcribing (panel closed). */
   cancel(): void {
     if (this.state !== 'recording') return;
     this.cancelled = true;
@@ -190,7 +190,7 @@ export class DictationButton {
     try {
       if (this.recorder?.state !== 'inactive') this.recorder?.stop();
     } catch {
-      // já parado
+      // already stopped
     }
   }
 

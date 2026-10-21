@@ -1,6 +1,7 @@
-// Mesa de som: um AudioContext para tudo (criado só depois de um gesto do usuário, como pede a
-// política de autoplay), volume mestre com limitador e o agendador que decide o que toca.
-import { SoundScheduler, type SoundKind, type SoundSettings } from './scheduler';
+// Sound board: one AudioContext for everything (created only after a user gesture, as the
+// autoplay policy requires), master volume with a limiter and the scheduler that decides what plays.
+import { DiscoMusic } from './disco-music';
+import { masterGain, SoundScheduler, type SoundKind, type SoundSettings } from './scheduler';
 import { makeNoise, playVoice } from './synth';
 
 export class SoundBoard {
@@ -9,24 +10,51 @@ export class SoundBoard {
   private out: AudioNode | null = null;
   private noise: AudioBuffer | null = null;
   private enabled = false;
+  private volume = 0.6;
+  private discoMusic: DiscoMusic | null = null;
 
   configure(enabled: boolean, settings: SoundSettings): void {
     this.enabled = enabled;
+    this.volume = settings.volume;
     this.scheduler.configure(enabled, settings);
   }
 
   /**
-   * Precisa ser chamado a partir de um gesto do usuário (clique/tecla) para o navegador liberar o
-   * áudio. Resolve quando o áudio está pronto (ou não pôde ser liberado).
+   * Must be called from a user gesture (click/key) for the browser to unlock
+   * audio. Resolves when audio is ready (or could not be unlocked).
    */
   unlock(): Promise<void> {
     if (!this.enabled) return Promise.resolve();
+    return this.ensure();
+  }
+
+  /**
+   * Disco track (Shift + D): plays even with the office sounds turned off, because the person asked for the party
+   * (the shortcut is the gesture the browser requires), at the master volume from the settings. `on` false stops it.
+   */
+  disco(on: boolean, seconds: number): void {
+    if (!on) {
+      this.discoMusic?.stop();
+      return;
+    }
+    const gain = masterGain(this.volume) * 0.55;
+    if (gain <= 0.0005) return;
+    void this.ensure().then(() => {
+      const ac = this.ac;
+      if (!ac || !this.out || ac.state !== 'running') return;
+      this.discoMusic ??= new DiscoMusic(ac, this.out, this.noise);
+      this.discoMusic.start(seconds, gain);
+    });
+  }
+
+  /** Creates (or resumes) the AudioContext; call it from a user gesture. */
+  private ensure(): Promise<void> {
     try {
       if (!this.ac) {
         const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         if (!Ctor) return Promise.resolve();
         const ac = new Ctor();
-        // limitador suave: vários sons juntos nunca estouram
+        // soft limiter: several sounds together never clip
         const comp = ac.createDynamicsCompressor();
         comp.threshold.value = -18;
         comp.knee.value = 12;
@@ -44,7 +72,7 @@ export class SoundBoard {
     return Promise.resolve();
   }
 
-  /** Toca `kind` se a preferência e os limites deixarem. Devolve se tocou. */
+  /** Plays `kind` if the preference and the limits allow. Returns whether it played. */
   play(kind: SoundKind, opts: { gain?: number; pan?: number; count?: number } = {}): boolean {
     const ac = this.ac;
     if (!ac || !this.out || ac.state !== 'running') return false;

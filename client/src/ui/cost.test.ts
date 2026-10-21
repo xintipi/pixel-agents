@@ -30,11 +30,11 @@ describe('aviso de gasto', () => {
   it('avisa quando o gasto na janela passa do valor, uma vez por estouro', () => {
     const w = new CostBurnWatch();
     const t0 = 1_000_000;
-    // O custo antigo de quem já estava no escritório não conta.
+    // The old cost of those already in the office does not count.
     expect(w.observe([agent('a', 40)], t0, 2)).toEqual([]);
     expect(w.observe([agent('a', 41)], t0 + 60_000, 2)).toEqual([]);
     expect(w.observe([agent('a', 42.5)], t0 + 120_000, 2)).toEqual([{ agentId: 'a', spent: 2.5 }]);
-    // Depois do aviso a conta recomeça.
+    // After the alert the count restarts.
     expect(w.observe([agent('a', 43)], t0 + 180_000, 2)).toEqual([]);
     expect(w.observe([agent('a', 44.6)], t0 + 240_000, 2)).toEqual([{ agentId: 'a', spent: expect.closeTo(2.1, 5) }]);
   });
@@ -61,7 +61,7 @@ describe('aviso de gasto', () => {
     const w = new CostBurnWatch();
     w.observe([agent('a', 1)], 0, 2);
     w.observe([], 1000, 2);
-    // Voltou com custo maior: é como se tivesse acabado de aparecer.
+    // Came back with a higher cost: as if it had just appeared.
     expect(w.observe([agent('a', 9)], 2000, 2)).toEqual([]);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PET_FRAMES, PET_POSES, renderPet } from '../../art/pets';
+import { PET_FACINGS, PET_FRAME_COUNT, PET_POSES, renderPet } from '../../art/pets';
 import { FREE, WalkGrid } from '../path/grid';
 import { PathFinder } from '../path/astar';
 import { PetHerd, nearFreeTile, type PetWorld } from './pets';
@@ -27,30 +27,40 @@ const run = (herd: PetHerd, w: PetWorld, seconds: number, t0 = 0) => {
 };
 
 describe('bichos do escritório: arte', () => {
-  it('todas as poses e quadros dos dois bichos, dentro da folha e com margem transparente', () => {
+  it('todas as poses, quadros e vistas dos dois bichos, dentro da folha e com margem transparente', () => {
     for (const kind of ['dog', 'cat'] as const) {
       for (const pose of PET_POSES) {
-        for (let f = 0; f < PET_FRAMES; f++) {
-          for (const left of [false, true]) {
-            const { buf, ax, ay } = renderPet(kind, pose, f, left);
-            const b = buf.bounds()!;
-            expect(buf.countOpaque(), `${kind} ${pose} ${f}`).toBeGreaterThan(30);
-            expect(b.x).toBeGreaterThan(0);
-            expect(b.x + b.w).toBeLessThan(buf.w);
-            expect(b.y + b.h).toBeLessThanOrEqual(ay + 1);
-            expect(ax).toBe(buf.w / 2);
+        for (const facing of PET_FACINGS) {
+          for (let f = 0; f < PET_FRAME_COUNT[pose]; f++) {
+            for (const left of [false, true]) {
+              const { buf, ax, ay } = renderPet(kind, pose, f, left, facing);
+              const b = buf.bounds()!;
+              expect(buf.countOpaque(), `${kind} ${pose} ${facing} ${f}`).toBeGreaterThan(30);
+              expect(b.x, `${kind} ${pose} ${facing} ${f}`).toBeGreaterThan(0);
+              expect(b.y).toBeGreaterThan(0);
+              expect(b.x + b.w, `${kind} ${pose} ${facing} ${f}`).toBeLessThan(buf.w);
+              expect(b.y + b.h).toBeLessThanOrEqual(ay + 1);
+              expect(ax).toBe(buf.w / 2);
+            }
           }
         }
       }
     }
   });
 
-  it('os dois quadros de cada pose são diferentes (há animação)', () => {
+  it('andar e correr têm passada (quadros diferentes) em todas as vistas; frente e costas são outro desenho', () => {
     for (const kind of ['dog', 'cat'] as const) {
       for (const pose of PET_POSES) {
-        const a = renderPet(kind, pose, 0).buf.data;
-        const b = renderPet(kind, pose, 1).buf.data;
-        expect(a.some((v, i) => v !== b[i]), `${kind} ${pose}`).toBe(true);
+        for (const facing of PET_FACINGS) {
+          const a = renderPet(kind, pose, 0, false, facing).buf.data;
+          const b = renderPet(kind, pose, 1, false, facing).buf.data;
+          expect(a.some((v, i) => v !== b[i]), `${kind} ${pose} ${facing}`).toBe(true);
+        }
+      }
+      const side = renderPet(kind, 'walk', 0, false, 'side').buf.data;
+      for (const facing of ['down', 'up'] as const) {
+        const other = renderPet(kind, 'walk', 0, false, facing).buf.data;
+        expect(side.some((v, i) => v !== other[i])).toBe(true);
       }
     }
   });
@@ -75,7 +85,7 @@ describe('bichos do escritório: comportamento', () => {
     }
     expect(herd.pets.map((p) => [p.tx, p.ty])).not.toEqual(start);
     expect(visited.size).toBeGreaterThan(6);
-    // em algum momento cochilaram ou sentaram
+    // at some point they napped or sat
     expect(herd.pets.every((p) => ['walk', 'run', 'sit', 'sleep'].includes(p.pose))).toBe(true);
   });
 
@@ -117,7 +127,7 @@ describe('bichos do escritório: comportamento', () => {
     const now = run(herd, w, 6);
     expect(Math.max(Math.abs(dog.tx - 15), Math.abs(dog.ty - 8))).toBeLessThanOrEqual(2);
     expect(dog.icon === 'heart' || now > dog.iconUntil).toBe(true);
-    // quem não está no escritório: nada
+    // whoever isn't in the office: nothing
     const before = [dog.tx, dog.ty];
     herd.celebrate(w, 'ninguem', now);
     expect([dog.tx, dog.ty]).toEqual(before);
@@ -138,6 +148,110 @@ describe('bichos do escritório: comportamento', () => {
     herd.fastForward(300);
     expect(dog.moving).toBe(false);
     expect(Math.max(Math.abs(dog.tx - 15), Math.abs(dog.ty - 8))).toBeLessThanOrEqual(2);
+  });
+
+  it('pega!: o cachorro corre até a bola, traz de volta na boca, larga e a bola some', () => {
+    const w = world();
+    const herd = new PetHerd(4);
+    herd.place(w);
+    const dog = herd.pets.find((p) => p.kind === 'dog')!;
+    dog.placeAt(3, 3);
+    expect(herd.throwBall(w, 0, 0, 0)).toBe(false); // wall
+    expect(herd.throwBall(w, 16, 9, 0)).toBe(true);
+    expect(dog.run).toBe(true);
+    let now = 0;
+    let carried = false;
+    let droppedAt: number[] | null = null;
+    for (let i = 0; i < 30 * 30 && !droppedAt; i++) {
+      now += 1000 / 30;
+      herd.update(w, 1 / 30, now);
+      if (herd.ball?.carried) carried = true;
+      else if (carried && herd.ball) droppedAt = [dog.tx, dog.ty];
+    }
+    expect(carried).toBe(true);
+    expect(droppedAt).toEqual([3, 3]);
+    expect(dog.icon).toBe('heart');
+    now = run(herd, w, 6, now);
+    expect(herd.ball).toBeNull();
+  });
+
+  it('o gato deita no sofá (reservado, desenhado como quem senta ali) e devolve o lugar quando sai', () => {
+    const reserved = new Set<string>();
+    const w: PetWorld = {
+      ...world(),
+      cozySpot: (by) => (reserved.has('sofa1') ? null : (reserved.add('sofa1'), { id: 'sofa1', tx: 6, ty: 5, x: 6 * 16 + 8, y: 4 * 16 + 10, sortY: 4 * 16 + 12 })),
+      releaseSpot: (id) => void reserved.delete(id),
+    };
+    const herd = new PetHerd(11);
+    herd.place(w);
+    const cat = herd.pets.find((p) => p.kind === 'cat')!;
+    let perched = false;
+    let now = 0;
+    for (let i = 0; i < 900 * 30 && !perched; i++) {
+      now += 1000 / 30;
+      herd.update(w, 1 / 30, now);
+      perched = cat.spot === 'sofa1' && !cat.moving;
+    }
+    expect(perched).toBe(true);
+    expect(cat.sortY).toBe(4 * 16 + 12);
+    expect(cat.pose).toBe('sleep');
+    expect(reserved.has('sofa1')).toBe(true);
+    // goes away (ball, celebration...): gets down and gives back the spot
+    herd.celebrate(w, 'ana', now);
+    (herd as unknown as { leaveSpot(w: PetWorld, p: typeof cat): void }).leaveSpot(w, cat);
+    expect(cat.spot).toBeNull();
+    expect(cat.sortY).toBeUndefined();
+    expect(reserved.has('sofa1')).toBe(false);
+  });
+
+  it('de vez em quando o cachorro corre atrás do gato', () => {
+    const w = world(30, 14);
+    const herd = new PetHerd(6);
+    herd.place(w);
+    let chased = false;
+    let now = 0;
+    for (let i = 0; i < 1800 * 30 && !chased; i++) {
+      now += 1000 / 30;
+      herd.update(w, 1 / 30, now);
+      chased = herd.pets.some((p) => p.plan?.t === 'chase') && herd.pets.some((p) => p.plan?.t === 'flee' && p.run);
+    }
+    expect(chased).toBe(true);
+  });
+
+  it('robô: limpa, gasta bateria, volta para a base e carrega; o gato pega carona', () => {
+    const w: PetWorld = { ...world(24, 14), robotDock: () => ({ tx: 2, ty: 2 }) };
+    const herd = new PetHerd(8);
+    herd.place(w);
+    const robot = herd.robot;
+    expect(robot.state).toBe('charge');
+    expect([robot.tx, robot.ty]).toEqual([2, 2]);
+    const states = new Set<string>();
+    let rode = false;
+    let now = 0;
+    for (let i = 0; i < 1800 * 30; i++) {
+      now += 1000 / 30;
+      herd.update(w, 1 / 30, now);
+      states.add(robot.state);
+      if (herd.pets.some((p) => p.riding)) rode = true;
+      expect(robot.battery).toBeGreaterThanOrEqual(0);
+    }
+    expect(states).toEqual(new Set(['charge', 'clean', 'home']));
+    expect(rode).toBe(true);
+  });
+
+  it('o cachorro vai acordar quem cochila (avisa na chegada) e pede pizza perto da mesa', () => {
+    const woken: string[] = [];
+    const w: PetWorld = { ...world(), wake: (id) => void woken.push(id) };
+    const herd = new PetHerd(3);
+    herd.place(w);
+    const dog = herd.pets.find((p) => p.kind === 'dog')!;
+    dog.placeAt(2, 2);
+    expect(herd.wakeUp(w, 'ana', { tx: 14, ty: 8 }, 0)).toBe(true);
+    run(herd, w, 8);
+    expect(woken).toEqual(['ana']);
+    herd.beg(w, { tx: 5, ty: 5 }, 10_000);
+    run(herd, w, 8, 10_000);
+    expect(Math.max(Math.abs(dog.tx - 5), Math.abs(dog.ty - 5))).toBeLessThanOrEqual(2);
   });
 
   it('nearFreeTile acha um vizinho livre, ou nada num lugar fechado', () => {

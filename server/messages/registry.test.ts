@@ -1,6 +1,6 @@
-// Registro das mensagens pelo escritório: presença das sessões (canMessage no snapshot), validação, limites, entrega
-// ao plugin, confirmação, prazos, agente que sai, limpeza das resolvidas e a entrega fictícia do demo.
-// Tudo com dados sintéticos e relógio injetado.
+// Registry of messages through the office: session presence (canMessage in the snapshot), validation, limits, delivery
+// to the plugin, confirmation, deadlines, agent leaving, cleanup of resolved ones and the demo's fictional delivery.
+// All with synthetic data and an injected clock.
 import { describe, expect, it } from 'vitest';
 import type { AgentInfo } from '../../shared/types';
 import { setQuiet } from '../log';
@@ -76,13 +76,13 @@ describe('MessageRegistry: presença', () => {
     expect(c1.snapshot.agents.find((a) => a.id === OTHER)?.canMessage).toBeUndefined();
     expect(c1.snapshot.meta.messages).toBe(true);
 
-    // A rodada seguinte (2 s depois) não mexe no snapshot.
+    // The next round (2 s later) doesn't touch the snapshot.
     clock.advance(2_000);
     registry.inbox({ session: SESSION });
     registry.tick();
     expect(office.commit().changed).toBe(false);
 
-    // Sem rodada por PRESENCE_MS: volta a não receber.
+    // No round for PRESENCE_MS: stops receiving again.
     clock.advance(PRESENCE_MS);
     expect(registry.canMessage(MAIN)).toBe(false);
     registry.tick();
@@ -138,7 +138,7 @@ describe('MessageRegistry: mandar', () => {
     registry.inbox({ session: 'sess-2' });
     const ids = Array.from({ length: MAX_OPEN }, (_, i) => sent(registry.send({ agentId: MAIN, text: `m${i}` })));
     expect(registry.send({ agentId: MAIN, text: 'demais' })).toEqual({ error: 'too-many' });
-    // Outro agente tem a própria fila.
+    // Another agent has its own queue.
     expect('message' in registry.send({ agentId: OTHER, text: 'oi' })).toBe(true);
     const batch = registry.inbox({ session: SESSION });
     registry.ack({ session: SESSION, results: [{ id: batch[0].id, ok: true }] });
@@ -172,7 +172,7 @@ describe('MessageRegistry: entrega pelo plugin', () => {
     expect(batch[0]).toEqual({ id: first, text });
     expect(batch.slice(1).map((m) => m.id)).toEqual(others);
     expect(registry.get(first)).toMatchObject({ status: 'sent', updatedAt: clock.now() });
-    // Já buscadas não voltam; as do outro agente só saem para a sessão dele.
+    // Already fetched ones don't come back; the other agent's only go out to its session.
     expect(registry.inbox({ session: SESSION })).toEqual([]);
     expect(registry.inbox({ session: 'sess-2' }).map((m) => m.text)).toEqual(['para o outro']);
   });
@@ -220,7 +220,7 @@ describe('MessageRegistry: prazos e limpeza', () => {
     registry.inbox({ session: SESSION });
     const a = sent(registry.send({ agentId: MAIN, text: 'a' }));
     clock.advance(QUEUED_TIMEOUT_MS - 1);
-    // A sessão continua presente (pergunta pela caixa), mas sem buscar esta: só o prazo conta.
+    // The session is still present (asks for the inbox), but without fetching this one: only the deadline counts.
     registry.inbox({ session: 'sess-2' });
     registry.tick();
     expect(registry.get(a)?.status).toBe('queued');
@@ -252,7 +252,7 @@ describe('MessageRegistry: prazos e limpeza', () => {
     expect(registry.get(id)).toMatchObject({ status: 'delivered' });
     expect(registry.get(id)?.error).toBeUndefined();
     expect(office.commit().feed.map((f) => f.activity.detail)).toEqual(['entrou tarde']);
-    // Resolvida de vez: outra confirmação não muda nada.
+    // Resolved for good: another confirmation changes nothing.
     registry.ack({ session: SESSION, results: [{ id, ok: false, error: 'x' }] });
     expect(registry.get(id)?.status).toBe('delivered');
   });
@@ -278,7 +278,7 @@ describe('MessageRegistry: prazos e limpeza', () => {
     expect(registry.inbox({ session: 'sess-nova' })).toEqual([]);
     registry.tick();
     expect(registry.get(id)).toMatchObject({ status: 'failed', error: ERR_SESSION_CHANGED });
-    // A mandada depois da troca vai para a sessão nova.
+    // The one sent after the switch goes to the new session.
     const next = sent(registry.send({ agentId: MAIN, text: 'para a nova' }));
     expect(registry.inbox({ session: 'sess-nova' }).map((m) => m.id)).toEqual([next]);
   });
@@ -305,7 +305,7 @@ describe('MessageRegistry: demo', () => {
     const demo = office.commit().snapshot.agents.find((a) => a.id.startsWith('demo:') && a.kind === 'main' && a.status !== 'offline')!;
     expect(demo.canMessage).toBe(true);
     const id = sent(registry.send({ agentId: demo.id, text: 'oi, demo' }));
-    // Nem a sessão fictícia nem uma real recebem a mensagem do demo.
+    // Neither the fictional session nor a real one receives the demo message.
     expect(registry.inbox({ session: demo.sessionId })).toEqual([]);
     expect(registry.inbox({ session: SESSION })).toEqual([]);
     clock.advance(999);

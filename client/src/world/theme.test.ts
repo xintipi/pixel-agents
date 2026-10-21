@@ -13,7 +13,7 @@ describe('tema do escritório', () => {
     expect(seasonalThemeFor('auto', at(12, 27, 0))).toBe('none');
     expect(seasonalThemeFor('auto', at(1, 1))).toBe('none');
     expect(seasonalThemeFor('auto', at(7, 15))).toBe('none');
-    // Sem preferência (opções antigas do mundo) vale o automático.
+    // No preference (old world options) means automatic.
     expect(seasonalThemeFor(undefined, at(10, 13))).toBe('halloween');
   });
 
@@ -27,7 +27,7 @@ describe('tema do escritório', () => {
   });
 
   it('Tết: de 23 tháng Chạp a mùng 7, no automático só com a interface em vietnamita', () => {
-    // Mùng 1 Tết de 2026: 17 de fevereiro.
+    // Mùng 1 Tết 2026: February 17.
     expect(isTetSeason(at(2, 9, 23))).toBe(false);
     expect(isTetSeason(at(2, 10, 0))).toBe(true);
     expect(isTetSeason(at(2, 17))).toBe(true);

@@ -40,7 +40,7 @@ describe('arquivo do tap de statusline', () => {
       },
     });
     expect(parseStatuslineFile(JSON.stringify(record({ fetchedAt: NOW + 999_999 })), 'x', NOW)!.usage.fetchedAt).toBe(NOW);
-    // Sem fetchedAt: usa a data do arquivo.
+    // No fetchedAt: uses the file date.
     expect(parseStatuslineFile(JSON.stringify(record({ fetchedAt: undefined })), 'x', NOW, NOW - 5_000)!.usage.fetchedAt).toBe(NOW - 5_000);
   });
 
@@ -69,18 +69,18 @@ describe('arquivo do tap de statusline', () => {
       writeFileSync(file, JSON.stringify(record({ source: 'mod' })));
       touch(1_000);
       expect(r.read(NOW)[0].usage.fiveHour?.utilization).toBe(42);
-      // truncado (vazio) e depois no meio da escrita: continua o 42
+      // truncated (empty) and then mid-write: keeps the 42
       writeFileSync(file, '');
       touch(2_000);
       expect(r.read(NOW).map((f) => f.usage.fiveHour?.utilization)).toEqual([42]);
       writeFileSync(file, JSON.stringify(record({ five_hour: { utilization: 50 } })).slice(0, 40));
       touch(2_000);
       expect(r.read(NOW).map((f) => f.usage.fiveHour?.utilization)).toEqual([42]);
-      // a escrita termina com a MESMA data (resolução do relógio): relido mesmo assim
+      // the write finishes with the SAME date (clock resolution): re-read anyway
       writeFileSync(file, JSON.stringify(record({ source: 'mod', five_hour: { utilization: 50 } })));
       touch(2_000);
       expect(r.read(NOW).map((f) => f.usage.fiveHour?.utilization)).toEqual([50]);
-      // arquivo que nunca foi bom: nada (e relido a cada ciclo até ficar bom)
+      // file that was never good: nothing (and re-read every cycle until it is good)
       writeFileSync(join(tmp.dir, 'outra.json'), '{"accountId":');
       expect(r.read(NOW)).toHaveLength(1);
       writeFileSync(join(tmp.dir, 'outra.json'), JSON.stringify(record({ accountId: 'outra', configDir: '/x/outra' })));
@@ -157,7 +157,7 @@ describe('AccountsService com a fonte statusline', () => {
     writeFileSync(join(usageDir, 'x.json'), JSON.stringify(record({ configDir: undefined, accountId: '.claude', fetchedAt: NOW - 120_000 })));
     const svc = service();
     expect(svc.list(new Map())[0]).toMatchObject({ usageStatus: 'ok', usage: { source: 'statusline' } });
-    // Cache do /usage mais novo vence; statusline mais novo volta a vencer.
+    // Newer /usage cache wins; newer statusline wins again.
     writeFileSync(join(home, '.claude.json'), JSON.stringify({ cachedUsageUtilization: { fetchedAtMs: NOW - 10_000, utilization: { five_hour: { utilization: 70 } } } }));
     svc.refresh();
     expect(svc.list(new Map())[0].usage).toMatchObject({ source: 'cache', fiveHour: { utilization: 70 } });

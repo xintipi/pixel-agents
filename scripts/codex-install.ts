@@ -1,32 +1,32 @@
-// Instala (ou remove) os hooks do Habblaud no OpenAI Codex (CLI `codex` e o app desktop). Roda no HOST, com tsx:
+// Installs (or removes) Habblaud's hooks in OpenAI Codex (the `codex` CLI and the desktop app). Runs on the HOST, with tsx:
 //
-//   npm run codex:install     # acrescenta os grupos do Habblaud em <CODEX_HOME>/hooks.json (backup antes)
-//   npm run codex:uninstall   # tira só os grupos do Habblaud (os outros hooks ficam)
-//   npm run codex:status      # mostra, por pasta, se os grupos estão lá e se o Habblaud está respondendo
-//   (opções: --dry-run, --conta <id>, --port <n>, --espera <s>)
+//   npm run codex:install     # appends Habblaud's groups to <CODEX_HOME>/hooks.json (backup first)
+//   npm run codex:uninstall   # removes only Habblaud's groups (other hooks stay)
+//   npm run codex:status      # shows, per folder, whether the groups are there and whether Habblaud is responding
+//   (options: --dry-run, --conta <id>, --port <n>, --espera <s>)
 //
-// O hook (mod/habblaud-codex/hook.mjs) manda ao escritório o que as sessões do Codex fazem (SessionStart,
-// UserPromptSubmit, PreToolUse, PostToolUse, Stop, SubagentStart, SubagentStop, SessionEnd) e deixa aprovar ou recusar
-// pelo escritório os pedidos de aprovação (PermissionRequest): o Codex espera o hook por até a espera configurada
-// (padrão 25 s) e, sem decisão, segue a aprovação normal no terminal.
+// The hook (mod/habblaud-codex/hook.mjs) sends the office what Codex sessions are doing (SessionStart,
+// UserPromptSubmit, PreToolUse, PostToolUse, Stop, SubagentStart, SubagentStop, SessionEnd) and lets you approve or deny
+// approval requests (PermissionRequest) from the office: Codex waits for the hook up to the configured wait
+// (default 25 s) and, without a decision, follows the normal approval in the terminal.
 //
-// Pastas: as mesmas contas do Codex que o servidor acompanha: HABBLAUD_CODEX_DIRS (lista separada por vírgula;
-// substitui tudo) ou CODEX_HOME e as pastas ~/.codex* do Codex (isCodexHome). Pasta do Claude Code nunca é tocada.
+// Folders: the same Codex accounts the server tracks: HABBLAUD_CODEX_DIRS (comma-separated list;
+// replaces everything) or CODEX_HOME and Codex's ~/.codex* folders (isCodexHome). A Claude Code folder is never touched.
 //
-// Em <pasta>/hooks.json ({description?, hooks: {<Evento>: [{matcher?, hooks: [handler]}]}}) só mudam as listas dos
-// eventos acima: entra, no FIM da lista de cada um, um grupo sem matcher com o handler
-// {type: "command", command: 'node "<Habblaud>/mod/habblaud-codex/hook.mjs"', ...}. O resto do arquivo fica como
-// está. Antes de gravar, uma cópia vai para hooks.json.habblaud-backup-<data>.
+// In <folder>/hooks.json ({description?, hooks: {<Event>: [{matcher?, hooks: [handler]}]}}) only the lists of the
+// events above change: at the END of each one's list goes a group with no matcher and the handler
+// {type: "command", command: 'node "<Habblaud>/mod/habblaud-codex/hook.mjs"', ...}. The rest of the file stays as
+// is. Before writing, a copy goes to hooks.json.habblaud-backup-<date>.
 //
-// Confiança: o Codex só roda um hook novo ou alterado depois que você o aprova em /hooks, e guarda essa aprovação
-// (config.toml, [hooks.state."<hooks.json>:<evento>:<grupo>:<handler>"].trusted_hash) pela POSIÇÃO do grupo e por um
-// hash do evento, do matcher e do handler (comando, timeout, async, statusMessage). Por isso o instalador:
-// - nunca grava a confiança nem mexe no config.toml (quem aprova é você, em /hooks);
-// - sempre ACRESCENTA no fim e, ao atualizar, troca o handler do Habblaud NO MESMO lugar: os grupos de outros apps
-//   (ex.: o Orca) nunca mudam de posição nem de conteúdo;
-// - usa um comando sem opções e valores fixos (porta e espera ficam em ~/.habblaud/codex-hook.json, que o hook lê):
-//   mudar a porta não pede aprovação nova; mudar a espera muda o timeout do PermissionRequest e pede.
-// Rodar de novo não duplica (o grupo do Habblaud é reconhecido pelo comando).
+// Trust: Codex only runs a new or changed hook after you approve it in /hooks, and stores that approval
+// (config.toml, [hooks.state."<hooks.json>:<event>:<group>:<handler>"].trusted_hash) by the group's POSITION and by a
+// hash of the event, matcher and handler (command, timeout, async, statusMessage). That's why the installer:
+// - never writes the trust or touches config.toml (you approve, in /hooks);
+// - always APPENDS at the end and, when updating, swaps Habblaud's handler IN THE SAME place: other apps' groups
+//   (e.g. Orca) never change position or content;
+// - uses a command with no options and fixed values (port and wait live in ~/.habblaud/codex-hook.json, which the hook reads):
+//   changing the port doesn't require new approval; changing the wait changes the PermissionRequest timeout and does.
+// Running again doesn't duplicate (Habblaud's group is recognized by the command).
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -39,33 +39,33 @@ import { tr } from '../shared/i18n';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const HOOK_SCRIPT = join(ROOT, 'mod', 'habblaud-codex', 'hook.mjs');
-/** O hook do Habblaud é reconhecido pelo caminho do script no comando (em qualquer pasta do repositório). */
+/** Habblaud's hook is recognized by the script path in the command (in any repository folder). */
 const HOOK_MARK = /habblaud-codex[\\/]+hook\.mjs/;
 export const DEFAULT_PORT = 4747;
 export const DEFAULT_WAIT_S = 25;
 export const MIN_WAIT_S = 5;
 export const MAX_WAIT_S = 120;
-/** Eventos só de observação: em segundo plano (async), sem atrasar a sessão. */
+/** Observation-only events: in the background (async), without delaying the session. */
 export const OBSERVE_EVENTS = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'SubagentStart', 'SubagentStop'] as const;
-/** Todos os eventos em que o Habblaud entra. */
+/** All the events Habblaud hooks into. */
 export const EVENTS = [...OBSERVE_EVENTS, 'SessionEnd', 'PermissionRequest'] as const;
-/** Tempo limite dos eventos de observação (o hook manda o evento com prazo de 1,5 s). */
+/** Timeout of observation events (the hook sends the event with a 1.5 s deadline). */
 export const OBSERVE_TIMEOUT_S = 5;
-/** SessionEnd: o Codex sempre o roda em primeiro plano, com 1 s por padrão (máx. 3). */
+/** SessionEnd: Codex always runs it in the foreground, with 1 s by default (max 3). */
 export const SESSION_END_TIMEOUT_S = 1;
-/** Folga do tempo limite do PermissionRequest sobre a espera (node subindo, evento e registro; o hook desiste antes). */
+/** Slack of the PermissionRequest timeout over the wait (node starting, event and registration; the hook gives up first). */
 export const PERMISSION_SLACK_S = 10;
 export const STATUS_MESSAGE = tr('Waiting for an answer in Habblaud…');
-/** Configuração lida pelo hook (porta e espera), em ~/.habblaud. */
+/** Config read by the hook (port and wait), in ~/.habblaud. */
 export const CONFIG_NAME = 'codex-hook.json';
 
-/** Versão mínima do Node para o hook (o mesmo `engines` do Habblaud, na parte que importa: fetch e AbortSignal). */
+/** Minimum Node version for the hook (the same as Habblaud's `engines`, in the part that matters: fetch and AbortSignal). */
 export const MIN_NODE_MAJOR = 22;
 
 const USAGE = tr('Usage: npm run codex:<install|uninstall|status> [-- options]\n\n  install     adds the Habblaud hooks to the hooks.json in each Codex folder (backs it up first)\n  uninstall   removes the Habblaud hooks from each folder (other hooks stay)\n  status      shows whether the hooks are there and whether Habblaud is responding\n\nOptions:\n  --dry-run        shows what would change, without writing anything\n  --conta <id>     only this account\'s folder (the folder name, e.g. .codex)\n  --port <n>       Habblaud port (default: HABBLAUD_PORT or {0})\n  --espera <s>     how long Codex waits for your answer in Habblaud before asking for approval in the terminal\n                   (default: {1} s; between {2} and {3})\n  --node <path>    the Node {4}+ that runs the hooks (default: the login shell\'s `node`, if it is {5}+;\n                   otherwise the first {6}+ among /opt/homebrew/bin, /usr/local/bin and the one running this command)\n  -h, --help       shows this help\n\nFolders: HABBLAUD_CODEX_DIRS (comma-separated list) or CODEX_HOME and Codex\'s ~/.codex* folders.\nAfter installing, open Codex and approve the Habblaud hooks in /hooks.', [DEFAULT_PORT, DEFAULT_WAIT_S, MIN_WAIT_S, MAX_WAIT_S, MIN_NODE_MAJOR, MIN_NODE_MAJOR, MIN_NODE_MAJOR]);
 
 // ---------------------------------------------------------------------------------------------
-// Funções puras (testadas em server/test/codex-install.test.ts)
+// Pure functions (tested in server/test/codex-install.test.ts)
 // ---------------------------------------------------------------------------------------------
 
 type Rec = Record<string, unknown>;
@@ -75,24 +75,24 @@ function rec(v: unknown): Rec | undefined {
 }
 
 /**
- * `node "<hook>"` (ou `"<node>" "<hook>"` com um Node escolhido, ver chooseNode), sem opções: o comando entra no hash
- * da confiança do Codex.
+ * `node "<hook>"` (or `"<node>" "<hook>"` with a chosen Node, see chooseNode), without options: the command goes into
+ * Codex's trust hash.
  */
 export function hookCommand(scriptPath: string, nodeBin?: string): string {
   return `${nodeBin ? quotePath(nodeBin) : 'node'} ${quotePath(scriptPath)}`;
 }
 
-/** Major de uma versão como `node --version` imprime ("v24.17.0" → 24). */
+/** Major of a version as `node --version` prints it ("v24.17.0" → 24). */
 export function nodeMajor(version: string | undefined): number | undefined {
   const m = /^v?(\d+)\./.exec(version?.trim() ?? '');
   return m ? Number(m[1]) : undefined;
 }
 
 /**
- * O Node dos hooks. O Codex roda o hook por `$SHELL -lc`: um shell de LOGIN, que no zsh não lê o .zshrc (onde o nvm
- * costuma estar), então o `node` dele pode ser outro, e antigo. `probe(undefined)` = versão do `node` desse shell;
- * `probe(caminho)` = versão daquele binário. Shell de login com Node 22+: `node` (comando curto, sobrevive a trocas de
- * versão). Senão, o primeiro candidato 22+ com caminho absoluto; nenhum: `node` mesmo, com aviso.
+ * The hooks' Node. Codex runs the hook via `$SHELL -lc`: a LOGIN shell, which in zsh doesn't read .zshrc (where nvm
+ * usually lives), so its `node` may be a different, old one. `probe(undefined)` = version of that shell's `node`;
+ * `probe(path)` = version of that binary. Login shell with Node 22+: `node` (short command, survives version
+ * changes). Otherwise, the first 22+ candidate with an absolute path; none: plain `node`, with a warning.
  */
 export function chooseNode(probe: (bin: string | undefined) => string | undefined, candidates: readonly string[]): { bin?: string; login?: string; chosen?: string } {
   const login = probe(undefined);
@@ -104,12 +104,12 @@ export function chooseNode(probe: (bin: string | undefined) => string | undefine
   return { login };
 }
 
-/** Tempo limite do PermissionRequest para uma espera (s). */
+/** PermissionRequest timeout for a wait (s). */
 export function permissionTimeout(waitS: number): number {
   return waitS + PERMISSION_SLACK_S;
 }
 
-/** O handler do Habblaud para um evento, como o Codex o lê em hooks.<Evento>[].hooks[]. */
+/** Habblaud's handler for an event, as Codex reads it in hooks.<Event>[].hooks[]. */
 export function handlerFor(event: string, command: string, waitS: number): Rec {
   if (event === 'PermissionRequest') return { type: 'command', command, timeout: permissionTimeout(waitS), statusMessage: STATUS_MESSAGE };
   if (event === 'SessionEnd') return { type: 'command', command, timeout: SESSION_END_TIMEOUT_S };
@@ -121,7 +121,7 @@ export function isOurHandler(h: unknown): boolean {
   return !!r && typeof r.command === 'string' && HOOK_MARK.test(r.command);
 }
 
-/** JSON com as chaves em ordem (para comparar handlers sem depender da ordem em que foram gravados). */
+/** JSON with keys in order (to compare handlers regardless of the order they were written in). */
 function canonical(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`;
   const r = rec(v);
@@ -132,7 +132,7 @@ function canonical(v: unknown): string {
     .join(',')}}`;
 }
 
-/** Caminho do script num comando instalado (entre aspas duplas ou simples, ou sem aspas). */
+/** Script path in an installed command (in double or single quotes, or unquoted). */
 export function scriptPathOf(command: string): string | undefined {
   const m = /("[^"]*habblaud-codex[\\/]+hook\.mjs"|'(?:[^']|'\\'')*habblaud-codex[\\/]+hook\.mjs'|\S*habblaud-codex[\\/]+hook\.mjs)/.exec(command);
   if (!m) return undefined;
@@ -143,12 +143,12 @@ export function scriptPathOf(command: string): string | undefined {
 }
 
 export type PlanAction =
-  | { action: 'install'; file: Settings; message: string; /** Eventos com hook novo ou alterado (aprovar em /hooks). */ approve: string[] }
-  | { action: 'uninstall'; file: Settings; message: string; /** Eventos em que grupos de outros apps mudaram de posição. */ shifted: string[] }
+  | { action: 'install'; file: Settings; message: string; /** Events with a new or changed hook (approve in /hooks). */ approve: string[] }
+  | { action: 'uninstall'; file: Settings; message: string; /** Events where other apps' groups changed position. */ shifted: string[] }
   | { action: 'none'; message: string }
   | { action: 'skip'; message: string };
 
-/** `hooks` num formato que dá para editar (ou o motivo para não mexer). */
+/** `hooks` in an editable format (or the reason not to touch it). */
 function hooksOf(file: Settings): Rec | string {
   if (file.hooks !== undefined && !rec(file.hooks)) return tr('"hooks" in an unknown format; nothing was changed');
   const hooks = rec(file.hooks) ?? {};
@@ -158,7 +158,7 @@ function hooksOf(file: Settings): Rec | string {
   return hooks;
 }
 
-/** Posições (grupo, handler) dos handlers do Habblaud numa lista de grupos, na ordem. */
+/** Positions (group, handler) of Habblaud's handlers in a list of groups, in order. */
 function ourPositions(list: unknown[]): Array<{ g: number; h: number }> {
   const out: Array<{ g: number; h: number }> = [];
   list.forEach((g, gi) => {
@@ -168,7 +168,7 @@ function ourPositions(list: unknown[]): Array<{ g: number; h: number }> {
   return out;
 }
 
-/** Posições (grupo:handler) dos handlers de OUTROS apps, na ordem: a chave da confiança deles no Codex. */
+/** Positions (group:handler) of OTHER apps' handlers, in order: their trust key in Codex. */
 function otherPositions(list: unknown[]): string {
   const out: string[] = [];
   list.forEach((g, gi) => {
@@ -178,7 +178,7 @@ function otherPositions(list: unknown[]): string {
   return out.join(',');
 }
 
-/** Tira os handlers nas posições dadas (do fim para o começo, sem bagunçar os índices); grupo que fica vazio por isso sai. */
+/** Removes the handlers at the given positions (from end to start, without messing up indices); a group left empty by this goes away. */
 function removeAt(list: unknown[], positions: Array<{ g: number; h: number }>): unknown[] {
   const out = [...list];
   const byGroup = new Map<number, number[]>();
@@ -194,8 +194,8 @@ function removeAt(list: unknown[], positions: Array<{ g: number; h: number }>): 
 }
 
 /**
- * Plano de instalação para um hooks.json já lido (não grava nada). Evento sem o Habblaud: um grupo novo no FIM da
- * lista. Com ele: o handler é trocado no MESMO lugar se mudou (caminho do repositório, espera); cópias repetidas saem.
+ * Install plan for an already-read hooks.json (writes nothing). Event without Habblaud: a new group at the END of the
+ * list. With it: the handler is swapped in the SAME place if it changed (repository path, wait); repeated copies go away.
  */
 export function planInstall(file: Settings, command: string, waitS: number): PlanAction {
   const parsed = hooksOf(file);
@@ -220,7 +220,7 @@ export function planInstall(file: Settings, command: string, waitS: number): Pla
         list[first.g] = { ...group, hooks: handlers };
         changed = true;
       }
-      // Cópias repetidas (editadas à mão): o hook rodaria duas vezes.
+      // Repeated copies (hand-edited): the hook would run twice.
       if (found.length > 1) {
         list = removeAt(list, found.slice(1));
         changed = true;
@@ -235,9 +235,9 @@ export function planInstall(file: Settings, command: string, waitS: number): Pla
 }
 
 /**
- * Plano de remoção: tira só os handlers do Habblaud (e os grupos que ficarem vazios por isso; a lista de um evento que
- * esvaziar sai, e `hooks` também, se ficar vazio). Grupos de outros apps que vinham DEPOIS de um grupo do Habblaud
- * sobem uma posição: o Codex pede para aprová-los de novo em /hooks (`shifted`).
+ * Removal plan: removes only Habblaud's handlers (and the groups left empty by this; an event's list that
+ * empties goes away, and `hooks` too, if left empty). Other apps' groups that came AFTER a Habblaud group
+ * move up one position: Codex asks to approve them again in /hooks (`shifted`).
  */
 export function planUninstall(file: Settings): PlanAction {
   const parsed = hooksOf(file);
@@ -251,7 +251,7 @@ export function planUninstall(file: Settings): PlanAction {
     if (!found.length) continue;
     const next = removeAt(list, found);
     removed += found.length;
-    // Algum handler de outro app mudou de posição (vinha depois de um do Habblaud)?
+    // Did some other app's handler change position (it came after a Habblaud one)?
     if (otherPositions(list) !== otherPositions(next)) shifted.push(event);
     if (next.length) hooks[event] = next;
     else delete hooks[event];
@@ -264,16 +264,16 @@ export function planUninstall(file: Settings): PlanAction {
 }
 
 export interface InstallState {
-  /** Eventos com o handler do Habblaud igual ao esperado. */
+  /** Events with Habblaud's handler as expected. */
   ok: string[];
-  /** Eventos com o handler do Habblaud diferente (outro caminho ou outra espera). */
+  /** Events with a different Habblaud handler (another path or another wait). */
   outdated: string[];
   missing: string[];
-  /** Caminhos do script nos handlers instalados. */
+  /** Script paths in the installed handlers. */
   paths: string[];
 }
 
-/** O que está instalado num hooks.json (para o status). */
+/** What is installed in a hooks.json (for the status). */
 export function installState(file: Settings, command: string, waitS: number): InstallState {
   const parsed = hooksOf(file);
   const hooks = typeof parsed === 'string' ? {} : parsed;
@@ -295,9 +295,9 @@ export function installState(file: Settings, command: string, waitS: number): In
 }
 
 /**
- * Pastas do Codex: as MESMAS que o servidor acompanha (discoverCodexDirs da fonte do Codex: HABBLAUD_CODEX_DIRS, que
- * substitui tudo, ou CODEX_HOME e as pastas ~/.codex* com cara de Codex; ~/.codex primeiro). Pasta do Claude Code
- * listada por engano fica de fora (`refused`).
+ * Codex folders: the SAME ones the server tracks (discoverCodexDirs from the Codex source: HABBLAUD_CODEX_DIRS, which
+ * replaces everything, or CODEX_HOME and the Codex-looking ~/.codex* folders; ~/.codex first). A Claude Code folder
+ * listed by mistake is left out (`refused`).
  */
 export function discoverCodexHomes(env: NodeJS.ProcessEnv, home: string): { dirs: string[]; refused: string[] } {
   const dirs: string[] = [];
@@ -307,7 +307,7 @@ export function discoverCodexHomes(env: NodeJS.ProcessEnv, home: string): { dirs
 }
 
 // ---------------------------------------------------------------------------------------------
-// Efeitos (arquivos e o /api/health do Habblaud)
+// Effects (files and Habblaud's /api/health)
 // ---------------------------------------------------------------------------------------------
 
 export interface HookConfig {
@@ -318,11 +318,11 @@ export interface HookConfig {
 export interface RunOptions {
   command: 'install' | 'uninstall' | 'status';
   dryRun: boolean;
-  /** Só a pasta desta conta (basename). */
+  /** Only this account's folder (basename). */
   account?: string;
   port: number;
   waitS: number;
-  /** --node: o Node dos hooks, com caminho absoluto (sem ela, chooseNode). */
+  /** --node: the hooks' Node, with an absolute path (without it, chooseNode). */
   node?: string;
 }
 
@@ -338,11 +338,11 @@ export interface RunContext {
   now: Date;
   hookPath: string;
   out: (line: string) => void;
-  /** Consulta o /api/health do Habblaud (testes injetam um falso). */
+  /** Queries Habblaud's /api/health (tests inject a fake). */
   health?: (port: number) => Promise<Health | undefined>;
-  /** Versão de um Node (ver chooseNode); ausente = não consulta e usa `node` (os testes não rodam shells). */
+  /** Version of a Node (see chooseNode); absent = doesn't query and uses `node` (tests don't run shells). */
   nodeProbe?: (bin: string | undefined) => string | undefined;
-  /** Candidatos a Node quando o do shell de login é antigo. */
+  /** Node candidates when the login shell's is old. */
   nodeCandidates?: readonly string[];
 }
 
@@ -383,7 +383,7 @@ export function configPath(home: string): string {
   return join(home, '.habblaud', CONFIG_NAME);
 }
 
-/** Configuração gravada para o hook (undefined = não existe ou ilegível). */
+/** Config saved for the hook (undefined = doesn't exist or unreadable). */
 export function readHookConfig(home: string): Partial<HookConfig> | undefined {
   try {
     const j = rec(JSON.parse(readFileSync(configPath(home), 'utf8')));
@@ -397,7 +397,7 @@ export function readHookConfig(home: string): Partial<HookConfig> | undefined {
   }
 }
 
-/** Grava a configuração do hook se mudou. Devolve true se gravou. */
+/** Writes the hook config if it changed. Returns true if it wrote. */
 function writeHookConfig(home: string, cfg: HookConfig): boolean {
   const cur = readHookConfig(home);
   if (cur?.port === cfg.port && cur.permissionTimeoutS === cfg.permissionTimeoutS) return false;
@@ -416,7 +416,7 @@ async function fetchHealth(port: number): Promise<Health | undefined> {
   }
 }
 
-/** Executa o comando para todas as pastas do Codex. Devolve o código de saída. */
+/** Runs the command for all Codex folders. Returns the exit code. */
 export async function run(opts: RunOptions, ctx: RunContext): Promise<number> {
   const { env, home, out } = ctx;
   const found = discoverCodexHomes(env, home);
@@ -530,8 +530,8 @@ export async function run(opts: RunOptions, ctx: RunContext): Promise<number> {
     out(tr('Trust: Codex only runs a new or changed hook after you approve it; check /hooks inside Codex.'));
   }
   if (opts.command === 'install' && opts.account && !opts.dryRun) {
-    // A espera fica num arquivo só, mas o timeout do PermissionRequest fica em cada hooks.json: as outras pastas com o
-    // Habblaud e outra espera cortariam o hook antes da hora.
+    // The wait lives in a single file, but the PermissionRequest timeout lives in each hooks.json: the other folders with
+    // Habblaud and a different wait would cut the hook off early.
     const behind = found.dirs.filter((d) => {
       if (dirs.includes(d)) return false;
       const r = readSettings(join(d, 'hooks.json'));
@@ -555,7 +555,7 @@ export async function run(opts: RunOptions, ctx: RunContext): Promise<number> {
   return failures ? 1 : 0;
 }
 
-/** Versão de um Node: o do shell de login do Codex (`$SHELL -lc`, bin ausente) ou de um caminho. Falha = undefined. */
+/** Version of a Node: the Codex login shell's (`$SHELL -lc`, bin absent) or of a path. Failure = undefined. */
 function probeNode(bin: string | undefined): string | undefined {
   try {
     const opts = { encoding: 'utf8' as const, timeout: 10_000, stdio: ['ignore', 'pipe', 'ignore'] as ['ignore', 'pipe', 'ignore'] };

@@ -1,8 +1,8 @@
-// Espera longa das rodadas do auxiliar do host (scripts/codex-bridge.ts): em vez de perguntar a cada meio segundo, ele
-// pede com `?wait=1` e a resposta fica parada aqui até chegar trabalho (ou até HOST_WAIT_MS). Enquanto espera, o
-// auxiliar conta como presente.
+// Long wait for the host helper's rounds (scripts/codex-bridge.ts): instead of asking every half second, it
+// requests with `?wait=1` and the response is held here until work arrives (or until HOST_WAIT_MS). While waiting, the
+// helper counts as present.
 
-/** Quanto uma rodada fica parada esperando trabalho (o auxiliar pergunta de novo em seguida). */
+/** How long a round is held waiting for work (the helper asks again right after). */
 export const HOST_WAIT_MS = 20_000;
 
 export class HostWait {
@@ -14,7 +14,7 @@ export class HostWait {
     private readonly now: () => number = Date.now,
   ) {}
 
-  /** O auxiliar está esperando agora ou passou há menos de `presenceMs`. */
+  /** The helper is waiting now or was seen less than `presenceMs` ago. */
   present(): boolean {
     return this.waiters.size > 0 || this.now() - this.seenAt <= this.presenceMs;
   }
@@ -23,14 +23,14 @@ export class HostWait {
     this.seenAt = this.now();
   }
 
-  /** Chegou trabalho: solta quem espera. */
+  /** Work arrived: releases whoever is waiting. */
   wake(): void {
     const list = [...this.waiters];
     this.waiters.clear();
     for (const done of list) done();
   }
 
-  /** Espera wake(), `ms` ou `signal` (a conexão do auxiliar caiu). */
+  /** Waits for wake(), `ms` or `signal` (the helper's connection dropped). */
   wait(ms: number, signal?: AbortSignal): Promise<void> {
     if (signal?.aborted || ms <= 0) return Promise.resolve();
     return new Promise((ok) => {
@@ -50,8 +50,8 @@ export class HostWait {
 }
 
 /**
- * Rodada com espera: devolve o que `take` tiver na hora; se vier vazio, espera trabalho e tenta de novo. Com a conexão
- * caída no meio, devolve vazio sem tirar nada da fila.
+ * Round with wait: returns whatever `take` has right now; if empty, waits for work and tries again. If the connection
+ * drops midway, returns empty without taking anything from the queue.
  */
 export async function pollWithWait<T>(wait: HostWait, take: () => T[], ms: number, signal?: AbortSignal): Promise<T[]> {
   wait.seen();

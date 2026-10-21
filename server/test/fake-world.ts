@@ -1,12 +1,12 @@
-// Servidor do Habblaud World de mentira, para os testes do lado local (server/world/): as rotas REST do contrato da
-// Fase 1, em memória, com um ALTCHA de verdade (pequeno) e o registro de cada requisição recebida; e o WebSocket
-// (`/v1/socket`, fase 2) feito à mão sobre o `upgrade` do http (RFC 6455, só texto, sem extensões: o Habblaud não tem
-// o pacote `ws`), que responde ao `hello` como o servidor de verdade, confirma cada `uplink` e responde ao `ping`.
-// Fase 3: depois do DELETE /v1/me/building, os pacotes são recusados com `left` até o POST /v1/me/building/join; a
-// cidade (view, move...) é só registrada em `messages`: os testes mandam a área e os jogadores com `conn.send`.
-// Fase 6: excluir a conta (código FAKE_CODE; as conexões da conta recebem `goodbye: deleted`), exportar os dados (uma
-// vez por dia: a segunda vira 429), o aviso de inatividade na visibilidade e a manutenção (`options.maintenance`: 503
-// `maintenance` em toda rota REST e `goodbye: deploy` a cada `hello`).
+// Fake Habblaud World server, for the local-side tests (server/world/): the REST routes of the Phase 1
+// contract, in memory, with a real (small) ALTCHA and a log of every request received; and the WebSocket
+// (`/v1/socket`, phase 2) hand-made over http's `upgrade` (RFC 6455, text only, no extensions: Habblaud doesn't have
+// the `ws` package), which answers `hello` like the real server, acks each `uplink` and answers `ping`.
+// Phase 3: after DELETE /v1/me/building, packets are rejected with `left` until POST /v1/me/building/join; the
+// city (view, move...) is only recorded in `messages`: tests send the area and players with `conn.send`.
+// Phase 6: delete the account (code FAKE_CODE; the account's connections get `goodbye: deleted`), export data (once
+// a day: the second becomes 429), the inactivity notice in visibility, and maintenance (`options.maintenance`: 503
+// `maintenance` on every REST route and `goodbye: deploy` on every `hello`).
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import http from 'node:http';
 import type { AddressInfo, Socket } from 'node:net';
@@ -39,74 +39,74 @@ interface Account {
   access: WorldAccess;
   code: string;
   player?: Player;
-  /** O nome de jogador do cadastro, reservado até o personagem existir (conta antiga: ausente). */
+  /** The player name from sign-up, reserved until the character exists (old account: absent). */
   reservedName?: string;
   locale: string;
   invite?: string;
-  /** Prédio pausado pelo dono (POST /v1/me/building/pause). */
+  /** Building paused by the owner (POST /v1/me/building/pause). */
   buildingPaused?: boolean;
-  /** Quantas vezes o dono saiu do mundo (DELETE /v1/me/building). */
+  /** How many times the owner left the world (DELETE /v1/me/building). */
   buildingLeft?: number;
-  /** Fora do mundo agora (DELETE sem o join depois): o pacote é recusado com `left`. */
+  /** Out of the world now (DELETE without a later join): the packet is rejected with `left`. */
   left?: boolean;
-  /** Quantas vezes voltou ao mundo (POST /v1/me/building/join). */
+  /** How many times it rejoined the world (POST /v1/me/building/join). */
   buildingJoined?: number;
-  /** Aviso de inatividade por e-mail (ausente = nunca mandado; o servidor de verdade guarda true por padrão). */
+  /** Inactivity notice by email (absent = never sent; the real server stores true by default). */
   notifyInactivity?: boolean;
-  /** POST /v1/me/delete pedido (o código é FAKE_CODE). */
+  /** POST /v1/me/delete requested (the code is FAKE_CODE). */
   deleteRequested?: boolean;
-  /** Exportações feitas (GET /v1/me/export; a segunda no mesmo "dia" recebe 429). */
+  /** Exports done (GET /v1/me/export; the second on the same "day" gets 429). */
   exports?: number;
-  /** Campos a mais no GET /v1/me (Fase 5: `building` com likes do dia, código e resumo; `blocked`). */
+  /** Extra fields in GET /v1/me (Phase 5: `building` with the day's likes, code and summary; `blocked`). */
   meExtra?: Record<string, unknown>;
 }
 
-/** Uma conexão do WebSocket de mentira. */
+/** A fake WebSocket connection. */
 export interface FakeConnection {
   id: number;
-  /** Quando a conexão abriu (ms). */
+  /** When the connection opened (ms). */
   openedAt: number;
-  /** E-mail da conta, depois do `welcome`. */
+  /** Account email, after `welcome`. */
   email?: string;
-  /** Caminho e query do pedido de upgrade (o token nunca pode estar aqui). */
+  /** Path and query of the upgrade request (the token must never be here). */
   url: string;
   headers: http.IncomingHttpHeaders;
   open: boolean;
-  /** Fechou com frame de close (true) ou caiu (false); undefined enquanto aberta. */
+  /** Closed with a close frame (true) or dropped (false); undefined while open. */
   closedCleanly?: boolean;
-  /** Mensagens recebidas, em ordem. */
+  /** Messages received, in order. */
   messages: Array<Record<string, unknown>>;
   send(msg: unknown): void;
-  /** Manda `goodbye` e fecha (como o servidor de verdade). */
+  /** Sends `goodbye` and closes (like the real server). */
   goodbye(reason: GoodbyeReason): void;
-  /** Derruba o TCP sem fechamento (queda de rede). */
+  /** Kills the TCP without closing (network drop). */
   drop(): void;
 }
 
 export interface FakeSocketOptions {
   /**
-   * Resposta ao `hello`: `auto` confere o token, a lista de espera e o personagem como o servidor de verdade; um motivo
-   * força o `goodbye`; `silent` não responde.
+   * Reply to `hello`: `auto` checks the token, the waitlist and the character like the real server; a reason
+   * forces `goodbye`; `silent` doesn't reply.
    */
   hello: 'auto' | 'welcome' | 'silent' | GoodbyeReason;
-  /** Resposta a cada `uplink`: `ok` ({at, bytes}), `silent`, ou o código de erro do ack. */
+  /** Reply to each `uplink`: `ok` ({at, bytes}), `silent`, or the ack error code. */
   ack: 'ok' | 'silent' | string;
-  /** Responde `pong` ao `ping`. */
+  /** Answers `ping` with `pong`. */
   pong: boolean;
-  /** Responde ao close do cliente (false = servidor mudo: a conexão fica pendurada). */
+  /** Answers the client's close (false = silent server: the connection hangs). */
   answerClose: boolean;
-  /** O prédio que vai no `welcome` (WorldBuildingPublic), se houver. */
+  /** The building sent in `welcome` (WorldBuildingPublic), if any. */
   building?: Record<string, unknown>;
 }
 
 export interface FakeSocket {
   connections: FakeConnection[];
   hellos: HelloMessage[];
-  /** Cada uplink recebido, com os bytes do JSON do pacote. */
+  /** Each uplink received, with the bytes of the packet's JSON. */
   uplinks: Array<{ conn: number; uplink: WorldUplink; bytes: number; at: number }>;
   pings: number;
   options: FakeSocketOptions;
-  /** Conexões abertas agora. */
+  /** Connections open now. */
   readonly open: FakeConnection[];
 }
 
@@ -115,11 +115,11 @@ export interface FakeWorld {
   ws: FakeSocket;
   requests: FakeRequest[];
   accounts: Map<string, Account>;
-  /** token -> {email, deviceId} (só os válidos). */
+  /** token -> {email, deviceId} (valid ones only). */
   devices: Map<string, { email: string; deviceId: string }>;
   /**
-   * Login exige ALTCHA (simula "muitas tentativas"); `pauseDelayMs` atrasa só a resposta de /v1/me/building/pause;
-   * `buildingFailures` faz as próximas N chamadas de /v1/me/building* responderem 503.
+   * Login requires ALTCHA (simulates "too many attempts"); `pauseDelayMs` delays only the /v1/me/building/pause reply;
+   * `buildingFailures` makes the next N calls to /v1/me/building* respond 503.
    */
   options: { loginNeedsAltcha: boolean; altchaMax: number; delayMs: number; pauseDelayMs: number; buildingFailures: number; maintenance: boolean };
   close(): Promise<void>;
@@ -166,7 +166,7 @@ export async function startFakeWorld(): Promise<FakeWorld> {
     devices.set(token, { email, deviceId });
     return { deviceId, token, access: accounts.get(email)!.access };
   };
-  /** O nome (pela chave) já é de outra conta: reservado no cadastro ou de um personagem. */
+  /** The name (by key) already belongs to another account: reserved at sign-up or a character's. */
   const nameTaken = (key: string, self: Account | undefined): boolean =>
     [...accounts.values()].some((o) => o !== self && (o.player ? playerNameKey(o.player.name) === key : o.reservedName !== undefined && playerNameKey(o.reservedName) === key));
   const me = (email: string, token: string) => {
@@ -223,7 +223,7 @@ export async function startFakeWorld(): Promise<FakeWorld> {
         return send(res, 200, { algorithm: 'SHA-256', challenge, salt, maxnumber: options.altchaMax, signature: createHmac('sha256', SECRET).update(challenge).digest('hex') });
       }
       if (method === 'POST' && path === '/v1/auth/register') {
-        // O nome é conferido antes do ALTCHA e da senha; `name_taken` vale contra reservas e personagens de qualquer conta.
+        // The name is checked before ALTCHA and the password; `name_taken` covers reservations and characters of any account.
         const name = parsePlayerName(b.name);
         if (!name.ok) return error(res, 422, name.code);
         if (nameTaken(name.key, undefined)) return error(res, 409, 'name_taken');
@@ -265,8 +265,8 @@ export async function startFakeWorld(): Promise<FakeWorld> {
       if (method === 'PUT' && path === '/v1/me/player') {
         const a = accounts.get(device!.email)!;
         const input = b as unknown as PlayerInput;
-        // Criando com reserva: o nome É a reserva (o `name` do corpo é ignorado); sem reserva, o `name` é obrigatório.
-        // Atualizando, `name` ausente mantém.
+        // Creating with a reservation: the name IS the reservation (body `name` ignored); without one, `name` is required.
+        // Updating, an absent `name` keeps it.
         const raw = !a.player && a.reservedName ? a.reservedName : input.name === undefined && a.player ? a.player.name : input.name;
         const name = parsePlayerName(raw);
         if (!name.ok) return error(res, 422, name.code);
@@ -279,7 +279,7 @@ export async function startFakeWorld(): Promise<FakeWorld> {
         const a = accounts.get(device!.email)!;
         const { notifyInactivity, ...rest } = b as unknown as Visibility;
         if (typeof notifyInactivity === 'boolean') a.notifyInactivity = notifyInactivity;
-        // Como um servidor antigo, só devolve o aviso depois que alguém o mandou.
+        // Like an old server, only returns the notice after someone sent it.
         const v: Visibility = { ...rest, ...(a.notifyInactivity !== undefined ? { notifyInactivity: a.notifyInactivity } : {}) };
         if (a.player) a.player.visibility = v;
         return send(res, 200, v);
@@ -304,7 +304,7 @@ export async function startFakeWorld(): Promise<FakeWorld> {
           res.setHeader('Retry-After', '86400');
           return error(res, 429, 'rate_limited');
         }
-        // No formato de WorldExport (protocol.ts), com o que o falso sabe.
+        // In WorldExport format (protocol.ts), with what the fake knows.
         return send(res, 200, {
           format: 'habblaud-world-export',
           version: 1,
@@ -375,7 +375,7 @@ export async function startFakeWorld(): Promise<FakeWorld> {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// WebSocket (RFC 6455) mínimo
+// Minimal WebSocket (RFC 6455)
 // ---------------------------------------------------------------------------------------------------------------
 
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -416,7 +416,7 @@ function attachFakeSocket(
       return;
     }
     const accept = createHash('sha1').update(key + WS_GUID).digest('base64');
-    // Sem Sec-WebSocket-Extensions: o cliente oferece permessage-deflate, e aqui fica tudo sem compressão.
+    // No Sec-WebSocket-Extensions: the client offers permessage-deflate, and here everything stays uncompressed.
     socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
     socket.setNoDelay(true);
     let buf = Buffer.alloc(0);
@@ -457,7 +457,7 @@ function attachFakeSocket(
       fake.hellos.push(hello);
       let answer = fake.options.hello;
       if (answer === 'silent') return;
-      // Em manutenção, o servidor de verdade manda todo mundo embora com `deploy` (e o cliente tenta de novo, com espera).
+      // In maintenance, the real server sends everyone away with `deploy` (and the client retries, with backoff).
       if (world.options.maintenance) return conn.goodbye('deploy');
       if (answer === 'auto') {
         const device = world.devices.get(String(hello.token));

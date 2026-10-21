@@ -1,8 +1,8 @@
-// O miolo da cena Visita, sem DOM (testável): o interior do prédio que desceu do mundo vira o escritório do `Sim`
-// (shared/world/office-from-world.ts) e cada `building.patch` é aplicado na hora, com o `rev` do prédio conferido
-// (salto: ↑ `resync {building}`, no máximo um a cada 5 s). Os únicos comandos que saem daqui são `leave` e
-// `resync {building}`, pelo stream da cena Mundo (POST /api/world/cmd): nenhum `move` (a posição lá dentro não vai ao
-// servidor do mundo) e nenhum `view` (o viewer entenderia como "voltou à cidade").
+// The core of the Visit scene, without DOM (testable): the building interior that came down from the world becomes the `Sim` office
+// (shared/world/office-from-world.ts) and each `building.patch` is applied right away, with the building's `rev` checked
+// (gap: ↑ `resync {building}`, at most one every 5 s). The only commands that leave here are `leave` and
+// `resync {building}`, via the World scene stream (POST /api/world/cmd): no `move` (the position inside doesn't go to the
+// world server) and no `view` (the viewer would take it as "back to the city").
 import type { WorldSceneCommand, WorldSceneInside } from '../../../../shared/world/api';
 import { applyBuildingPatch, checkBuildingRev, officeFromBuilding } from '../../../../shared/world/office-from-world';
 import type { BuildingPatchMessage, WorldBuildingDetail } from '../../../../shared/world/protocol';
@@ -10,28 +10,28 @@ import type { OfficeSnapshot } from '../../../../shared/types';
 import type { VisitLight } from '../sim/sim';
 import { visitLightOf } from './model';
 
-/** Espera mínima entre dois `resync {building}`. */
+/** Minimum wait between two `resync {building}`. */
 export const VISIT_RESYNC_GAP_MS = 5_000;
 
 export interface VisitControllerDeps {
-  /** Publica o escritório da visita (o `store.pushReplay` do mundo da visita). */
+  /** Publishes the visit office (the visit world's `store.pushReplay`). */
   push(snap: OfficeSnapshot): void;
-  /** Manda comandos pelo stream da cena Mundo (só `leave` e `resync {building}` saem daqui). */
+  /** Sends commands through the World scene stream (only `leave` and `resync {building}` leave here). */
   send(cmds: WorldSceneCommand[]): void;
   now(): number;
-  /** Versão do Habblaud (vai em `meta.version` do escritório da visita). */
+  /** Habblaud version (goes into the visit office's `meta.version`). */
   version: string;
-  /** O interior mudou (faixa, painel, luzes, tema). */
+  /** The interior changed (banner, panel, lights, theme). */
   changed?(): void;
 }
 
 export class VisitController {
   readonly id: string;
   rev: number;
-  /** O interior como está agora (com os patches aplicados). */
+  /** The interior as it is now (with patches applied). */
   detail: WorldBuildingDetail;
   snapshot: OfficeSnapshot;
-  /** `leave` já mandado: esperando o `pos` (a volta à rua). */
+  /** `leave` already sent: waiting for the `pos` (back to the street). */
   leaving = false;
   private resyncAt = -Infinity;
 
@@ -46,14 +46,14 @@ export class VisitController {
     deps.push(this.snapshot);
   }
 
-  /** As luzes do prédio agora. */
+  /** The building lights right now. */
   get light(): VisitLight {
     return visitLightOf(this.detail.building);
   }
 
   /**
-   * O interior inteiro de novo (`building` de um `resync`, um `enter` repetido ou o snapshot de um stream novo):
-   * substitui tudo, inclusive o `rev`, mas como patch (quem continua no mesmo status não se mexe).
+   * The whole interior again (`building` from a `resync`, a repeated `enter` or a new stream's snapshot):
+   * replaces everything, including the `rev`, but as a patch (whoever keeps the same status doesn't move).
    */
   replace(inside: Pick<WorldSceneInside, 'rev' | 'detail'>): void {
     const d = structuredClone(inside.detail);
@@ -64,7 +64,7 @@ export class VisitController {
     this.publish(r.snapshot);
   }
 
-  /** Um `building.patch`: aplica o seguinte, ignora o repetido ou velho e pede o prédio de novo num salto. */
+  /** A `building.patch`: applies the next one, ignores a repeated or old one and requests the building again on a gap. */
   patch(msg: Pick<BuildingPatchMessage, 'rev' | 'floors' | 'visitors' | 'building'>): 'apply' | 'stale' | 'resync' {
     const what = checkBuildingRev(this.rev, msg.rev);
     if (what === 'stale') return what;
@@ -76,7 +76,7 @@ export class VisitController {
       }
       return what;
     }
-    // o `building` atual decide se os agentes aparecem quando o patch só traz os andares
+    // the current `building` decides whether agents show up when the patch only brings the floors
     const r = applyBuildingPatch(this.snapshot, msg, this.deps.now(), this.detail.building);
     this.rev = msg.rev;
     if (msg.floors) this.detail.floors = structuredClone(msg.floors);
@@ -86,7 +86,7 @@ export class VisitController {
     return what;
   }
 
-  /** Sair do prédio: `leave` (uma vez); a volta à rua é o `pos` que o servidor responde. */
+  /** Leave the building: `leave` (once); going back to the street is the `pos` the server replies with. */
   leave(): boolean {
     if (this.leaving) return false;
     this.leaving = true;

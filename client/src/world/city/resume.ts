@@ -1,11 +1,13 @@
-// De volta à cidade na mesma página (Escritório → Mundo): o jogador volta EXATAMENTE onde estava. O servidor do mundo
-// guarda a última posição por conta (no `view.off` ou na queda) e manda o `pos` inicial igual a ela; a cena guarda, ao
-// esconder, a câmera, o zoom e onde o meu personagem estava, e ao reabrir decide com o `pos` que chega:
-//   * o mesmo lugar: nada muda (nem o personagem, nem a câmera; a cidade de antes fica na tela até o snapshot novo);
-//   * outro lugar: o personagem e a câmera vão direto para lá, sem animar um "teleporte", com o mesmo zoom;
-//   * nada guardado (a primeira vez, ou fechou antes de nascer): o nascimento de sempre.
+// Back in the city on the same page (Office → World): the player returns EXACTLY where they were. The world server
+// stores the last position per account (on `view.off` or on disconnect) and sends the initial `pos` equal to it; on
+// hide, the scene stores the camera, the zoom and where my character was, and on reopening decides with the `pos`
+// that arrives:
+//   * the same place: nothing changes (neither the character nor the camera; the previous city stays on screen until
+//     the new snapshot);
+//   * another place: the character and the camera go straight there, without animating a "teleport", with the same zoom;
+//   * nothing saved (the first time, or closed before spawning): the usual spawn.
 
-/** Onde a cidade estava ao esconder: a câmera (px de mundo), o zoom, se seguia o personagem e onde ele estava (tiles). */
+/** Where the city was on hide: the camera (world px), the zoom, whether it followed the character and where it was (tiles). */
 export interface CityResume {
   camX: number;
   camY: number;
@@ -14,12 +16,12 @@ export interface CityResume {
   me: { x: number; y: number } | null;
 }
 
-/** Até onde (tiles) o `pos` do servidor é "o mesmo lugar": a posição sobe arredondada e o último passo pode faltar. */
+/** How far (tiles) the server's `pos` is "the same place": the position goes up rounded and the last step may be missing. */
 export const RESUME_SAME_TILES = 0.6;
 
 export type ResumePlacement = 'keep' | 'snap' | 'fresh';
 
-/** O que fazer com o `pos` inicial ao reabrir a cena (veja o topo do arquivo). */
+/** What to do with the initial `pos` when reopening the scene (see the top of the file). */
 export function resumePlacement(resume: CityResume | null, pos: { x: number; y: number } | null): ResumePlacement {
   if (!resume?.me || !pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return 'fresh';
   return Math.hypot(pos.x - resume.me.x, pos.y - resume.me.y) <= RESUME_SAME_TILES ? 'keep' : 'snap';

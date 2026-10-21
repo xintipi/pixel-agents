@@ -1,16 +1,16 @@
-// De qual ferramenta é cada coisa (Claude Code ou Codex) e os textos que mudam com ela. Puro (sem DOM): testado em
-// ui/provider.test.ts. No protocolo, `provider` ausente quer dizer Claude Code (shared/types.ts); aqui tudo cai nisso.
+// Which tool each thing belongs to (Claude Code or Codex) and the texts that change with it. Pure (no DOM): tested in
+// ui/provider.test.ts. In the protocol, an absent `provider` means Claude Code (shared/types.ts); here everything defaults to that.
 //
-// Identidade visual do Codex (sem logotipo de ninguém): o chip da conta fica "vazado" (fundo escuro, borda e letra na
-// cor da conta, cantos em degrau) e, onde há espaço, um selo de texto "Codex" ao lado do nome.
+// Codex visual identity (no one's logo): the account chip is "outlined" (dark background, border and letter in the
+// account color, stepped corners) and, where there is room, a "Codex" text badge next to the name.
 import type { AccountInfo, OfficeSnapshot, Provider } from '../../../shared/types';
 import { shortcutHint } from './model';
 import { tr } from '../../../shared/i18n';
 
-/** Nome de cada ferramenta como aparece nos textos. */
+/** Name of each tool as it appears in texts. */
 export const PROVIDER_NAME: Record<Provider, string> = { claude: 'Claude Code', codex: 'Codex' };
 
-/** Ferramenta de um agente, conta, sessão ou pedido (ausente = Claude Code). */
+/** Tool of an agent, account, session or request (absent = Claude Code). */
 export function providerOf(x: { provider?: Provider } | null | undefined): Provider {
   return x?.provider ?? 'claude';
 }
@@ -20,23 +20,23 @@ export function isCodex(x: { provider?: Provider } | null | undefined): boolean 
 }
 
 /**
- * O id de conta tem cara de pasta do Codex (".codex", ".codex-trabalho", ".codex~2", "demo:.codex")? Só para quando a
- * conta já não está no snapshot (ex.: histórico, "Meu dia"): com a conta à mão, vale o `provider` dela.
+ * Does the account id look like a Codex folder (".codex", ".codex-trabalho", ".codex~2", "demo:.codex")? Only for when the
+ * account is no longer in the snapshot (e.g. history, "My day"): with the account at hand, its `provider` wins.
  */
 export function looksLikeCodexId(id: string): boolean {
   return /(?:^|[:/\\])\.?codex(?:[-_.~]|$)/i.test(id);
 }
 
-/** Ferramenta da conta: a do snapshot; sem ela, a dica de quem chamou ou o jeito do id. */
+/** The account's tool: the snapshot's; without it, the caller's hint or the shape of the id. */
 export function accountProvider(account: Pick<AccountInfo, 'provider'> | undefined, fallbackId = '', hint?: Provider): Provider {
   if (account) return providerOf(account);
   return hint ?? (looksLikeCodexId(fallbackId) ? 'codex' : 'claude');
 }
 
 /**
- * Letra do chip de uma conta que não está no snapshot: a primeira letra depois do prefixo da pasta
- * (".claude-conta2" -> "C", ".codex-trabalho" -> "T"). A pasta padrão do Codex (".codex") vira "X"; a do Claude Code,
- * "?" (como antes). Nunca devolve "." nem vazio.
+ * Chip letter of an account not in the snapshot: the first letter after the folder prefix
+ * (".claude-conta2" -> "C", ".codex-trabalho" -> "T"). The default Codex folder (".codex") becomes "X"; Claude Code's,
+ * "?" (as before). Never returns "." or empty.
  */
 export function fallbackShort(id: string, provider: Provider = accountProvider(undefined, id)): string {
   const rest = id
@@ -48,12 +48,12 @@ export function fallbackShort(id: string, provider: Provider = accountProvider(u
   return provider === 'codex' ? 'X' : '?';
 }
 
-/** O selo "Codex" ao lado do nome da conta (não repete quando o nome já diz "Codex"). */
+/** The "Codex" badge next to the account name (does not repeat when the name already says "Codex"). */
 export function showsProviderTag(provider: Provider, accountName = ''): boolean {
   return provider === 'codex' && !/codex/i.test(accountName);
 }
 
-/** Rótulo do chip da conta (dica e leitores de tela): "Conta C (dev@x.com)", "Codex · plano Team". */
+/** Account chip label (tooltip and screen readers): "Account C (dev@x.com)", "Codex · Team plan". */
 export function accountChipLabel(account: Pick<AccountInfo, 'name' | 'email' | 'plan' | 'provider'> | undefined, fallbackId: string, provider: Provider): string {
   if (!account) return fallbackId ? `${fallbackId}${provider === 'codex' ? ' · Codex' : ''}` : tr('Unknown account');
   if (provider !== 'codex') return `${account.name}${account.email ? ` (${account.email})` : ''}`;
@@ -62,8 +62,8 @@ export function accountChipLabel(account: Pick<AccountInfo, 'name' | 'email' | '
 }
 
 /**
- * Texto do escritório vazio. Os atalhos ("atalhos c ou d") são só das contas do Claude Code, que vêm de aliases do
- * shell (a letra de uma conta do Codex não é um atalho); o Codex só entra quando há uma conta dele.
+ * Empty office text. The shortcuts ("shortcuts c or d") are only for Claude Code accounts, which come from shell
+ * aliases (a Codex account's letter is not a shortcut); Codex only comes in when there is a Codex account.
  */
 export function emptyOfficeHint(accounts: readonly Pick<AccountInfo, 'short' | 'provider'>[]): string {
   const keys = shortcutHint(accounts.filter((a) => !isCodex(a)));
@@ -71,15 +71,15 @@ export function emptyOfficeHint(accounts: readonly Pick<AccountInfo, 'short' | '
   return tr('Open Claude Code{0} or Codex in any project and watch your agent arrive.', [keys ? ` (${keys})` : '']);
 }
 
-/** Algum pedido de permissão do Codex esperando: o prazo é curto e o cartão conta os segundos (relógio de 1 s). */
+/** Some Codex permission request waiting: the deadline is short and the card counts the seconds (1 s clock). */
 export function hasCodexPermission(snap: Pick<OfficeSnapshot, 'agents'> | null): boolean {
   return !!snap?.agents.some((a) => a.permission && isCodex(a.permission) && a.status !== 'offline' && a.status !== 'done');
 }
 
-/** Como ver o Codex ao vivo e aprovar pelo escritório (gaveta de um agente do Codex e ajuda). */
+/** How to see Codex live and approve from the office (a Codex agent's drawer and help). */
 export const CODEX_LIVE_HINT = tr('To see Codex live and approve from the office: `npm run codex:install`, then approve the hooks in `/hooks` in Codex.');
 
-/** Políticas de aprovação do Codex (`approval_policy`), quando o servidor as manda no lugar do modo de permissão. */
+/** Codex approval policies (`approval_policy`), when the server sends them instead of the permission mode. */
 const CODEX_APPROVALS: Record<string, string> = {
   untrusted: tr('Asks before almost everything'),
   'on-request': tr('Asks when needed'),
@@ -87,7 +87,7 @@ const CODEX_APPROVALS: Record<string, string> = {
   never: tr('Never asks'),
 };
 
-/** Aprovação de um agente do Codex em português (valor desconhecido passa como veio). */
+/** A Codex agent's approval in Portuguese (unknown value passes through as-is). */
 export function codexApprovalLabel(policy: string | undefined): string {
   if (!policy) return '—';
   return CODEX_APPROVALS[policy] ?? policy;

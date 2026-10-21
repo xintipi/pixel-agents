@@ -1,5 +1,5 @@
-// Mundo do escritório: liga a simulação (sim/), o desenho (render/), a câmera e a entrada,
-// e implementa o contrato WorldApi consumido pela UI.
+// Office world: wires the simulation (sim/), the drawing (render/), the camera and the input,
+// and implements the WorldApi contract consumed by the UI.
 import * as artModule from '../art';
 import { TILE, type ArtModule } from '../art/api';
 import type { OfficeStore } from '../net/store';
@@ -25,28 +25,28 @@ export type { WorldDebug } from './debug';
 
 const art: ArtModule = artModule;
 
-/** O que a cena Visita usa do mundo dela (createWorld com `visit: true`). */
+/** What the Visit scene uses from its world (createWorld with `visit: true`). */
 export interface VisitWorld {
-  /** O meu personagem entra pelo elevador (null tira). */
+  /** My character enters through the elevator (null removes it). */
   setVisitor(me: { name: string; look: 'f' | 'm'; parts?: AgentInfo['parts'] } | null): void;
-  /** O teclado: para onde o visitante anda. */
+  /** The keyboard: where the visitor walks. */
   setIntent(intent: VisitorIntent): void;
-  /** Luzes do prédio (apagado, discreto, ao vivo). */
+  /** Building lights (off, discreet, live). */
   setLight(mode: VisitLight): void;
-  /** Perto de um elevador, livre para sair? */
+  /** Near an elevator, free to leave? */
   atExit(): boolean;
-  /** Anda até o elevador mais perto, entra e some; `done` quando a porta fecha. */
+  /** Walks to the nearest elevator, enters and vanishes; `done` when the door closes. */
   exit(done: () => void): boolean;
-  /** Posição do visitante na tela (px CSS), para a dica "Sair (E)"; null fora da tela ou sem visitante. */
+  /** Visitor position on screen (CSS px), for the "Leave (E)" hint; null off screen or without a visitor. */
   visitorScreen(): { x: number; y: number } | null;
-  /** O quadro da parede da recepção na tela (px CSS): o lugar do quadro de carimbos da portaria; null fora da tela. */
+  /** The reception wall frame on screen (CSS px): where the lobby stamp board goes; null off screen. */
   boardScreen(): { x: number; y: number; w: number; h: number } | null;
 }
 
 export interface CreateWorldOptions {
   /**
-   * Visita a um prédio do mundo (cena Visita): `Sim` sem nada que dependa do tempo do status (SimMode.visit), o
-   * visitante andando com o teclado e o clique (a câmera o segue) e as carteiras da vida social na chave `world:`.
+   * Visit to a world building (Visit scene): `Sim` with nothing that depends on status time (SimMode.visit), the
+   * visitor walking with the keyboard and click (the camera follows) and the social-life wallets under the `world:` key.
    */
   visit?: boolean;
 }
@@ -55,12 +55,12 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   let options: WorldOptions = { ...DEFAULT_WORLD_OPTIONS };
   const visitMode = !!o.visit;
   const camera = new Camera();
-  // Simulação e desenho são recriados quando o timelapse entra, pula ou sai (rebuild).
+  // Simulation and drawing are recreated when the timelapse enters, skips or exits (rebuild).
   let sim = new Sim(art, () => options, undefined, { visit: visitMode });
   let renderer = new Renderer(canvas, art, sim, camera);
   let overlay = new Overlay(renderer.ctx, sim, renderer, camera);
   let assets: WorldAssets | null = null;
-  /** Timelapse ligado: relógio próprio do mundo (`worldNow`), acelerado pelo fator de animação. */
+  /** Timelapse on: the world's own clock (`worldNow`), sped up by the animation factor. */
   let playback: WorldPlayback | null = null;
   let worldNow = 0;
   const selectCbs = new Set<(s: Selection) => void>();
@@ -75,7 +75,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   let raf = 0;
   let lastTs = 0;
   let hiddenAt = 0;
-  /** Escritório fora da tela (cidade aberta): sem laço de desenho nem teclado da câmera. */
+  /** Office off screen (city open): no draw loop nor camera keyboard. */
   let suspended = false;
   let suspendedAt = 0;
   let userMoved = false;
@@ -83,7 +83,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   let lastCols = -1;
   const abort = new AbortController();
 
-  // ------------------------------------------------------------------ tamanho/DPR
+  // ------------------------------------------------------------------ size/DPR
 
   const resize = () => {
     const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
@@ -116,7 +116,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     const zoom = snapped >= fit * 0.82 ? snapped : fit;
     const z = Math.min(zoom, 4);
     const c = camera.centerFor(f.cx, f.cy, z);
-    // as margens de tela (pílulas acima, meio-fio abaixo) não são simétricas
+    // the screen margins (pills above, curb below) are not symmetric
     return { x: c.x, y: c.y - f.dy / z, zoom: z };
   };
 
@@ -133,7 +133,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     }
   };
 
-  // ------------------------------------------------------------------ seleção e foco
+  // ------------------------------------------------------------------ selection and focus
 
   const emitSelect = () => selectCbs.forEach((cb) => cb(selection));
 
@@ -142,7 +142,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   const setSelection = (sel: Selection, focus = false) => {
     const same = sameSelection(sel, selection);
     selection = sel;
-    // com "seguir selecionado" ligado, a câmera acompanha o agente escolhido (ou para de seguir)
+    // with "follow selected" on, the camera tracks the chosen agent (or stops following)
     if (options.followSelected) camera.follow = sel?.type === 'agent' ? sel.id : null;
     if (focus && sel) {
       if (sel.type === 'agent') focusAgent(sel.id, { follow: options.followSelected });
@@ -202,8 +202,8 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   };
 
   /**
-   * Bicho sob o cursor (px CSS do canvas), se estiver na frente do agente apontado: o clique faz carinho em vez de
-   * selecionar. Os bichos não entram na seleção nem no hover (não têm cartão).
+   * Pet under the cursor (canvas CSS px), if it is in front of the pointed agent: the click pets it instead of
+   * selecting. Pets don't take part in selection or hover (they have no card).
    */
   const petAt = (sx: number, sy: number, hit: Hit): string | null => {
     const w = camera.screenToWorld(sx, sy);
@@ -229,7 +229,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     hoverCbs.forEach((cb) => cb(id));
   };
 
-  /** Visita: um toque no chão leva o visitante até lá (num agente, abre o cartão dele). */
+  /** Visit: a tap on the floor takes the visitor there (on an agent, opens their card). */
   const visitClick = (hit: Hit, at: { x: number; y: number }) => {
     if (hit?.type === 'agent') return setSelection(hit);
     setSelection(null);
@@ -244,7 +244,21 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
 
   const detachInput = attachInput(canvas, camera, {
     pick,
-    click: (hit, at) => {
+    click: (hit, at, mods) => {
+      // Shift + click on the floor: throws the ball for the dog to fetch
+      if (mods?.shift && !visitMode && !playback) {
+        const w = camera.screenToWorld(at.x, at.y);
+        if (sim.throwBall(Math.floor(w.x / TILE), Math.floor(w.y / TILE))) return;
+      }
+      // aquarium: the click feeds the fish
+      const aq = renderer.aquariumBox;
+      if (aq && !visitMode) {
+        const w = camera.screenToWorld(at.x, at.y);
+        if (w.x >= aq.x && w.x <= aq.x + aq.w && w.y >= aq.y && w.y <= aq.y + aq.h) {
+          renderer.fishFedAt = sim.now;
+          return;
+        }
+      }
       const pet = petAt(at.x, at.y, hit);
       if (pet && sim.pets.pat(pet, sim.now)) return;
       if (visitMode) visitClick(hit, at);
@@ -271,13 +285,13 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     keys: () => !visitMode,
   });
 
-  // ------------------------------------------------------------------ dados
+  // ------------------------------------------------------------------ data
 
   const onSnapshot = () => {
     const snap = store.snapshot;
     if (!snap) return;
     try {
-      // No timelapse, os horários do snapshot vão para o relógio do mundo (world/playback.ts).
+      // In the timelapse, the snapshot times go to the world clock (world/playback.ts).
       if (playback) sim.applySnapshot(rebaseSnapshot(snap, worldNow - snap.serverTime), worldNow);
       else sim.applySnapshot(snap, Date.now());
     } catch (err) {
@@ -293,17 +307,17 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     renderer.setAssets(a);
   });
 
-  // medições de texto em cache: refaz quando alguma fonte termina de carregar
+  // cached text measurements: redone when some font finishes loading
   if (document.fonts) document.fonts.addEventListener?.('loadingdone', () => overlay.resetCaches(), { signal: abort.signal });
 
-  // ------------------------------------------------------------------ laço
+  // ------------------------------------------------------------------ loop
 
   const loop = (ts: number) => {
     raf = requestAnimationFrame(loop);
     const real = Date.now();
     const realDt = lastTs ? Math.min(0.1, Math.max(0, (ts - lastTs) / 1000)) : 1 / 60;
     lastTs = ts;
-    // Timelapse: simulação e desenho no relógio do mundo (acelerado ou parado); a câmera segue no tempo real.
+    // Timelapse: simulation and drawing on the world clock (sped up or paused); the camera stays on real time.
     const k = playback ? Math.max(0, playback.scale()) : 1;
     const dt = realDt * k;
     if (playback) worldNow += dt * 1000;
@@ -312,7 +326,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
       if (canvas.clientWidth !== camera.viewW || canvas.clientHeight !== camera.viewH || dpr !== camera.dpr) resize();
       sim.update(dt, now);
-      // partidas e apostas resolvidas: para o feed (as do timelapse são encenação do passado: ficam fora)
+      // resolved matches and bets: for the feed (the timelapse ones are a reenactment of the past: left out)
       const events = sim.social.events;
       if (events.length) {
         if (!playback) for (const e of events) for (const cb of socialCbs) cb(e);
@@ -327,7 +341,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
           framed = true;
         } else if (!userMoved) overview(true);
       }
-      // visita: andando pelo teclado, a câmera vai junto
+      // visit: walking with the keyboard, the camera follows
       if (visitMode && sim.visitor && (sim.visitorIntent.dx || sim.visitorIntent.dy) && camera.follow !== VISITOR_ID) followVisitor();
       const followCh = camera.follow ? sim.person(camera.follow) : undefined;
       if (camera.follow && !followCh) camera.follow = null;
@@ -335,13 +349,13 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       renderer.frame(now, dt, options, { agent: selection?.type === 'agent' ? selection.id : null, room: selection?.type === 'room' ? selection.id : null, hover });
       overlay.draw(now, options, { agent: selection?.type === 'agent' ? selection.id : null, room: selection?.type === 'room' ? selection.id : null, hover });
       renderer.pruneHeads();
-      // No timelapse o mundo fica mudo: o teclado e o elevador em alta velocidade só fariam barulho.
+      // In the timelapse the world is mute: the keyboard and the high-speed elevator would only make noise.
       if (soundCbs.size && !playback) cues.update(now, (c) => soundCbs.forEach((cb) => cb(c)));
       if (mouse) {
         const hit = pick(mouse.x, mouse.y);
         setHover(hit?.type === 'agent' ? hit.id : null);
       }
-      // seleção de quem já foi embora
+      // selection of someone who already left
       if (selection?.type === 'agent' && !sim.chars.has(selection.id)) setSelection(null);
       if (selection?.type === 'room' && !sim.rooms.has(selection.id)) setSelection(null);
     } catch (err) {
@@ -360,7 +374,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     hiddenAt = 0;
   };
 
-  // Botão direito numa sala (ou num agente dentro dela): a UI oferece renomear a sala.
+  // Right click on a room (or on an agent inside it): the UI offers to rename the room.
   const onContextMenu = (e: MouseEvent) => {
     if (!roomMenuCbs.size) return;
     const r = canvas.getBoundingClientRect();
@@ -384,7 +398,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   resize();
   raf = requestAnimationFrame(loop);
 
-  // ------------------------------------------------------------------ depuração
+  // ------------------------------------------------------------------ debugging
 
   const markMoved = () => (userMoved = true);
   let debug = createDebug(sim, renderer, camera, markMoved);
@@ -392,11 +406,11 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   // ------------------------------------------------------------------ timelapse
 
   /**
-   * Recomeça simulação e desenho do zero (o próximo snapshot é a carga inicial: todos já no lugar).
-   * No timelapse as carteiras ficam só em memória, sem tocar nas moedinhas guardadas no navegador.
+   * Restarts simulation and drawing from scratch (the next snapshot is the initial load: everyone already in place).
+   * In the timelapse the wallets stay in memory only, without touching the coins stored in the browser.
    */
   const rebuild = () => {
-    // As carteiras ao vivo gravam a cada 5 s: não perde o que mudou desde a última vez (no replay, não grava nada).
+    // The live wallets save every 5 s: don't lose what changed since the last time (in the replay, nothing is saved).
     sim.social.wallets.save(Date.now());
     sim = new Sim(art, () => options, playback ? null : undefined, { visit: visitMode });
     renderer = new Renderer(canvas, art, sim, camera);
@@ -475,8 +489,13 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       soundCbs.add(cb);
       return () => void soundCbs.delete(cb);
     },
+    disco: () => (playback ? false : sim.toggleDisco(sim.now)),
+    pizzaParty: () => (playback ? false : sim.pizzaParty(sim.now)),
+    setWorkTree: (stage) => {
+      sim.workTreeStage = stage;
+    },
     celebrate: (roomId, text, agentId) => {
-      // só ao vivo: no timelapse a festa seria do dia reproduzido
+      // live only: in the timelapse the party would belong to the replayed day
       if (!playback) sim.celebrate(roomId, text, agentId);
     },
     setSuspended: (on) => {

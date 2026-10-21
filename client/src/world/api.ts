@@ -1,41 +1,47 @@
-// CONTRATO do mundo (canvas do escritório) consumido pela UI (client/src/ui/**).
-// Implementação: client/src/world/index.ts -> createWorld().
-// Regra: mudanças aqui devem ser ADITIVAS.
+// World CONTRACT (office canvas) consumed by the UI (client/src/ui/**).
+// Implementation: client/src/world/index.ts -> createWorld().
+// Rule: changes here must be ADDITIVE.
 
 export type Selection = { type: 'agent'; id: string } | { type: 'room'; id: string } | null;
 
 export interface WorldOptions {
-  /** Mostrar etiquetas com os nomes dos personagens. */
+  /** Show labels with the characters' names. */
   showNames: boolean;
-  /** Balões de atividade: todos, só importantes (precisa de você, selecionado, mudanças recentes) ou nenhum. */
+  /** Activity bubbles: all, only important ones (needs you, selected, recent changes) or none. */
   bubbles: 'all' | 'important' | 'none';
-  /** Frequência de passeios pelo escritório quando os agentes estão ociosos. */
+  /** How often agents wander around the office when idle. */
   liveliness: 'calm' | 'normal' | 'lively';
-  /** Câmera acompanha o agente selecionado. */
+  /** Camera follows the selected agent. */
   followSelected: boolean;
-  /** Ciclo dia/noite pela hora local (janelas, iluminação). */
+  /** Day/night cycle by local time (windows, lighting). */
   dayNight: boolean;
-  /** (Opcional, aditivo) Ciclo dia/noite: automático, sempre dia ou sempre noite. Vale sobre `dayNight`. */
+  /** (Optional, additive) Day/night cycle: automatic, always day or always night. Overrides `dayNight`. */
   daylight?: DaylightMode;
-  /** Tema visual: automático (segue o calendário; ver seasonalThemeFor), nenhum, Natal, Halloween ou Tết. */
+  /** Visual theme: automatic (follows the calendar; see seasonalThemeFor), none, Christmas, Halloween or Tết. */
   theme?: OfficeTheme;
 }
 
 /**
- * Tema que o renderer desenha: o escritório original ('none') ou um dos sazonais. O Tết (Ano Novo Lunar vietnamita)
- * é só do escritório: o Habblaud World não o conhece, e o prédio vai com 'none' (ver officeThemeForWorld).
+ * Theme the renderer draws: the original office ('none') or one of the seasonal ones. Tết (Vietnamese Lunar New Year)
+ * is office-only: Habblaud World does not know it, and the building goes with 'none' (see officeThemeForWorld).
  */
 export type SeasonalTheme = 'none' | 'christmas' | 'halloween' | 'tet';
 export type OfficeTheme = 'auto' | SeasonalTheme;
 
-/** Dia 1 do Tết (mùng 1 Tết, calendário do Vietnã), de 2024 a 2040: mês (1-12) e dia. */
+/** Day 1 of Tết (mùng 1 Tết, Vietnamese calendar), from 2024 to 2040: month (1-12) and day. */
 const TET_DAYS: Record<number, [number, number]> = {
   2024: [2, 10], 2025: [1, 29], 2026: [2, 17], 2027: [2, 6], 2028: [1, 26], 2029: [2, 13], 2030: [2, 3],
   2031: [1, 23], 2032: [2, 11], 2033: [1, 31], 2034: [2, 19], 2035: [2, 8], 2036: [1, 28], 2037: [2, 15],
   2038: [2, 4], 2039: [1, 24], 2040: [2, 12],
 };
 
-/** Tết na data (hora local): de 23 tháng Chạp (7 dias antes do mùng 1) a mùng 7 (6 dias depois). */
+/** Mùng 1 Tết of the year (local date, midnight), or null outside the table. */
+export function tetDay(year: number): Date | null {
+  const d = TET_DAYS[year];
+  return d ? new Date(year, d[0] - 1, d[1]) : null;
+}
+
+/** Tết on the date (local time): from 23 tháng Chạp (7 days before mùng 1) to mùng 7 (6 days after). */
 export function isTetSeason(date: Date): boolean {
   const day = TET_DAYS[date.getFullYear()];
   if (!day) return false;
@@ -46,9 +52,9 @@ export function isTetSeason(date: Date): boolean {
 }
 
 /**
- * Tema desenhado numa data (hora local). No automático: Halloween de 1º a 31 de outubro, Natal de 1º de novembro a
- * 26 de dezembro, Tết em volta do Ano Novo Lunar (só com `lunarNewYear`, a interface em vietnamita) e, no resto do
- * ano, o escritório original.
+ * Theme drawn on a date (local time). On automatic: Halloween from October 1 to 31, Christmas from November 1 to
+ * December 26, Tết around the Lunar New Year (only with `lunarNewYear`, the Vietnamese UI) and, for the rest of the
+ * year, the original office.
  */
 export function seasonalThemeFor(theme: OfficeTheme | undefined, date: Date, lunarNewYear = false): SeasonalTheme {
   if (theme && theme !== 'auto') return theme;
@@ -59,120 +65,126 @@ export function seasonalThemeFor(theme: OfficeTheme | undefined, date: Date, lun
   return 'none';
 }
 
-/** A escolha do escritório no formato do Habblaud World, que não tem o Tết: lá o prédio fica sem tema. */
+/** The office choice in Habblaud World's format, which has no Tết: there the building has no theme. */
 export function officeThemeForWorld(theme: OfficeTheme): Exclude<OfficeTheme, 'tet'> {
   return theme === 'tet' ? 'none' : theme;
 }
 
-/** Ciclo dia/noite: segue a hora local, ou fixa o dia ou a noite. */
+/** Day/night cycle: follows local time, or fixes day or night. */
 export type DaylightMode = 'auto' | 'day' | 'night';
 
-/** Sons do ambiente que o mundo sugere (quem toca, e se toca, é a UI). */
-export type SoundCueKind = 'keys' | 'elevator' | 'pingpong' | 'table' | 'arcade';
+/** Ambient sounds the world suggests (who plays them, and whether, is up to the UI). */
+export type SoundCueKind = 'keys' | 'elevator' | 'pingpong' | 'table' | 'arcade' | 'firework_launch' | 'firework_boom';
 
 export interface SoundCue {
   kind: SoundCueKind;
-  /** 0..1: proximidade (zoom, fora da tela...). */
+  /** 0..1: proximity (zoom, off screen...). */
   gain: number;
-  /** -1 (esquerda) .. 1 (direita): posição na tela. */
+  /** -1 (left) .. 1 (right): position on screen. */
   pan: number;
-  /** Teclado: quantas teclas na rajada. */
+  /** Keyboard: how many keys in the burst. */
   count?: number;
 }
 
 export interface WorldApi {
-  /** Seleciona (ou limpa) um agente/sala. `focus` move a câmera até ele. */
+  /** Selects (or clears) an agent/room. `focus` moves the camera to it. */
   select(sel: Selection, opts?: { focus?: boolean }): void;
   getSelection(): Selection;
-  /** Disparado quando a seleção muda (por clique no canvas ou por select()). */
+  /** Fired when the selection changes (by a click on the canvas or by select()). */
   onSelect(cb: (sel: Selection) => void): () => void;
-  /** Agente sob o cursor (para tooltips da UI). */
+  /** Agent under the cursor (for UI tooltips). */
   onHover(cb: (agentId: string | null) => void): () => void;
   focusAgent(id: string, opts?: { follow?: boolean }): void;
   focusRoom(id: string): void;
-  /** Enquadra o prédio inteiro. */
+  /** Frames the whole building. */
   overview(): void;
   zoomBy(factor: number): void;
   getOptions(): WorldOptions;
   setOptions(o: Partial<WorldOptions>): void;
-  /** Posição na tela (CSS px, relativo à viewport) logo acima da cabeça do personagem, ou null se não visível. */
+  /** Screen position (CSS px, relative to the viewport) just above the character's head, or null if not visible. */
   screenPositionOf(agentId: string): { x: number; y: number } | null;
   /**
-   * (Opcional, aditivo) Área da tela coberta por painéis da UI, em px CSS. O mundo passa a enquadrar
-   * (visão geral) e centralizar (focusAgent/focusRoom/seguir) dentro da área livre.
+   * (Optional, additive) Screen area covered by UI panels, in CSS px. The world then frames
+   * (overview) and centers (focusAgent/focusRoom/follow) within the free area.
    */
   setViewInsets?(insets: Partial<ViewInsets>): void;
   /**
-   * (Opcional, aditivo) Vida social de um agente presente no escritório: personalidade, carteira de
-   * moedinhas, amizades/rivalidades com quem está lá agora e a roda de que participa. null se não está.
+   * (Optional, additive) Social life of an agent present in the office: personality, coin
+   * wallet, friendships/rivalries with those there now and the circle it is part of. null if not present.
    */
   social?(agentId: string): AgentSocial | null;
-  /** (Opcional, aditivo) Botão direito numa sala do escritório: id da sala e o ponto do clique (px da janela). */
+  /** (Optional, additive) Right click on an office room: room id and the click point (window px). */
   onRoomContextMenu?(cb: (roomId: string, at: { x: number; y: number }) => void): () => void;
-  /** (Opcional, aditivo) Acontecimentos sociais (partidas e apostas) para o feed. */
+  /** (Optional, additive) Social events (matches and bets) for the feed. */
   onSocialEvent?(cb: (e: SocialEvent) => void): () => void;
   /**
-   * (Opcional, aditivo) Timelapse: com `p`, o mundo passa a desenhar o dia reproduzido (relógio e fator de
-   * animação de `p`); `null` volta ao vivo. Cada chamada recomeça o mundo do zero (ninguém anda até a mesa:
-   * todos já aparecem no lugar), então chame ao entrar, ao pular para outro ponto e ao sair; o próximo
-   * snapshot do store é aplicado como carga inicial.
+   * (Optional, additive) Timelapse: with `p`, the world draws the replayed day (clock and animation
+   * factor from `p`); `null` returns to live. Each call restarts the world from scratch (nobody walks to their desk:
+   * everyone already appears in place), so call it on entering, on jumping to another point and on leaving; the next
+   * store snapshot is applied as the initial load.
    */
   setPlayback?(p: WorldPlayback | null): void;
-  /** (Opcional, aditivo) Sons do ambiente: teclado de quem trabalha à vista, elevador, rodas. */
+  /** (Optional, additive) Ambient sounds: keyboards of visible workers, elevator, wheels. */
   onSound?(cb: (cue: SoundCue) => void): () => void;
   /**
-   * (Opcional, aditivo) Escritório fora da tela (a cena da cidade está aberta): para o desenho e o teclado da
-   * câmera; ao voltar, a simulação avança o tempo que passou (como com a aba em segundo plano).
+   * (Optional, additive) Office off screen (the city scene is open): stops drawing and the camera
+   * keyboard; on return, the simulation advances the time that passed (as with the tab in the background).
    */
   setSuspended?(suspended: boolean): void;
   /**
-   * (Opcional, aditivo) Festa numa sala (confete, faixa com `text` e a turma comemorando, ~12 s), como a do PR
-   * mergeado: conquistas e trabalhos grandes entregues. Só ao vivo (no timelapse não faz nada).
+   * (Optional, additive) Party in a room (confetti, a banner with `text` and the crew celebrating, ~12 s), like the
+   * merged-PR one: achievements and big pieces of work delivered. Live only (does nothing in the timelapse).
    */
   celebrate?(roomId: string, text: string, agentId?: string): void;
+  /** (Optional, additive) Disco (type "disco"): turns on for ~30 s, or off if already playing. Returns whether it is on. */
+  disco?(): boolean;
+  /** (Optional, additive) Pizza party: the delivery guy brings the boxes to the pantry. Returns whether it came. */
+  pizzaParty?(): boolean;
+  /** (Optional, additive) Reception work tree: the stage (0 sprout … 4 blooming); null goes back to the normal pot. */
+  setWorkTree?(stage: 0 | 1 | 2 | 3 | 4 | null): void;
   destroy(): void;
 }
 
-/** Relógios do timelapse (ver world/playback.ts). */
+/** Timelapse clocks (see world/playback.ts). */
 export interface WorldPlayback {
-  /** Instante reproduzido (epoch ms): hora do céu, da iluminação e do relógio de parede. */
+  /** Replayed instant (epoch ms): time of the sky, the lighting and the wall clock. */
   clock(): number;
-  /** Fator de animação (1 = tempo real; 0 = pausado). */
+  /** Animation factor (1 = real time; 0 = paused). */
   scale(): number;
 }
 
 export interface AgentSocial {
   traits: { emoji: string; label: string; desc: string }[];
-  /** Bordão ("Tá pago!"). */
+  /** Catchphrase ("Tá pago!"). */
   catchphrase: string;
-  /** Saldo de moedinhas (🪙). */
+  /** Coin balance (🪙). */
   coins: number;
-  /** Quanto já ganhou trabalhando (saldo inicial + tarefas + pedidos + entregas). */
+  /** How much it has earned working (starting balance + tasks + requests + deliveries). */
   earned: number;
   wins: number;
   losses: number;
-  /** Colegas presentes com quem tem amizade ou rivalidade; `record` = [vitórias, derrotas] contra ele. */
+  /** Present colleagues it has a friendship or rivalry with; `record` = [wins, losses] against them. */
   bonds: { id: string; name: string; kind: 'amizade' | 'rivalidade'; record: [number, number] | null }[];
-  /** O que está fazendo numa roda agora ("📺 Vendo futebol na TV com Rafaela"), ou null. */
+  /** What it is doing in a circle now ("📺 Watching football on TV with Rafaela"), or null. */
   doing: string | null;
-  /** Extrato: movimentações mais recentes primeiro. */
+  /** Statement: most recent transactions first. */
   ledger: { at: number; delta: number; icon: string; text: string }[];
 }
 
-/** Partida/aposta resolvida (vira uma linha do feed). */
+/** Resolved match/bet (becomes a feed line). */
 export interface SocialEvent {
   id: string;
   at: number;
   icon: string;
-  /** Protagonista (quem venceu). */
+  /** Protagonist (who won). */
   agentId: string;
-  /** Texto sem o nome do protagonista: "ganhou 🪙10 de Caio no jokenpô". */
+  /** Text without the protagonist's name: "won 🪙10 from Caio at rock-paper-scissors". */
   text: string;
-  /** Onde aconteceu ("Lounge", "Copa"...). */
+  /** Where it happened ("Lounge", "Pantry"...). */
   place: string;
 }
 
-/** Margens da viewport cobertas pela UI (px CSS). */
+/** Viewport margins covered by the UI (CSS px). */
 export interface ViewInsets {
   top: number;
   right: number;

@@ -3331,4 +3331,15 @@ export const VI: Readonly<Record<string, string>> = {
   "An agent worked for an hour straight.": "Một agent làm việc liền một tiếng đồng hồ.",
   "Big spender": "Đại gia",
   "A single session went past US$ 10.": "Một phiên tốn hơn 10 US$.",
+
+  // client/src/ui/index.ts (código da disco)
+  "🪩 Disco! (Shift + D again turns it off)": "🪩 Disco! (bấm lại Shift + D để tắt)",
+  "Disco is over. Back to work!": "Hết giờ disco. Quay lại làm việc thôi!",
+
+  // client/src/world (pizza, virada de ano)
+  "Lunar New Year in": "Giao thừa còn",
+  "New Year in": "Năm mới còn",
+  "Pizza delivery": "Giao pizza",
+  "🧧 Happy Lunar New Year!": "🧧 Chúc mừng năm mới!",
+  "🎆 Happy New Year!": "🎆 Chúc mừng năm mới!",
 };

@@ -1,4 +1,4 @@
-// Regras puras da camada de texto do mundo (balões e enquadramento).
+// Pure rules of the world text layer (bubbles and framing).
 import { describe, expect, it } from 'vitest';
 import { overviewFrame } from '../camera';
 import { rationBubbles, waitBubbleText } from './overlay';
@@ -23,9 +23,9 @@ describe('balões', () => {
     ];
     const keep = rationBubbles(items, 1, 4);
     expect(keep.size).toBe(4);
-    expect(keep.has(1)).toBe(true); // o mais recente da área "a"
+    expect(keep.has(1)).toBe(true); // the most recent of area "a"
     expect(keep.has(0) || keep.has(2)).toBe(false);
-    expect(keep.has(3)).toBe(false); // prioridade menor perde para as outras áreas
+    expect(keep.has(3)).toBe(false); // lower priority loses to the other areas
   });
 });
 
@@ -36,10 +36,10 @@ describe('visão geral', () => {
     const free = overviewFrame(building, 1440, 900, { top: 0, right: 0, bottom: 0, left: 0 });
     const ui = overviewFrame(building, 1440, 900, { top: 64, right: 0, bottom: 200, left: 320 });
     expect(ui.zoom).toBeLessThan(free.zoom);
-    // a altura do enquadramento (placas + prédio + meio-fio) cabe entre a barra superior e a inferior
+    // the framing height (signs + building + curb) fits between the top and bottom bars
     const h = (building.h + 3.5 * 16) * ui.zoom;
     expect(h).toBeLessThanOrEqual(900 - 64 - 200 - 30);
-    // começa acima da parede norte (placas) e termina abaixo da fachada sul
+    // starts above the north wall (signs) and ends below the south facade
     expect(ui.cy).toBeGreaterThan(building.h / 2);
     expect(ui.dy).toBeGreaterThan(0);
   });

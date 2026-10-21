@@ -1,5 +1,5 @@
-// Sons da interface (opt-in): liga a mesa de som às preferências, toca os sons do ambiente que o
-// mundo sugere (teclado, elevador, rodas) e libera o áudio no primeiro gesto do usuário.
+// Interface sounds (opt-in): wires the sound board to the preferences, plays the ambient sounds the
+// world suggests (keyboard, elevator, circles) and unlocks audio on the user's first gesture.
 import { SoundBoard } from '../audio/board';
 import type { SoundKind } from '../audio/scheduler';
 import type { UiComponent, UiContext } from './context';
@@ -11,7 +11,7 @@ export class SoundControl implements UiComponent {
   constructor(private ctx: UiContext) {
     this.sync();
     ctx.world.onSound?.((cue) => this.board.play(cue.kind, cue));
-    // O navegador só libera o áudio depois de um gesto do usuário.
+    // The browser only unlocks audio after a user gesture.
     const unlock = () => {
       if (this.ctx.prefs.sound) void this.board.unlock();
     };
@@ -23,19 +23,25 @@ export class SoundControl implements UiComponent {
     this.sync();
   }
 
-  /** Aplica as preferências atuais (interruptor geral, volume, categorias). */
+  /** Applies the current preferences (master switch, volume, categories). */
   sync(): void {
     this.board.configure(this.ctx.prefs.sound, this.ctx.prefs.sounds);
   }
 
-  /** Amostra ao mexer nas configurações (chamada a partir do clique: libera o áudio). */
+  /** Turns the disco track on or off (called from the shortcut: the gesture unlocks audio). */
+  disco(on: boolean, seconds = 30): void {
+    this.sync();
+    this.board.disco(on, seconds);
+  }
+
+  /** Sample when changing settings (called from the click: unlocks audio). */
   preview(kind: SoundKind = 'pop'): void {
     this.sync();
     const now = performance.now();
     const ready = this.board.unlock();
     if (now - this.previewAt < 250) return;
     this.previewAt = now;
-    // o primeiro "resume" do AudioContext é assíncrono
+    // the AudioContext's first "resume" is asynchronous
     void ready.then(() => this.board.play(kind));
   }
 }

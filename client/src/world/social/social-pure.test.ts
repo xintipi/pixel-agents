@@ -1,4 +1,4 @@
-// Regras puras da vida social: personalidades, falas, carteiras e regras das rodas.
+// Pure rules of social life: personalities, lines, wallets and circle rules.
 import { describe, expect, it } from 'vitest';
 import { IDLE_WEIGHTS } from '../sim/behavior';
 import { betFor, kindWeight, pickKind, rpsResult, winChance, type Gesture } from './gathering';
@@ -36,7 +36,7 @@ describe('personalidade', () => {
 
   it('rótulos são substantivos (não dependem do gênero de ninguém) e todo traço tem descrição', () => {
     for (const id of TRAIT_IDS) {
-      // nada de adjetivo com gênero ("Competitivo/Competitiva", "Vaidoso/Vaidosa", "Fofoqueiro/Fofoqueira")
+      // no gendered adjectives ("Competitivo/Competitiva", "Vaidoso/Vaidosa", "Fofoqueiro/Fofoqueira")
       expect(TRAITS[id].label).not.toMatch(/(iv[oa]|os[oa]|ad[oa]|eir[oa])$/i);
       expect(TRAITS[id].desc.length).toBeGreaterThan(20);
       expect(TRAITS[id].emoji).toBeTruthy();
@@ -83,7 +83,7 @@ describe('falas', () => {
   });
 
   it('dia e hora mudam o papo', () => {
-    expect(timeLine(new Date(2026, 9, 9, 15, 0))).toBe('TGIF! 🎉'); // sexta à tarde
+    expect(timeLine(new Date(2026, 9, 9, 15, 0))).toBe('TGIF! 🎉'); // Friday afternoon
     expect(timeLine(new Date(2026, 9, 5, 9, 0))).toBe('Monday, huh…');
     expect(timeLine(new Date(2026, 9, 7, 12, 30))).toMatch(/lunch/);
     expect(timeLine(new Date(2026, 9, 7, 16, 0))).toBeNull();
@@ -150,14 +150,14 @@ describe('carteira', () => {
 
   it('visita a um prédio do mundo (ids world:): chave própria, sem tocar na economia do escritório', () => {
     const st = memStorage();
-    // o escritório local já tem a sua economia gravada
+    // the local office already has its economy saved
     const office = new Wallets(st);
     office.ensure(ana, T0);
     office.credit('ana', 7, '💬', 'Request handled', T0);
     office.save(T0);
     const officeRaw = st.data.get('habblaud.wallets.v1');
     expect(officeRaw).toBeDefined();
-    // o Sim da visita carrega tudo, mas só grava a chave da visita
+    // the visit Sim loads everything, but only saves the visit key
     const visit = new Wallets(st);
     const marina = { id: 'world:a_1f2e3d4c', name: 'Marina', kind: 'main' as const, tasks: [] };
     const rafael = { id: 'world:a_2a3b4c5d', name: 'Rafael', kind: 'sub' as const, tasks: [] };
@@ -165,7 +165,7 @@ describe('carteira', () => {
     visit.ensure(rafael, T0);
     visit.transfer('world:a_2a3b4c5d', 'world:a_1f2e3d4c', 10, '✊', 'at rock-paper-scissors', T0);
     visit.recordMatch('world:a_1f2e3d4c', 'world:a_2a3b4c5d');
-    // enquanto isso, o escritório ganhou mais (em outra instância): a visita não regrava a cópia velha por cima
+    // meanwhile, the office earned more (in another instance): the visit doesn't overwrite it with the old copy
     office.credit('ana', 3, '💬', 'Request handled', T0 + 1);
     office.save(T0 + 1);
     const officeNow = st.data.get('habblaud.wallets.v1');
@@ -175,21 +175,21 @@ describe('carteira', () => {
     expect(officeNow).not.toContain('world:');
     const world = JSON.parse(st.data.get(WORLD_STORAGE_KEY)!) as { wallets: Record<string, unknown> };
     expect(Object.keys(world.wallets).sort()).toEqual(['world:a_1f2e3d4c', 'world:a_2a3b4c5d']);
-    // e o escritório também não regrava a chave da visita
+    // and the office doesn't overwrite the visit key either
     office.credit('ana', 1, '💬', 'Request handled', T0 + 3);
     const worldRaw = st.data.get(WORLD_STORAGE_KEY);
     office.save(T0 + 3);
     expect(st.data.get(WORLD_STORAGE_KEY)).toBe(worldRaw);
-    // recarregar a página no meio da visita guarda as moedinhas dos dois lados
+    // reloading the page mid-visit keeps the coins on both sides
     const again = new Wallets(st);
     expect(again.coins('world:a_1f2e3d4c')).toBe(START_COINS.main + 10);
     expect(again.coins('ana')).toBe(START_COINS.main + 7 + 3 + 1);
-    // ao sair da visita, a chave da visita some; a do escritório fica
+    // on leaving the visit, the visit key goes away; the office's stays
     clearWorldWallets(st);
     expect(st.data.has(WORLD_STORAGE_KEY)).toBe(false);
     expect(new Wallets(st).coins('world:a_1f2e3d4c')).toBe(0);
     expect(new Wallets(st).coins('ana')).toBe(START_COINS.main + 11);
-    // sem removeItem, esvazia; sem storage, nada acontece
+    // without removeItem, it empties; without storage, nothing happens
     const bare: StorageLike & { data: Map<string, string> } = { ...memStorage(), removeItem: undefined };
     bare.setItem(WORLD_STORAGE_KEY, '{"v":1,"wallets":{}}');
     clearWorldWallets(bare);
@@ -226,7 +226,7 @@ describe('regras das rodas', () => {
     expect(betFor('rps', a, a, 100, 0, null, rng)).toBe(0);
     expect(betFor('rps', persona(['economia']), a, 100, 100, null, rng)).toBe(5);
     expect(betFor('kitchen', a, a, 100, 100, null, rng)).toBe(0);
-    // partidas: só entre rivais (ou com quem é de apostas)
+    // matches: only between rivals (or with a betting person)
     expect(betFor('pingpong', a, a, 100, 100, null, rng)).toBe(0);
     expect(betFor('pingpong', a, a, 100, 100, 'rivalidade', rng)).toBe(15);
   });

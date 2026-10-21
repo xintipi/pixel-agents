@@ -1,5 +1,5 @@
-// O estado da cena Mundo (scene.ts): rev por chunk, resync no salto, mescla e substituição dos prédios, jogadores por
-// id, a minha posição (pos, players com o meu id, move), os chunks fora dos 3×3 e os comandos refeitos campo a campo.
+// The World scene state (scene.ts): rev per chunk, resync on a gap, merging and replacing buildings, players by
+// id, my position (pos, players with my id, move), chunks outside the 3×3 and commands rebuilt field by field.
 import { describe, expect, it } from 'vitest';
 import type { WorldBuildingPublic } from './protocol';
 import { parseSceneCommand, reduceSceneBatch, RESYNC_GAP_MS, SceneState } from './scene';
@@ -47,10 +47,10 @@ describe('SceneState: prédios por chunk', () => {
     expect(s.chunkRev('centro:0,0')).toBe(7);
     expect(s.apply({ t: 'area.patch', chunk: 'centro:0,0', rev: 8, changes: [{ id: 'b1', likes: 5 }] })).toEqual({ forward: true });
     expect(s.building('b1')).toMatchObject({ likes: 5, floors: 2, agents: { total: 3 } });
-    // Repetido ou velho: ignorado, sem resync.
+    // Repeated or old: ignored, no resync.
     expect(s.apply({ t: 'area.patch', chunk: 'centro:0,0', rev: 8, changes: [{ id: 'b1', likes: 99 }] })).toEqual({ forward: false });
     expect(s.building('b1')?.likes).toBe(5);
-    // O servidor reiniciou: a área volta com rev menor e vale.
+    // The server restarted: the area comes back with a lower rev and is accepted.
     expect(s.apply({ t: 'area', chunk: 'centro:0,0', rev: 1, buildings: [] })).toEqual({ forward: true });
     expect(s.chunkRev('centro:0,0')).toBe(1);
     expect(s.building('b1')).toBeUndefined();
@@ -66,7 +66,7 @@ describe('SceneState: prédios por chunk', () => {
     expect(s.apply({ t: 'area.patch', chunk: 'centro:0,0', rev: 7, changes: [] })).toEqual({ forward: false, resync: 'centro:0,0' });
     expect(s.apply({ t: 'area', chunk: 'centro:0,0', rev: 7, buildings: [building('b1', { likes: 4 })] }).forward).toBe(true);
     expect(s.apply({ t: 'area.patch', chunk: 'centro:0,0', rev: 8, changes: [{ id: 'b1', likes: 5 }] })).toEqual({ forward: true });
-    // Depois da area, um salto novo pede de novo na hora.
+    // After the area, a new gap requests again right away.
     expect(s.apply({ t: 'area.patch', chunk: 'centro:0,0', rev: 10, changes: [] }).resync).toBe('centro:0,0');
   });
 
@@ -92,7 +92,7 @@ describe('SceneState: prédios por chunk', () => {
     expect(s.apply({ t: 'area.patch', chunk: 'centro:0,0', rev: 3, changes: [building('b3')], removed: ['b2'] }).forward).toBe(true);
     expect(s.building('b2')).toBeUndefined();
     expect(s.building('b3')).toBeDefined();
-    // Bloqueio do lado do servidor: rev sobe com changes vazio, sem salto.
+    // Block on the server side: rev goes up with empty changes, no gap.
     expect(s.apply({ t: 'area.patch', chunk: 'centro:0,0', rev: 4, changes: [] })).toEqual({ forward: true });
   });
 
@@ -108,15 +108,15 @@ describe('SceneState: chunks fora da vista e a minha posição', () => {
   it('ficam só os 3×3 chunks em volta da posição (pos, players com o meu id e o meu move)', () => {
     const { s } = fresh();
     for (const c of ['centro:0,0', 'centro:1,0', 'centro:2,0', 'centro:-1,-1', 'centro:3,3']) s.apply({ t: 'area', chunk: c, rev: 1, buildings: [] });
-    // Nascimento na praça: chunk (0,0); ficam os vizinhos.
+    // Spawning in the plaza: chunk (0,0); the neighbors stay.
     expect(s.apply({ t: 'pos', x: 21, y: 15 })).toEqual({ forward: true });
     expect(s.pos).toEqual({ x: 21, y: 15, dir: 's', moving: false });
     expect(s.chunkIds).toEqual(['centro:-1,-1', 'centro:0,0', 'centro:1,0']);
-    // Andando para leste (o quarteirão 4 já é do chunk 2): o chunk -1,-1 sai.
+    // Walking east (block 4 already belongs to chunk 2): chunk -1,-1 goes away.
     s.apply({ t: 'area', chunk: 'centro:2,0', rev: 1, buildings: [] });
     s.noteCommand({ t: 'move', x: 4 * 51 + 1, y: 15, dir: 'e', moving: true });
     expect(s.chunkIds).toEqual(['centro:1,0', 'centro:2,0']);
-    // O servidor manda o meu próprio id num players: é a posição validada.
+    // The server sends my own id in a players: it's the validated position.
     s.apply({ t: 'players', chunk: 'centro:0,0', players: [{ id: ME, pos: { x: 30, y: 10, dir: 'w', moving: false } }] });
     expect(s.pos).toEqual({ x: 30, y: 10, dir: 'w', moving: false });
     expect(s.chunkIds).toEqual(['centro:1,0']);
@@ -189,7 +189,7 @@ describe('comandos da cena', () => {
     expect(parseSceneCommand({ t: 'view.off' })).toEqual({ t: 'view.off' });
     expect(parseSceneCommand({ t: 'resync' })).toEqual({ t: 'resync' });
     expect(parseSceneCommand({ t: 'resync', chunk: 'centro:0,0' })).toEqual({ t: 'resync', chunk: 'centro:0,0' });
-    // Fase 4: o interior do prédio onde estou (nunca vira um resync de todas as áreas)
+    // Phase 4: the interior of the building I'm in (never turns into a resync of all areas)
     expect(parseSceneCommand({ t: 'resync', building: 'o_7a8b' })).toEqual({ t: 'resync', building: 'o_7a8b' });
     expect(parseSceneCommand({ t: 'profile', playerId: 'p1' })).toEqual({ t: 'profile', playerId: 'p1' });
     expect(parseSceneCommand({ t: 'greet', playerId: 'p1', greetingId: 'wave' })).toEqual({ t: 'greet', playerId: 'p1', greetingId: 'wave' });
@@ -264,7 +264,7 @@ describe('SceneState: dentro de um prédio (Fase 4)', () => {
     expect(s.apply({ t: 'building.patch', rev: 8, visitors: 9 })).toEqual({ forward: false });
     expect(s.apply({ t: 'building.patch', rev: 3, visitors: 9 })).toEqual({ forward: false });
     expect(s.inside?.detail.visitors).toBe(4);
-    // `building` de outro prédio no patch: não é deste interior
+    // `building` of another building in the patch: not for this interior
     expect(s.apply({ t: 'building.patch', rev: 9, building: { ...sampleBuildingDetail().building, id: 'outro' } })).toEqual({ forward: false });
     expect(s.inside?.rev).toBe(8);
   });
@@ -278,7 +278,7 @@ describe('SceneState: dentro de um prédio (Fase 4)', () => {
     expect(s.inside?.detail.visitors).toBe(1);
     expect(s.apply({ t: 'building', rev: 9, detail: sampleBuildingDetail() }).forward).toBe(true);
     expect(s.apply({ t: 'building.patch', rev: 10, visitors: 3 })).toEqual({ forward: true });
-    // Depois do building, um salto novo pede de novo na hora.
+    // After the building, a new gap requests again right away.
     expect(s.apply({ t: 'building.patch', rev: 12 }).resyncBuilding).toBe(ID);
   });
 
@@ -340,13 +340,13 @@ describe('social leve (Fase 5)', () => {
     const city = { t: 'city', lit: 42, goal: { id: '2026-10-12:agent_hours_10k', label: 'agent_hours_10k', target: 10000, progress: 8000, until: 1 }, tokensBand: 4, extra: 'x' };
     expect(s.apply(city)).toEqual({ forward: true });
     expect(s.snapshot().city).toEqual({ lit: 42, goal: { id: '2026-10-12:agent_hours_10k', label: 'agent_hours_10k', target: 10000, progress: 8000, until: 1 }, tokensBand: 4 });
-    // meta de id desconhecido ou faixa fora de 0..5: só o que vale fica
+    // goal with an unknown id or band outside 0..5: only what's valid stays
     expect(s.apply({ t: 'city', lit: 3, goal: { id: 'x', label: 'agent_hours_1', target: 1, progress: 0, until: 0 }, tokensBand: 9 })).toEqual({ forward: true });
     expect(s.city).toEqual({ lit: 3 });
     expect(s.apply({ t: 'city', lit: -1 }).forward).toBe(false);
     expect(s.apply({ t: 'city.fireworks', goalId: '2026-10-12:agent_hours_10k' }).forward).toBe(true);
     expect(s.apply({ t: 'city.fireworks' }).forward).toBe(false);
-    // ao desligar a cidade (clear), o city some: o servidor manda outro ao abrir de novo
+    // when the city is turned off (clear), city goes away: the server sends another when it opens again
     s.clear();
     expect(s.snapshot().city).toBeUndefined();
   });

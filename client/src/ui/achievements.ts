@@ -1,8 +1,8 @@
-// Conquistas do escritório (puro, testável em node): marcos como "100 pedidos atendidos", "10 seguidos sem erro" ou
-// "5 agentes trabalhando ao mesmo tempo", contados a partir dos snapshots ao vivo e guardados neste navegador. Também
-// aponta as "grandes entregas" (um agente fecha uma lista de 3+ tarefas) para a festa na sala. O que já estava no
-// escritório quando a página abriu não conta: cada agente começa do que ele já tinha. Agentes do modo demonstração
-// do servidor (ids "demo:") ficam de fora.
+// Office achievements (pure, testable in node): milestones like "100 requests handled", "10 in a row without error" or
+// "5 agents working at the same time", counted from the live snapshots and stored in this browser. It also
+// flags "big deliveries" (an agent closes a list of 3+ tasks) for the party in the room. What was already in the
+// office when the page opened does not count: each agent starts from what it already had. Agents from the server's
+// demo mode (ids "demo:") are left out.
 import type { AgentInfo } from '../../../shared/types';
 import { tr } from '../../../shared/i18n';
 
@@ -20,12 +20,12 @@ export type AchievementId =
   | 'marathon'
   | 'big_spender';
 
-/** Contadores que algumas conquistas acompanham (com barra de progresso no painel). */
+/** Counters some achievements track (with a progress bar in the panel). */
 export interface AchievementCounts {
   turns: number;
   tasks: number;
   tests: number;
-  /** Pedidos atendidos em sequência sem nenhum erro no meio (o recorde fica em `bestClean`). */
+  /** Requests handled in a row without any error in between (the record is in `bestClean`). */
   clean: number;
   bestClean: number;
 }
@@ -35,7 +35,7 @@ export interface Achievement {
   icon: string;
   name: () => string;
   desc: () => string;
-  /** Meta de um contador (para o progresso no painel). */
+  /** A counter's goal (for progress in the panel). */
   goal?: { count: keyof AchievementCounts; target: number };
 }
 
@@ -56,9 +56,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
 
 export const ACHIEVEMENT_BY_ID: ReadonlyMap<AchievementId, Achievement> = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));
 
-/** O que fica guardado no navegador. */
+/** What is stored in the browser. */
 export interface AchievementState {
-  /** Conquista -> quando foi desbloqueada (ms). */
+  /** Achievement -> when it was unlocked (ms). */
   unlocked: Partial<Record<AchievementId, number>>;
   counts: AchievementCounts;
 }
@@ -67,7 +67,7 @@ export const EMPTY_STATE: AchievementState = { unlocked: {}, counts: { turns: 0,
 
 export interface Unlock {
   id: AchievementId;
-  /** Quem desbloqueou (para a festa na sala dele), quando há um responsável. */
+  /** Who unlocked it (for the party in their room), when there is someone responsible. */
   agentId?: string;
   roomId?: string;
 }
@@ -75,24 +75,24 @@ export interface Unlock {
 export interface BigFinish {
   agentId: string;
   roomId: string;
-  /** Tarefas da lista concluída. */
+  /** Tasks of the completed list. */
   tasks: number;
 }
 
-/** Erros num mesmo pedido para valer a "virada". */
+/** Errors in the same request for the "comeback" to count. */
 const COMEBACK_ERRORS = 5;
 const MARATHON_MS = 60 * 60_000;
 const ORCHESTRA_AGENTS = 5;
 const BIG_SPENDER_USD = 10;
-/** Lista de tarefas que, toda concluída num pedido, vale festa. */
+/** Task list that, fully completed in one request, earns a party. */
 const BIG_FINISH_TASKS = 3;
 
 interface Seen {
   activities: Set<string>;
   tasks: Set<string>;
-  /** Erros desde o último pedido concluído. */
+  /** Errors since the last completed request. */
   errors: number;
-  /** Tarefas concluídas desde o último pedido concluído. */
+  /** Tasks completed since the last completed request. */
   tasksThisTurn: number;
 }
 
@@ -104,8 +104,8 @@ export class AchievementTracker {
   constructor(public state: AchievementState = structuredClone(EMPTY_STATE)) {}
 
   /**
-   * Um snapshot ao vivo: devolve as conquistas desbloqueadas agora e as grandes entregas. `now` é o relógio do
-   * servidor; a hora local (coruja, madrugador) vem de `hour`.
+   * A live snapshot: returns the achievements unlocked now and the big deliveries. `now` is the server's
+   * clock; the local hour (night owl, early bird) comes from `hour`.
    */
   observe(agents: readonly AgentInfo[], now: number, hour = new Date(now).getHours()): { unlocks: Unlock[]; finishes: BigFinish[] } {
     const unlocks: Unlock[] = [];
@@ -118,18 +118,18 @@ export class AchievementTracker {
     };
     const real = agents.filter((a) => !a.id.startsWith('demo:'));
     const present = new Set<string>();
-    /** Quem acabou de atender um pedido neste snapshot (responsável pelas metas de contador). */
+    /** Who just handled a request in this snapshot (responsible for the counter goals). */
     let lastDone: AgentInfo | undefined;
 
     for (const a of real) {
       present.add(a.id);
-      // estados (não eventos): valem já na primeira vez que o agente aparece
+      // states (not events): count already the first time the agent appears
       if (a.status === 'working' && a.statusSince !== undefined && now - a.statusSince >= MARATHON_MS) unlock('marathon', a);
       if (a.provider !== 'codex' && (a.stats.costUSD ?? 0) >= BIG_SPENDER_USD) unlock('big_spender', a);
       let seen = this.seen.get(a.id);
       const recent = a.recent ?? (a.activity ? [a.activity] : []);
       if (!seen) {
-        // primeira vez: o que ele já tinha não conta
+        // first time: what it already had does not count
         seen = { activities: new Set(recent.map((x) => x.id)), tasks: new Set(a.tasks.filter((t) => t.status === 'completed').map(taskKey)), errors: 0, tasksThisTurn: 0 };
         this.seen.set(a.id, seen);
         continue;
@@ -165,13 +165,13 @@ export class AchievementTracker {
         seen.errors = 0;
         seen.tasksThisTurn = 0;
       }
-      // não deixa os conjuntos crescerem sem fim (o snapshot só traz as ~30 últimas atividades)
+      // keeps the sets from growing forever (the snapshot only carries the last ~30 activities)
       if (seen.activities.size > 200) seen.activities = new Set(recent.map((x) => x.id));
     }
     for (const id of this.seen.keys()) if (!present.has(id)) this.seen.delete(id);
 
     if (real.filter((a) => a.status === 'working').length >= ORCHESTRA_AGENTS) unlock('orchestra');
-    // As metas de contador: o responsável é quem acabou de atender um pedido (para a festa na sala dele).
+    // Counter goals: the one responsible is whoever just handled a request (for the party in their room).
     for (const ach of ACHIEVEMENTS) {
       if (ach.goal && s.counts[ach.goal.count] >= ach.goal.target) unlock(ach.id, lastDone);
     }
@@ -179,7 +179,7 @@ export class AchievementTracker {
   }
 }
 
-/** Valida o que veio do armazenamento (campo a campo; o resto cai no vazio). */
+/** Validates what came from storage (field by field; the rest falls back to empty). */
 export function sanitizeAchievementState(raw: unknown): AchievementState {
   const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const unlocked: AchievementState['unlocked'] = {};
@@ -193,7 +193,7 @@ export function sanitizeAchievementState(raw: unknown): AchievementState {
   return { unlocked, counts: { turns: n(c.turns), tasks: n(c.tasks), tests: n(c.tests), clean: n(c.clean), bestClean: n(c.bestClean) } };
 }
 
-/** Progresso de uma conquista com meta: 0–1 e o texto "37/100". */
+/** Progress of an achievement with a goal: 0–1 and the text "37/100". */
 export function achievementProgress(a: Achievement, state: AchievementState): { ratio: number; label: string } | null {
   if (!a.goal) return null;
   const have = Math.min(state.counts[a.goal.count], a.goal.target);

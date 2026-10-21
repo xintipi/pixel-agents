@@ -54,7 +54,7 @@ interface Setup {
   forceKill: ReturnType<typeof vi.fn>;
 }
 
-/** Gerenciador com tudo de fora trocado: um agente "acc:4242" aberto noutro terminal, vivo e conferido. */
+/** Manager with everything external swapped out: an agent "acc:4242" open in another terminal, alive and verified. */
 function setup(over: Partial<Omit<PtyManagerOptions, 'agent'>> & { agent?: Partial<PtyAgentRef>; proc?: ProcInfo | undefined; session?: unknown } = {}): Setup {
   const { agent: agentOver, proc: procOver, session, ...opts } = over;
   const alive = new Set([PID]);
@@ -221,7 +221,7 @@ describe('PtyManager: assumir', () => {
   });
 });
 
-/** Resposta SSE de mentira: guarda o que foi escrito. */
+/** Fake SSE response: stores what was written. */
 function fakeStream(): { req: IncomingMessage; res: ServerResponse; out: string[] } {
   const out: string[] = [];
   const req = Object.assign(new EventEmitter(), { socket: { setTimeout() {}, setNoDelay() {} } }) as unknown as IncomingMessage;
@@ -245,7 +245,7 @@ describe('PtyManager: tela para quem conecta', () => {
     let content = '';
     const screen: PtyScreen = {
       write(data, done) {
-        // Processa depois, como o xterm.
+        // Processes later, like xterm.
         pendingWrites.push(() => {
           content += data;
           done?.();
@@ -269,7 +269,7 @@ describe('PtyManager: tela para quem conecta', () => {
     const { req, res, out } = fakeStream();
     manager.attach(info.id, req, res);
     proc!.data('durante');
-    // Nada além do cabeçalho até a tela processar o que veio antes.
+    // Nothing beyond the header until the screen processes what came before.
     expect(out.join('')).not.toContain('tela');
     for (const w of pendingWrites.splice(0)) w();
     const text = out.join('');
@@ -300,7 +300,7 @@ describe('ptyRequestProblem', () => {
 describe('carregar o node-pty e achar o claude', () => {
   const unix = process.platform !== 'win32';
 
-  /** Pasta temporária, apagada no fim. */
+  /** Temporary folder, deleted at the end. */
   function withDir(fn: (dir: string) => void | Promise<void>) {
     return async () => {
       const dir = mkdtempSync(join(tmpdir(), 'habblaud-pty-'));
@@ -321,7 +321,7 @@ describe('carregar o node-pty e achar o claude', () => {
       chmodSync(join(sub, 'spawn-helper'), 0o644);
       fixSpawnHelper(dir, 'darwin', 'arm64');
       expect(statSync(join(sub, 'spawn-helper')).mode & 0o777).toBe(0o755);
-      // Sem spawn-helper nenhum: nada a fazer, sem erro.
+      // No spawn-helper at all: nothing to do, no error.
       expect(() => fixSpawnHelper(join(dir, 'vazia'), 'darwin', 'arm64')).not.toThrow();
     }),
   );
@@ -357,7 +357,7 @@ describe('carregar o node-pty e achar o claude', () => {
       const env = { PATH: `${a}:${b}` };
       expect(findExecutable('claude', env)).toBe(join(b, 'claude'));
       expect(claudeBinFrom(env)).toBe(join(b, 'claude'));
-      // HABBLAUD_CLAUDE_BIN: um caminho vale como está; um nome é procurado no PATH.
+      // HABBLAUD_CLAUDE_BIN: a path is used as is; a name is looked up in PATH.
       expect(claudeBinFrom({ ...env, HABBLAUD_CLAUDE_BIN: join(a, 'claude') })).toBe(join(a, 'claude'));
       expect(claudeBinFrom({ ...env, HABBLAUD_CLAUDE_BIN: 'claude' })).toBe(join(b, 'claude'));
       expect(claudeBinFrom({ ...env, HABBLAUD_CLAUDE_BIN: 'outro' })).toBeUndefined();

@@ -1,7 +1,7 @@
-// Testes do plugin de mensagens, rodados pelo próprio Claude Code: `claude plugin test` dentro de
-// mod/habblaud-mensagens (sem sessão, sem login, sem rede). Os stubs respondem no lugar do Claude Code e do
-// Habblaud: env, relógio (mock.clock), $.session.id, $.session.surfaces, $.http.fetch (as duas rotas do
-// servidor) e o prompt.submit de baixo (a sessão: aceita, um hook recusa, a chamada lança ou fica presa).
+// Tests for the messages plugin, run by Claude Code itself: `claude plugin test` inside
+// mod/habblaud-mensagens (no session, no login, no network). The stubs reply in place of Claude Code and
+// Habblaud: env, clock (mock.clock), $.session.id, $.session.surfaces, $.http.fetch (the server's two
+// routes) and the underlying prompt.submit (the session: accepts, a hook refuses, the call throws or hangs).
 import type { HttpResponse, On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 import { accountIdOf, ackBody, configDirOf, inboxBody, MAX_REASON, normalizePath, parseInbox, portOf, reasonText, type InboxMessage } from '../hooks/register'
@@ -12,19 +12,19 @@ const INBOX_URL = `http://127.0.0.1:${PORT}/api/mod/inbox`
 const ACK_URL = `${INBOX_URL}/ack`
 const JSON_HEADERS = { 'content-type': 'application/json', accept: 'application/json' }
 
-/** Resposta do Habblaud ao inbox: mensagens, 'offline' (conexão recusada), 'hang' (não responde) ou um HTTP cru. */
+/** Habblaud's reply to the inbox: messages, 'offline' (connection refused), 'hang' (doesn't reply) or a raw HTTP. */
 type Answer = InboxMessage[] | 'offline' | 'hang' | { status: number; text: string }
-/** O que a sessão faz com um prompt: entra, um hook recusa, a chamada lança, ou fica presa (sessão ocupada). */
+/** What the session does with a prompt: goes in, a hook refuses, the call throws, or hangs (busy session). */
 type Fate = 'ok' | 'drop' | 'throw' | 'hang'
 
 interface World {
   env?: Record<string, string>
   surfaces?: ReadonlyArray<'terminal' | 'desktop'>
-  /** Padrão: nenhuma mensagem. */
+  /** Default: no messages. */
   inbox?: () => Answer
-  /** Padrão: o ack responde 200. */
+  /** Default: the ack replies 200. */
   ack?: () => 'ok' | 'offline' | 'hang'
-  /** Padrão: 'ok'. */
+  /** Default: 'ok'. */
   fate?: (text: string) => Fate
 }
 
@@ -39,12 +39,12 @@ function response(status: number, text: string): HttpResponse {
   return { status, ok: status >= 200 && status < 300, headers: { 'content-type': 'application/json' }, text }
 }
 
-/** Uma fila de respostas: cada pergunta leva a próxima; acabou, nenhuma mensagem. */
+/** A queue of replies: each request takes the next; when exhausted, no messages. */
 function batches(...list: Answer[]): () => Answer {
   return () => list.shift() ?? []
 }
 
-/** Registra todos os stubs (antes da primeira chamada em $, como o kit exige) e devolve o que foi capturado. */
+/** Registers all the stubs (before the first call on $, as the kit requires) and returns what was captured. */
 function world(on: On, w: World = {}) {
   const clock = mock.clock(on, { now: NOW })
   mock.env(on, w.env ?? { HOME: '/home/fulano', CLAUDE_CONFIG_DIR: '~/.claude-conta2', HABBLAUD_PORT: PORT })
@@ -127,7 +127,7 @@ describe('rodadas', () => {
         { id: 'c', text: 'quebra' },
         { id: 'd', text: '  \n ' },
         { id: 'e', text: 42 },
-        // sem id: não há como confirmar, fica de fora
+        // no id: no way to confirm it, left out
         { text: 'órfã' },
       ],
     })
@@ -143,7 +143,7 @@ describe('rodadas', () => {
       results: [
         { id: 'a', ok: true },
         { id: 'b', ok: false, error: 'recusada por um hook: proibida' },
-        // O hook de baixo que lança é pulado e, sem nada embaixo dele, a chamada rejeita: o motivo é o do kit.
+        // The underlying hook that throws is skipped and, with nothing below it, the call rejects: the reason is the kit's.
         { id: 'c', ok: false, error: expect.stringMatching(/\S/) },
         { id: 'd', ok: false, error: 'empty message' },
         { id: 'e', ok: false, error: 'empty message' },
@@ -185,7 +185,7 @@ describe('rodadas', () => {
     const w = world(on, { inbox: batches([{ id: 'm1', text: 'primeira' }]), fate: () => 'hang', ack: () => 'hang' })
     await $.session.start(START)
     await w.clock.advance(2_000)
-    // A rodada vai de 2 s (pergunta) a 4 s (prazo do submit) e daí a 6 s (prazo do ack): a de 4 s não começa.
+    // The round goes from 2 s (request) to 4 s (submit deadline) and then to 6 s (ack deadline): the 4 s one doesn't start.
     await w.clock.advance(3_000)
     expect(w.inboxes().length).toBe(1)
     expect(w.acks().length).toBe(1)

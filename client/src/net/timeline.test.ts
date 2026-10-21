@@ -31,7 +31,7 @@ const key = (at: number, agents: TimelineAgent[], extra: Partial<TimelineKeyfram
 
 const act = (text: string, at: number) => ({ kind: 'read' as const, icon: '📖', text, at });
 
-/** Um dia pequeno: Ana trabalha, lê dois arquivos, espera você, conclui; o servidor para e volta. */
+/** A small day: Ana works, reads two files, waits for you, finishes; the server stops and comes back. */
 function day(): TimelineRecord[] {
   return [
     key(T0, [ag('ana', { activity: act('Lendo a.ts', T0) })], { boot: true }),
@@ -65,13 +65,13 @@ describe('reconstrução do timelapse', () => {
     const s4 = at(r, T0 + 4.5 * MIN);
     expect(s4.agents[0]).toMatchObject({ status: 'idle' });
     expect(s4.agents[0].waitingFor).toBeUndefined();
-    // As atividades vistas desde o keyframe viram o `recent` (o mundo usa para reagir ao fim de shells).
+    // Activities seen since the keyframe become `recent` (the world uses it to react to shells finishing).
     expect(s4.agents[0].recent.map((a) => a.text)).toEqual(['Lendo a.ts', 'Lendo b.ts', 'Done']);
-    // Para trás: nada "do futuro".
+    // Backward: nothing "from the future".
     const back = at(r, T0 + 1.5 * MIN);
     expect(back.agents[0]).toMatchObject({ status: 'working', activity: { text: 'Lendo b.ts' } });
     expect(back.agents[0].recent.map((a) => a.text)).toEqual(['Lendo a.ts', 'Lendo b.ts']);
-    // Snapshot com cara de servidor: horário da reprodução, sem terminal, rev crescente.
+    // Server-looking snapshot: playback time, no terminal, increasing rev.
     expect(back.serverTime).toBe(T0 + 1.5 * MIN);
     expect(back.meta.terminal).toBe(false);
     expect(at(r, T0 + 1.6 * MIN).rev).toBeGreaterThan(back.rev);
@@ -85,7 +85,7 @@ describe('reconstrução do timelapse', () => {
     expect(r.snapshot(T0 + 6.5 * MIN, view).agents).toEqual([]);
     expect(at(r, T0 + 30 * MIN).agents.map((a) => a.id)).toEqual(['caio']);
 
-    // Servidor derrubado sem marcar o fim: depois de ~1,5 keyframe sem nada, "no data".
+    // Server brought down without marking the end: after ~1.5 keyframes with nothing, "no data".
     const noEnd = day().filter((x) => x.t !== 'end');
     const r2 = new TimelineReplay('2026-10-07', noEnd);
     r2.moveTo(T0 + 12 * MIN);
@@ -126,7 +126,7 @@ describe('reconstrução do timelapse', () => {
     expect(b[0]).toMatchObject({ at: T0, present: 1, working: 1 });
     expect(b[2]).toMatchObject({ present: 2, working: 2 });
     expect(b[3]).toMatchObject({ waiting: 1 });
-    expect(b[10]).toMatchObject({ present: 0 }); // servidor parado
+    expect(b[10]).toMatchObject({ present: 0 }); // server stopped
     expect(b[30]).toMatchObject({ present: 1, working: 1 });
     expect(r.peaks(view)).toEqual([
       { at: T0 + 2 * MIN, working: 2, present: 2 },
@@ -135,7 +135,7 @@ describe('reconstrução do timelapse', () => {
   });
 
   it('confere com o simulador: o snapshot reconstruído é o que foi gravado (em qualquer ordem de busca)', () => {
-    // Grava em memória como o servidor faz (keyframe a cada 5 min, delta a cada ~1 s com mudança).
+    // Records in memory the way the server does (keyframe every 5 min, delta every ~1 s with changes).
     const sim = new DemoSimulator({ seed: 3, speed: 2, sessions: 4 }, T0);
     const recs: TimelineRecord[] = [];
     const truth: { at: number; frame: TimelineFrame }[] = [];

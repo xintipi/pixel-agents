@@ -1,17 +1,17 @@
-// Cena Visita do Habblaud World (PLANO.md, seções 2.5 e 8.4): dentro do prédio de outra pessoa, o escritório dela como
-// ela vê o dela. Montada pela cena da cidade (world/city/index.ts) quando o `building` chega depois do `enter`, e
-// desmontada quando o `pos` diz que estou na rua de novo; o stream da cidade fica aberto o tempo todo (fechado, o
-// servidor local manda `view.off` e o mundo me tira do prédio).
+// Habblaud World Visit scene (PLANO.md, sections 2.5 and 8.4): inside someone else's building, their office as
+// they see it. Mounted by the city scene (world/city/index.ts) when the `building` arrives after the `enter`, and
+// unmounted when the `pos` says I'm on the street again; the city stream stays open the whole time (if closed, the
+// local server sends `view.off` and the world takes me out of the building).
 //
-// Um mundo próprio (createWorld com `visit: true`) num canvas próprio, alimentado por um OfficeStore próprio que nunca
-// conecta (só `pushReplay`): o escritório desta máquina, o snapshot global e a interface dele nem ficam sabendo. Por
-// construção, nada que age é montado aqui: nem terminal, gaveta, feed, avisos, pedidos de permissão, mensagens, Meu dia,
-// timelapse, editor de personagem ou renomear sala. Só a faixa do topo, o painel só-leitura (salas e agentes, com um
-// cartão de nome, papel, ferramenta e status), Sair (botão, Esc ou o elevador da recepção) e, no topo do painel, o
-// social leve de dentro (visit-social.ts, Fase 5): **Curtir** e **Deixar um carimbo** na portaria, que respondem pelas
-// mensagens do stream (`message`). O quadro da parede da recepção vira o quadro de carimbos (`stampBoard`): o que este
-// navegador deixou hoje e, no meu próprio prédio, os do "Enquanto você estava fora".
-// O visitante (o meu personagem, com crachá) anda com o teclado e o clique; nenhum passo sai daqui.
+// Its own world (createWorld with `visit: true`) on its own canvas, fed by its own OfficeStore that never
+// connects (only `pushReplay`): this machine's office, the global snapshot and its UI don't even know. By
+// construction, nothing that acts is mounted here: no terminal, drawer, feed, notices, permission requests, messages, My day,
+// timelapse, character editor or room rename. Only the top banner, the read-only panel (rooms and agents, with a
+// card of name, role, tool and status), Leave (button, Esc or the reception elevator) and, at the top of the panel, the
+// light social layer inside (visit-social.ts, Phase 5): **Like** and **Leave a stamp** in the lobby, which reply via the
+// stream messages (`message`). The reception wall board becomes the stamp board (`stampBoard`): what this
+// browser left today and, in my own building, those from "While you were away".
+// The visitor (my character, with a badge) walks with the keyboard and clicks; no step leaves here.
 import { hash32 } from '../../../../shared/hash';
 import { tr } from '../../../../shared/i18n';
 import type { WorldSceneCommand, WorldSceneInside, WorldSceneMe } from '../../../../shared/world/api';
@@ -27,47 +27,47 @@ import { mountVisitSocial, stampBoard, stampPinTitle } from '../visit-social';
 import { VisitController } from './controller';
 import { findAgent, visitBanner, visitLightOf, visitorsLabel, visitPanel } from './model';
 
-/** Sem resposta ao `leave` por isto, a cena sai sozinha (o servidor local recomeça a cidade). */
+/** With no reply to `leave` within this, the scene leaves by itself (the local server restarts the city). */
 export const LEAVE_TIMEOUT_MS = 8_000;
 const NARROW_QUERY = '(max-width: 760px)';
 
 export interface VisitSceneOptions {
   uiRoot: HTMLElement;
-  /** O canvas da cidade: o da visita entra logo depois dele. */
+  /** The city canvas: the visit's goes right after it. */
   after: HTMLElement;
   inside: WorldSceneInside;
-  /** Eu na cena (nome, look e peças do personagem do mundo). */
+  /** Me in the scene (name, look and parts of the world character). */
   me: WorldSceneMe;
-  /** O próprio prédio ("ver como os outros veem"). */
+  /** My own building ("see it as others see it"). */
   mine: boolean;
-  /** As opções do escritório (nomes, balões, dia e noite); o tema é o do dono. */
+  /** The office options (names, bubbles, day and night); the theme is the owner's. */
   options: () => WorldOptions;
   version: string;
   topInset: () => number;
-  /** Comandos pelo stream da cena Mundo (`leave`, `resync {building}` e, do social, `like`, `unlike` e `stamp`). */
+  /** Commands via the World scene stream (`leave`, `resync {building}` and, from the social layer, `like`, `unlike` and `stamp`). */
   send(cmds: WorldSceneCommand[]): void;
-  /** O aviso rápido da cena (o mesmo da cidade). */
+  /** The scene's quick notice (the same as the city's). */
   toast(text: string): void;
-  /** No meu prédio: os carimbos do "Enquanto você estava fora" (o quadro da recepção). */
+  /** In my building: the stamps from "While you were away" (the reception board). */
   summaryStamps?(): ReadonlyArray<{ stampId: StampId; count: number }>;
-  /** O `leave` ficou sem resposta: a cidade volta sozinha. */
+  /** The `leave` got no reply: the city comes back by itself. */
   stuck(): void;
 }
 
 export interface VisitScene {
   readonly id: string;
   readonly controller: VisitController;
-  /** O interior inteiro de novo (`building` repetido, `resync`, o snapshot de um stream novo). */
+  /** The whole interior again (repeated `building`, `resync`, a new stream's snapshot). */
   replace(inside: Pick<WorldSceneInside, 'rev' | 'detail'>): void;
   patch(msg: BuildingPatchMessage): void;
-  /** Uma mensagem do stream antes da cidade: true = respondeu a um like ou carimbo daqui (e a cidade não mostra). */
+  /** A stream message before the city: true = it replied to a like or stamp from here (and the city doesn't show it). */
   message(msg: unknown): boolean;
-  /** Sair agora (botão, Esc): manda o `leave`. */
+  /** Leave now (button, Esc): sends the `leave`. */
   leave(): void;
-  /** Esc: fecha o cartão aberto; senão, sai. Sempre true (na visita, o Esc é dela). */
+  /** Esc: closes the open card; otherwise, leaves. Always true (in the visit, Esc belongs to it). */
   escape(): boolean;
   destroy(): void;
-  /** Depuração e capturas: abre o painel (celular) e o cartão de um agente. */
+  /** Debug and screenshots: opens the panel (mobile) and an agent's card. */
   openPanel(open?: boolean): void;
   selectAgent(id: string | null): void;
   readonly world: ReturnType<typeof createWorld>;
@@ -77,7 +77,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
   const canvas = document.createElement('canvas');
   canvas.id = 'visit';
   o.after.after(canvas);
-  // Um store só desta visita, que nunca conecta: o escritório desta máquina não muda.
+  // A store just for this visit, which never connects: this machine's office doesn't change.
   const store = new OfficeStore({ search: '' });
   const world = createWorld(canvas, store, { visit: true });
   const narrowMq = typeof matchMedia === 'function' ? matchMedia(NARROW_QUERY) : null;
@@ -88,7 +88,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
   let raf = 0;
   let theme = '';
 
-  // as luzes antes do primeiro snapshot: apagado já entra escuro
+  // the lights before the first snapshot: dark already enters dark
   world.visit.setLight(visitLightOf(o.inside.detail.building));
   const controller = new VisitController(o.inside, {
     push: (snap) => store.pushReplay(snap),
@@ -132,7 +132,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
   );
   const emptyNote = h('p', { class: 'ui-visit-panel__empty', hidden: true });
   const roomsEl = h('ul', { class: 'ui-visit-panel__rooms' });
-  // Curtir e Deixar um carimbo (visit-social.ts), no topo do painel; somem no meu próprio prédio
+  // Like and Leave a stamp (visit-social.ts), at the top of the panel; hidden in my own building
   const socialBox = h('div', { class: 'ui-visit-panel__social' });
   const panel = h(
     'aside',
@@ -144,7 +144,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
     roomsEl,
     h('p', { class: 'ui-visit-panel__hint', text: tr('Only each agent\'s name, role, tool and status: the rest of the office never leaves the owner\'s computer.') }),
   );
-  // perto do elevador: "Sair pelo elevador (E)", que também é um botão (no celular, sem teclado)
+  // near the elevator: "Leave by the elevator (E)", which is also a button (on mobile, without a keyboard)
   const exitHint = h('button', { class: 'ui-visit-exit', type: 'button', hidden: true, on: { click: () => exitByElevator() } }, h('kbd', { text: 'E' }), tr('Leave by the elevator'));
   const help = h(
     'div',
@@ -156,12 +156,12 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
     h('span', {}, h('kbd', { text: 'Esc' }), ' ', tr('leave')),
   );
   const leaving = h('div', { class: 'ui-visit-leaving', hidden: true, role: 'status', text: tr('Leaving the building…') });
-  // o quadro de carimbos da portaria, em cima do quadro da parede da recepção (acompanha a câmera a cada quadro)
+  // the lobby stamp board, on top of the reception wall board (follows the camera every frame)
   const boardPins = h('div', { class: 'ui-visit-board__pins' });
   const board = h('div', { class: 'ui-visit-board', hidden: true, role: 'img' }, boardPins);
   const layer = h('div', { class: 'ui-visit' }, board, bar, panel, exitHint, help, leaving);
   o.uiRoot.append(layer);
-  // os avisos do escritório desta máquina continuam, ao lado do painel
+  // this machine's office notices carry on, next to the panel
   o.uiRoot.classList.add('is-visit');
 
   const social = mountVisitSocial(socialBox, {
@@ -172,7 +172,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
   });
 
   let boardSig = '';
-  /** Os carimbos do quadro: o meu de hoje (visitante) ou os do resumo (no meu prédio). */
+  /** The board's stamps: mine from today (visitor) or those from the summary (in my building). */
   function renderBoard(): void {
     const mine = social.stampedToday();
     const entries = o.mine ? (o.summaryStamps?.() ?? []).map((e) => ({ stampId: e.stampId, count: e.count })) : mine ? [{ stampId: mine, mine: true }] : [];
@@ -209,7 +209,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
     setText(visitors, d.visitors > 0 ? `👀 ${visitorsLabel(d.visitors)}` : '');
     setHidden(leaving, !controller.leaving);
     leaveBtn.disabled = controller.leaving;
-    // luzes e tema do dono (a escolha local de tema não vale aqui)
+    // the owner's lights and theme (the local theme choice doesn't apply here)
     world.visit.setLight(controller.light);
     const t = d.building.theme;
     if (t !== theme) {
@@ -283,7 +283,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
     render();
   }
 
-  /** A área livre do mundo: abaixo da faixa e ao lado (ou acima, no celular) do painel. */
+  /** The free world area: below the banner and beside (or above, on mobile) the panel. */
   function insets(): void {
     layer.style.setProperty('--ui-visit-top', `${Math.round(o.topInset() + 8)}px`);
     const top = bar.getBoundingClientRect().bottom || o.topInset() + 56;
@@ -298,7 +298,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
 
   const offSelect = world.onSelect(() => renderCard());
 
-  // ------------------------------------------------------------------ teclado e elevador
+  // ------------------------------------------------------------------ keyboard and elevator
 
   const keys = new Set<string>();
   let shift = false;
@@ -351,7 +351,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
   addEventListener('resize', onResize);
   narrowMq?.addEventListener('change', onResize);
 
-  /** No elevador: o visitante entra e some; o `leave` sai quando a porta fecha. */
+  /** At the elevator: the visitor enters and disappears; the `leave` goes out when the door closes. */
   function exitByElevator(): void {
     if (controller.leaving) return;
     if (!world.visit.atExit()) return;
@@ -371,13 +371,13 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
     }, LEAVE_TIMEOUT_MS);
   }
 
-  // a dica "Sair pelo elevador (E)" acompanha o visitante
+  // the "Leave by the elevator (E)" hint follows the visitor
   const tick = () => {
     raf = requestAnimationFrame(tick);
     const show = !controller.leaving && world.visit.atExit();
     const at = show ? world.visit.visitorScreen() : null;
     setHidden(exitHint, !at);
-    // o quadro de carimbos: só com a recepção na tela e grande o bastante para ler
+    // the stamp board: only with the reception on screen and big enough to read
     const r = world.visit.boardScreen();
     const fits = !!r && r.h >= 18;
     setHidden(board, !fits);
@@ -388,7 +388,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
       board.style.setProperty('--pin', `${Math.max(8, Math.round(r.h * 0.3))}px`);
     }
     if (at) {
-      // sobre a cabeça, sem sair da tela
+      // above the head, without leaving the screen
       const w = exitHint.offsetWidth || 150;
       const x = Math.max(8, Math.min(window.innerWidth - w - 8, at.x - w / 2));
       exitHint.style.transform = `translate(${Math.round(x)}px, ${Math.round(at.y - 34)}px)`;
@@ -408,7 +408,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
     },
     patch(msg) {
       controller.patch(msg);
-      // o like otimista só é refeito quando o prédio (likes, likedByMe) vem no patch
+      // the optimistic like is only redone when the building (likes, likedByMe) comes in the patch
       if (msg.building) social.sync();
     },
     message(msg) {
@@ -450,7 +450,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
       canvas.remove();
       layer.remove();
       o.uiRoot.classList.remove('is-visit');
-      // depois do mundo: nenhuma gravação das carteiras da visita sai depois da limpeza
+      // after the world: no saving of the visit wallets goes out after the cleanup
       clearWorldWallets(browserStorage());
     },
   };

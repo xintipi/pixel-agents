@@ -1,16 +1,16 @@
-// O social leve na cena da cidade (Fase 5): o que dá para fazer com os outros sem nenhum texto livre.
-//   L ou ❤️ perto da porta (até 4 passos) = like; o coração voa até a placa e o contador pula.
-//   G = a roda de cumprimentos (10 frases da lista, para quem acabou de me cumprimentar, o selecionado ou o mais perto);
-//       os balões ficam 5 s sobre as cabeças.
-//   K perto da porta de quem aceita (até 2 passos) = bater na porta (o dono recebe sem o meu nome).
-//   Cartão de perfil: Cumprimentar, Bloquear (com confirmação) e Denunciar (motivos fixos).
-//   Minimapa: "Ir para HB-XXXX" e "Visitar um prédio aleatório" (com fade).
-//   Praça: o termômetro da meta da semana, a placa da prefeitura, os fogos de 20 s e o enfeite depois da meta.
-//   Fachadas: o medidor de tokens do dia ao lado da porta, o letreiro pela faixa da semana, o confete do fim de turno e
-//   o selo "não verificado" na placa (quando o mundo marca).
-// Liga-se à cena por poucos ganchos (city/index.ts): as mensagens antes do estado, o snapshot, o quadro, os ganchos de
-// desenho do CityRenderer (CityFx), os extras dos cartões e as teclas. Comandos só no formato do protocolo, com os
-// limites do lado de cá (o servidor fecha a conexão depois de 3 recusas por limite num minuto).
+// Light social in the city scene (Phase 5): what you can do with others without any free text.
+//   L or ❤️ near the door (up to 4 steps) = like; the heart flies to the sign and the counter jumps.
+//   G = the greeting wheel (10 phrases from the list, for whoever just greeted me, the selected one or the nearest);
+//       the bubbles stay 5 s above the heads.
+//   K near the door of someone who accepts (up to 2 steps) = knock on the door (the owner gets it without my name).
+//   Profile card: Greet, Block (with confirmation) and Report (fixed reasons).
+//   Minimap: "Go to HB-XXXX" and "Visit a random building" (with fade).
+//   Plaza: the weekly goal thermometer, the city hall sign, the 20 s fireworks and the decoration after the goal.
+//   Facades: the daily token meter next to the door, the sign by the weekly band, the end-of-shift confetti and
+//   the "unverified" seal on the sign (when the world flags it).
+// Hooks into the scene through a few hooks (city/index.ts): messages before the state, the snapshot, the frame, the
+// CityRenderer drawing hooks (CityFx), the card extras and the keys. Commands only in the protocol format, with the
+// limits on this side (the server closes the connection after 3 rate-limit refusals in a minute).
 import { tr } from '../../../../shared/i18n';
 import { blockAt, chunkOf, lotDoor } from '../../../../shared/world/city';
 import type { WorldSceneCity, WorldSceneCommand, WorldSceneSnapshot } from '../../../../shared/world/api';
@@ -52,13 +52,13 @@ import './social.css';
 
 const UI_FONT = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
 const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-/** Um aviso do mundo logo depois de um comando é a resposta a ele (para o texto certo). */
+/** A world notice right after a command is the reply to it (for the right text). */
 const PENDING_MS = 4_000;
-/** Quanto o ponteiro do medidor balança depois de a faixa do dia mudar. */
+/** How long the meter needle wobbles after the daily band changes. */
 const WIGGLE_MS = 1_600;
-/** Quanto dura o pulo do contador de likes na placa. */
+/** How long the like counter's jump on the sign lasts. */
 const BUMP_MS = 1_100;
-/** A partir deste zoom os textos das placas da praça aparecem (como as placas dos prédios). */
+/** From this zoom on the plaza sign texts appear (like the building signs). */
 const BOARD_TEXT_ZOOM = 1.05;
 
 type Pending =
@@ -67,25 +67,25 @@ type Pending =
   | { kind: 'greet' | 'block' | 'report'; at: number; playerId: string };
 
 export interface CitySocialOptions {
-  /** O estado da cena (troca a cada stream novo). */
+  /** The scene state (replaced on each new stream). */
   state(): CityState;
   renderer(): CityRenderer;
   camera: Camera;
   canvas: HTMLCanvasElement;
-  /** Manda comandos pelo stream (só os da cena). */
+  /** Sends commands through the stream (only the scene's). */
   send(cmds: WorldSceneCommand[]): void;
-  /** Meu personagem na rua (tiles), ou null antes do `pos`. */
+  /** My character on the street (tiles), or null before the `pos`. */
   me(): { x: number; y: number } | null;
   cards: CityCards;
-  /** O aviso rápido da cena. */
+  /** The scene's quick toast. */
   toast(text: string): void;
-  /** A cena está na tela. */
+  /** The scene is on screen. */
   active(): boolean;
-  /** Fui teletransportado: a câmera vai junto, sem animação, e os chunks em volta se atualizam. */
+  /** I was teleported: the camera follows, without animation, and the surrounding chunks update. */
   teleported(): void;
-  /** Aplica uma mensagem guardada (o `pos` do teletransporte, que só vale com a tela já escura). */
+  /** Applies a held message (the teleport `pos`, which only counts once the screen is dark). */
   replay(msg: unknown): void;
-  /** Modo demonstração com `?fireworks=1`: o botão de teste dos fogos chama isto (a cidade falsa comemora). */
+  /** Demo mode with `?fireworks=1`: the fireworks test button calls this (the fake city celebrates). */
   testFireworks?: () => void;
 }
 
@@ -95,7 +95,7 @@ function isTyping(t: EventTarget | null): boolean {
 }
 
 const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-/** O servidor do mundo só aceita cumprimentar quem está no mesmo chunk (os 2×2 quarteirões). */
+/** The world server only accepts greeting someone in the same chunk (the 2×2 blocks). */
 const sameChunk = (a: { x: number; y: number }, b: { x: number; y: number }) => {
   const ca = chunkOf(blockAt(a.x, a.y));
   const cb = chunkOf(blockAt(b.x, b.y));
@@ -107,12 +107,12 @@ export class CitySocial implements CityFx {
   readonly el: HTMLElement;
   private readonly wheel = new GreetingWheel();
   private readonly balloons = new BalloonBook();
-  // Os limites do lado de cá ficam um pouco abaixo dos do servidor do mundo (3 recusas por limite num minuto fecham a
-  // conexão): os comandos saem em lotes a cada 200 ms e podem chegar mais juntos do que saíram.
+  // The limits on this side sit a bit below the world server's (3 rate-limit refusals in a minute close the
+  // connection): commands go out in batches every 200 ms and may arrive closer together than they left.
   private readonly greetGate = new RateGate(18, 3_300);
   private readonly likeGate = new RateGate(9, 400);
   private readonly teleportGate = new RateGate(9, 1_500);
-  /** Denúncias de hoje (dia UTC), no máximo 5 (o servidor também confere). */
+  /** Today's reports (UTC day), at most 5 (the server also checks). */
   private reports = { day: '', n: 0 };
   private readonly knocks = new KnockBook();
   private readonly hearts: HeartFlight[] = [];
@@ -128,12 +128,12 @@ export class CitySocial implements CityFx {
   private readonly testBtn: HTMLButtonElement | null = null;
   private dockKey = '';
   private city: WorldSceneCity | null = null;
-  /** A meta que acabou de bater: o termômetro fica cheio durante os fogos. */
+  /** The goal just reached: the thermometer stays full during the fireworks. */
   private celebrating: { goal: GoalView; until: number } | null = null;
   private replyTo: { id: string; at: number; got: GreetingId } | null = null;
   private pending: Pending | null = null;
   private snapCamera = false;
-  /** O `pos` do teletransporte, guardado até o fade escurecer a tela (ninguém vê o pulo). */
+  /** The teleport `pos`, held until the fade darkens the screen (nobody sees the jump). */
   private heldPos: unknown = null;
   private lastNow = 0;
   private readonly reported = new Set<string>();
@@ -155,7 +155,7 @@ export class CitySocial implements CityFx {
     window.addEventListener('keydown', this.onKeyDown, true);
   }
 
-  /** As dicas das teclas novas (para a barra de ajuda da cena). */
+  /** The hints for the new keys (for the scene's help bar). */
   helpItems(): HTMLElement[] {
     return [
       h('span', {}, h('kbd', { text: 'L' }), ' ', tr('like')),
@@ -164,7 +164,7 @@ export class CitySocial implements CityFx {
     ];
   }
 
-  /** Stream novo (a cena abriu de novo): esquece o que era do anterior. */
+  /** New stream (the scene opened again): forgets what belonged to the previous one. */
   reset(): void {
     this.wheel.close();
     this.balloons.clear();
@@ -185,12 +185,12 @@ export class CitySocial implements CityFx {
     this.panel.setBusy(false);
   }
 
-  /** A cena saiu da tela. */
+  /** The scene left the screen. */
   hide(): void {
     this.wheel.close();
   }
 
-  /** Esc: fecha a roda (true) ou não havia nada aberto. */
+  /** Esc: closes the wheel (true) or nothing was open. */
   escape(): boolean {
     if (this.wheel.open) {
       this.wheel.close();
@@ -204,16 +204,16 @@ export class CitySocial implements CityFx {
     this.el.remove();
   }
 
-  // ------------------------------------------------------------------ do stream
+  // ------------------------------------------------------------------ from the stream
 
-  /** O `world.snapshot`: a meta da cidade que veio guardada. */
+  /** The `world.snapshot`: the city goal that came stored. */
   snapshot(snap: WorldSceneSnapshot): void {
     this.city = snap.city ? parseCityStatus(snap.city) ?? null : null;
   }
 
   /**
-   * Uma mensagem do mundo, ANTES do estado (o que mudou precisa do valor de antes). true = já tratada aqui (um aviso
-   * que é a resposta a um comando do social, com o texto certo): a cena não mostra o genérico.
+   * A world message, BEFORE the state (what changed needs the previous value). true = already handled here (a notice
+   * that is the reply to a social command, with the right text): the scene does not show the generic one.
    */
   message(msg: unknown, now: number): boolean {
     if (!obj(msg) || typeof msg.t !== 'string') return false;
@@ -223,7 +223,7 @@ export class CitySocial implements CityFx {
         this.onGreeting(msg, now);
         return false;
       case 'player.join':
-        // desbloqueado (em Configurações, por exemplo): a pessoa voltou à rua e à roda
+        // unblocked (in Settings, for example): the person is back on the street and in the wheel
         if (obj(msg.player) && typeof msg.player.id === 'string') this.blocked.delete(msg.player.id);
         return false;
       case 'like.update': {
@@ -274,7 +274,7 @@ export class CitySocial implements CityFx {
       return;
     }
     if (msg.to === me && me) {
-      // alguém me cumprimentou: G responde para essa pessoa
+      // someone greeted me: G replies to that person
       this.replyTo = { id: from, at: now, got: id };
       const name = this.o.state().players.get(from)?.info.name ?? tr('Someone');
       this.o.toast(tr('{0}: {1} {2} — G to reply', [name, greetingIcon(id), greetingLabel(id)]));
@@ -288,7 +288,7 @@ export class CitySocial implements CityFx {
       const prev = state.buildings.get(c.id);
       if (!prev) continue;
       if (num(c.likes) && c.likes > prev.likes) this.bumps.set(c.id, now);
-      // fim de turno: agentes trabalhando a menos e à toa a mais → confete na fachada
+      // end of shift: fewer agents working and more idle → confetti on the facade
       if (shiftEnded(prev.agents, c.agents)) this.celebrateShift(c.id, now);
       const day = obj(c.tokens) && num(c.tokens.day) ? c.tokens.day : undefined;
       if (day !== undefined && day !== prev.tokens?.day) this.wiggles.set(c.id, { band: day, at: now });
@@ -306,7 +306,7 @@ export class CitySocial implements CityFx {
     this.pops.push({ x, y: y - 6, at: now, text: '🎉' });
   }
 
-  /** O aviso que responde a um comando do social: o texto certo para ele. */
+  /** The notice that replies to a social command: the right text for it. */
   private onNotice(text: string, now: number): boolean {
     const p = this.pending;
     if (!p || now - p.at > PENDING_MS) return false;
@@ -344,7 +344,7 @@ export class CitySocial implements CityFx {
         break;
       case 'block':
       case 'report':
-        // a confirmação (`blocked_ok`, `reported`) já foi dita na hora, no toast do bloqueio ou da denúncia
+        // the confirmation (`blocked_ok`, `reported`) was already given on the spot, in the block or report toast
         if (text === (p.kind === 'block' ? 'blocked_ok' : 'reported')) {
           this.pending = null;
           return true;
@@ -359,14 +359,14 @@ export class CitySocial implements CityFx {
     return true;
   }
 
-  // ------------------------------------------------------------------ ações
+  // ------------------------------------------------------------------ actions
 
   private send(cmd: WorldSceneCommand, pending: Pending | null): void {
     this.o.send([cmd]);
     if (pending) this.pending = pending;
   }
 
-  /** O prédio de uma porta perto de mim, para curtir (L ou o botão). */
+  /** The building of a door near me, to like (L or the button). */
   likeNearest(now: number): void {
     const me = this.o.me();
     const state = this.o.state();
@@ -379,7 +379,7 @@ export class CitySocial implements CityFx {
     this.toggleLike(t.building, now);
   }
 
-  /** Curtir ou desfazer (o coração voa até a placa, ou cai partido). */
+  /** Like or undo (the heart flies to the sign, or falls broken). */
   toggleLike(b: WorldBuildingPublic, now: number): void {
     const me = this.o.me();
     const state = this.o.state();
@@ -400,7 +400,7 @@ export class CitySocial implements CityFx {
     this.hearts.push({ from: { x: me.x * TILE, y: me.y * TILE - 30 }, to, start: now, ...(on ? {} : { broken: true }) });
   }
 
-  /** Bater na porta (K): perto (até 2 passos) de quem aceita. */
+  /** Knock on the door (K): near (up to 2 steps) someone who accepts. */
   knockNearest(now: number): void {
     const me = this.o.me();
     const state = this.o.state();
@@ -438,7 +438,7 @@ export class CitySocial implements CityFx {
     this.o.toast(`🚪 ${tr('Knock, knock! You knocked on {0}\'s door.', [b.owner.name])}`);
   }
 
-  /** A roda de cumprimentos para quem me cumprimentou há pouco, o selecionado no cartão ou o mais perto. */
+  /** The greeting wheel for whoever greeted me recently, the one selected in the card or the nearest. */
   openWheel(now: number, forceTarget?: string): void {
     const me = this.o.me();
     const state = this.o.state();
@@ -475,7 +475,7 @@ export class CitySocial implements CityFx {
     if (this.replyTo?.id === playerId) this.replyTo = null;
   }
 
-  /** "Ir para HB-XXXX" (com código) ou "Visitar um prédio aleatório" (sem). */
+  /** "Go to HB-XXXX" (with a code) or "Visit a random building" (without). */
   teleport(code?: string): void {
     const now = performance.now();
     if (!this.o.me()) return;
@@ -514,7 +514,7 @@ export class CitySocial implements CityFx {
     return true;
   }
 
-  // ------------------------------------------------------------------ teclas
+  // ------------------------------------------------------------------ keys
 
   private onKey(e: KeyboardEvent): void {
     if (!this.o.active()) return;
@@ -527,7 +527,7 @@ export class CitySocial implements CityFx {
     }
     if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
     if (isTyping(e.target) || modalOpen(e.target as HTMLElement | null)) return;
-    // indo para outro prédio (tela escura): nada até chegar
+    // heading to another building (dark screen): nothing until arriving
     if (this.fade.busy) return;
     const now = performance.now();
     switch (e.key) {
@@ -549,9 +549,9 @@ export class CitySocial implements CityFx {
     }
   }
 
-  // ------------------------------------------------------------------ quadro
+  // ------------------------------------------------------------------ frame
 
-  /** A cada quadro: fogos, confete, fade, câmera depois do teletransporte, os botões perto de mim e os cartões. */
+  /** Every frame: fireworks, confetti, fade, camera after the teleport, the nearby buttons and the cards. */
   frame(now: number, dt: number): void {
     this.lastNow = now;
     this.fireworks.update(now, dt);
@@ -560,7 +560,7 @@ export class CitySocial implements CityFx {
       const f = this.hearts[i]!;
       if (now - f.start > 1_000) {
         this.hearts.splice(i, 1);
-        // chegou: o contador da placa pula
+        // arrived: the sign's counter jumps
         if (!f.broken) {
           const v = this.findAt(f.to);
           if (v) this.bumps.set(v.b.id, now);
@@ -570,7 +570,7 @@ export class CitySocial implements CityFx {
     for (let i = this.pops.length - 1; i >= 0; i--) if (now - this.pops[i]!.at > 1_300) this.pops.splice(i, 1);
     const f = this.fade.tick(now);
     if (this.heldPos && f.phase !== 'out') {
-      // a tela já está escura: agora sim o personagem (e a câmera) vão para o lugar novo
+      // the screen is already dark: now the character (and the camera) move to the new place
       const msg = this.heldPos;
       this.heldPos = null;
       this.o.replay(msg);
@@ -634,9 +634,9 @@ export class CitySocial implements CityFx {
     void now;
   }
 
-  // ------------------------------------------------------------------ cartões (extras)
+  // ------------------------------------------------------------------ cards (extras)
 
-  /** O elemento extra do cartão aberto (cards.ts o põe no fim): ações do prédio ou do jogador. */
+  /** The extra element of the open card (cards.ts puts it at the end): building or player actions. */
   cardExtras(kind: 'building' | 'player', id: string): HTMLElement | null {
     if (kind === 'building') {
       if (!this.extras.building) this.extras.building = new BuildingExtras(this);
@@ -648,12 +648,12 @@ export class CitySocial implements CityFx {
     return this.extras.player.el;
   }
 
-  /** Para os extras dos cartões. */
+  /** For the card extras. */
   get ctx(): { state: CityState; me: { x: number; y: number } | null; reported: ReadonlySet<string> } {
     return { state: this.o.state(), me: this.o.me(), reported: this.reported };
   }
 
-  /** Ações chamadas pelos extras dos cartões. */
+  /** Actions called by the card extras. */
   act = {
     like: (b: WorldBuildingPublic) => this.toggleLike(b, performance.now()),
     knock: (b: WorldBuildingPublic) => this.knock(b, performance.now()),
@@ -662,7 +662,7 @@ export class CitySocial implements CityFx {
     report: (playerId: string, reason: ReportReason) => this.report(playerId, reason, performance.now()),
   };
 
-  // ------------------------------------------------------------------ desenho (CityFx)
+  // ------------------------------------------------------------------ drawing (CityFx)
 
   private drawn(id: string): BuildingVis | undefined {
     for (const v of this.o.renderer().buildingsDrawn) if (v.b.id === id) return v;
@@ -674,26 +674,26 @@ export class CitySocial implements CityFx {
     return undefined;
   }
 
-  /** Onde fica o contador de likes na placa (px de mundo). */
+  /** Where the like counter sits on the sign (world px). */
   private likeSpot(v: BuildingVis): { x: number; y: number } {
     const r = signRect(v.m);
     return { x: v.x + r.x + r.w - 10, y: v.y + r.y + r.h / 2 };
   }
 
-  /** O termômetro agora: a meta que acabou de bater (cheia) durante os fogos, depois a da semana. */
+  /** The thermometer now: the goal just reached (full) during the fireworks, then the weekly one. */
   private goal(now: number): GoalView | null {
     if (this.celebrating && now < this.celebrating.until) return this.celebrating.goal;
     return goalView(this.city);
   }
 
-  /** Px de mundo → px da janela (para pôr a roda no lugar do personagem). */
+  /** World px → window px (to put the wheel where the character is). */
   private toWindow(wx: number, wy: number): { x: number; y: number } {
     const p = this.o.camera.worldToScreen(wx, wy);
     const r = this.o.canvas.getBoundingClientRect();
     return { x: r.left + p.x, y: r.top + p.y };
   }
 
-  /** Depois de cada fachada: o medidor de tokens do dia ao lado da porta. */
+  /** After each facade: the daily token meter next to the door. */
   building(ctx: CanvasRenderingContext2D, v: BuildingVis, now: number): void {
     const day = v.b.tokens?.day;
     if (day === undefined || !v.s) return;
@@ -703,7 +703,7 @@ export class CitySocial implements CityFx {
     drawMeter(ctx, v.x + r.x, v.y + r.y, meterBars(day), now, wiggle, v.b.state === 'online');
   }
 
-  /** As placas da praça e, com a meta batida, as bandeirinhas e os enfeites da estação (com profundidade). */
+  /** The plaza signs and, with the goal reached, the bunting and the season's decorations (with depth). */
   props(view: CityView, push: (p: CityFxProp) => void): void {
     const pool = this.propsPool;
     let used = 0;
@@ -730,7 +730,7 @@ export class CitySocial implements CityFx {
     }
   }
 
-  /** Por cima da noite: o letreiro e o medidor brilhando, os corações, o confete e os fogos. */
+  /** Over the night: the glowing sign and meter, the hearts, the confetti and the fireworks. */
   world(ctx: CanvasRenderingContext2D, now: number, view: CityView): void {
     const r = this.o.renderer();
     const night = r.night;
@@ -747,12 +747,12 @@ export class CitySocial implements CityFx {
       }
     }
     ctx.restore();
-    // corações voando até a placa
+    // hearts flying to the sign
     for (const f of this.hearts) {
       const p = heartAt(f, now);
       if (p) this.drawHeart(ctx, p.x, p.y, p.scale, p.alpha, f.broken === true, night);
     }
-    // a praça de noite: as placas acesas por trás, as lampadazinhas das bandeirinhas e as abóboras brilhando
+    // the plaza at night: signs lit from behind, the bunting's little lights and the glowing pumpkins
     if (night > 0.15) this.plazaLights(ctx, now, view, night);
     this.confetti.draw(ctx, view.x0, view.y0, view.x1, view.y1, now);
     this.fireworks.draw(ctx, now, view, night);
@@ -811,7 +811,7 @@ export class CitySocial implements CityFx {
       for (let i = 0; i < row.length; i++) {
         const c = row[i];
         if (c === '.') continue;
-        // partido: a metade da direita desce um pouco
+        // broken: the right half drops a little
         const dy = broken && i >= 4 ? 1 : 0;
         ctx.fillStyle = c === '2' ? '#ffd1da' : broken ? '#9a6b78' : '#ff4f6d';
         ctx.fillRect(x0 + i * px, y0 + (j + dy) * px, px, px);
@@ -820,10 +820,10 @@ export class CitySocial implements CityFx {
     ctx.restore();
   }
 
-  /** Espaço de tela: balões dos cumprimentos, o pulo do contador, os textos das placas da praça e o selo. */
+  /** Screen space: greeting bubbles, the counter jump, the plaza sign texts and the seal. */
   screen(ctx: CanvasRenderingContext2D, now: number, map: CityScreenMap): void {
     const r = this.o.renderer();
-    // selo "não verificado" na placa e o pulo do contador de likes
+    // "unverified" seal on the sign and the like counter jump
     for (const v of r.buildingsDrawn) {
       const sr = signRect(v.m);
       const x0 = map.sx(v.x + sr.x);
@@ -838,7 +838,7 @@ export class CitySocial implements CityFx {
         else this.drawBump(ctx, x0 + w - 12 * map.k, y0 + hh / 2, t);
       }
     }
-    // emojis que pulam (bater na porta, fim de turno)
+    // bouncing emojis (knock on the door, end of shift)
     for (const p of this.pops) {
       const t = (now - p.at) / 1_300;
       if (t < 0 || t >= 1) continue;
@@ -850,7 +850,7 @@ export class CitySocial implements CityFx {
       ctx.globalAlpha = 1;
     }
     if (map.zoom >= BOARD_TEXT_ZOOM) this.drawBoardTexts(ctx, map);
-    // balões dos cumprimentos sobre as cabeças (um não cobre o outro: o de baixo empurra o de cima)
+    // greeting bubbles above the heads (one doesn't cover the other: the lower one pushes the upper one)
     const meId = this.o.state().me?.id;
     const placed = this.placed;
     placed.length = 0;
@@ -885,7 +885,7 @@ export class CitySocial implements CityFx {
 
   private readonly placed: number[] = [];
 
-  /** Largura (px CSS) do balão de um cumprimento. */
+  /** Width (CSS px) of a greeting bubble. */
   private balloonWidth(ctx: CanvasRenderingContext2D, id: GreetingId, zoom: number): number {
     if (zoom < 0.85) return 28;
     ctx.font = `700 11.5px ${UI_FONT}`;
@@ -911,14 +911,14 @@ export class CitySocial implements CityFx {
 
   private drawBump(ctx: CanvasRenderingContext2D, x: number, y: number, t: number): void {
     ctx.save();
-    // anel que se abre
+    // expanding ring
     ctx.globalAlpha = (1 - t) * 0.9;
     ctx.strokeStyle = '#ff7b93';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(x, y, 6 + t * 16, 0, Math.PI * 2);
     ctx.stroke();
-    // "+1" subindo
+    // "+1" rising
     ctx.globalAlpha = t < 0.8 ? 1 : (1 - t) / 0.2;
     ctx.font = `800 12px ${UI_FONT}`;
     ctx.textAlign = 'center';
@@ -947,7 +947,7 @@ export class CitySocial implements CityFx {
     const hh = 22;
     const x = -w / 2;
     const y = -hh - 7;
-    // corpo do balão
+    // bubble body
     ctx.fillStyle = 'rgba(10,14,24,0.35)';
     ctx.beginPath();
     ctx.roundRect(x + 1, y + 2, w, hh, 9);
@@ -959,7 +959,7 @@ export class CitySocial implements CityFx {
     ctx.roundRect(x, y, w, hh, 9);
     ctx.fill();
     ctx.stroke();
-    // rabinho
+    // little tail
     ctx.beginPath();
     ctx.moveTo(-5, y + hh - 1);
     ctx.lineTo(0, y + hh + 6);
@@ -973,7 +973,7 @@ export class CitySocial implements CityFx {
     ctx.stroke();
     ctx.fillStyle = mine ? '#e6f4ff' : '#fffaf0';
     ctx.fillRect(-4, y + hh - 2, 8, 2);
-    // ícone e frase
+    // icon and phrase
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.font = `14px ${EMOJI_FONT}`;
@@ -988,7 +988,7 @@ export class CitySocial implements CityFx {
     ctx.restore();
   }
 
-  /** Os textos das duas placas da praça (o termômetro e a prefeitura), nítidos, em cima do desenho delas. */
+  /** The texts of the two plaza signs (the thermometer and city hall), crisp, on top of their drawing. */
   private drawBoardTexts(ctx: CanvasRenderingContext2D, map: CityScreenMap): void {
     const rects = boardTextRects();
     const k = map.k;
@@ -1023,7 +1023,7 @@ export class CitySocial implements CityFx {
     ctx.textBaseline = 'middle';
     const small = Math.max(7, Math.min(11, 4.2 * k));
     const step = small * 1.18;
-    // o termômetro: título, porcentagem grande e a meta
+    // the thermometer: title, big percentage and the goal
     {
       const r = rects.goal;
       const x = map.sx(r.x);
@@ -1049,7 +1049,7 @@ export class CitySocial implements CityFx {
         }
       }
     }
-    // a prefeitura: título, prédios acesos e os tokens da semana
+    // city hall: title, lit buildings and the week's tokens
     {
       const r = rects.hall;
       const x = map.sx(r.x);
@@ -1075,9 +1075,9 @@ export class CitySocial implements CityFx {
   }
 }
 
-// ====================================================================== extras dos cartões
+// ====================================================================== card extras
 
-/** As ações no cartão do prédio: curtir (perto da porta), bater (quem aceita), o código e o selo. */
+/** The actions on the building card: like (near the door), knock (whoever accepts), the code and the seal. */
 class BuildingExtras {
   readonly el: HTMLElement;
   private readonly likeBtn: HTMLButtonElement;
@@ -1140,7 +1140,7 @@ class BuildingExtras {
   }
 }
 
-/** As ações no cartão de um jogador: Cumprimentar, Bloquear (dois cliques) e Denunciar (motivos fixos). */
+/** The actions on a player's card: Greet, Block (two clicks) and Report (fixed reasons). */
 class PlayerExtras {
   readonly el: HTMLElement;
   private readonly greetBtn: HTMLButtonElement;

@@ -160,7 +160,7 @@ describe('FakeWorldApi', () => {
     expect(await api.verify({ email: 'nova@exemplo.com', code: '000000' })).toMatchObject({ ok: false, code: 'invalid_code' });
     expect((await api.verify({ email: 'nova@exemplo.com', code: FAKE_CODE })).ok).toBe(true);
     expect(api.meta().state).toBe('waiting');
-    // O nome do cadastro fica reservado até o personagem existir.
+    // The sign-up name stays reserved until the character exists.
     const st = await api.status();
     expect(st.ok && st.data.account).toEqual({ emailMasked: 'no***@exemplo.com', access: 'waiting', reservedName: 'Nova Pixel' });
     api.approve();
@@ -172,12 +172,12 @@ describe('FakeWorldApi', () => {
     await api.logout();
     expect(await api.register({ email: 'x@exemplo.com', password: 'curta', name: 'a!', locale: 'pt-BR' })).toMatchObject({ code: 'name_invalid', status: 422 });
     expect(await api.register({ email: 'x@exemplo.com', password: 'cavalo correto bateria', name: 'Admin', locale: 'pt-BR' })).toMatchObject({ code: 'name_blocked' });
-    // "Pixel Dev" é a reserva da conta da demonstração; "Marina" é de um personagem fixo.
+    // "Pixel Dev" is the demo account's reservation; "Marina" belongs to a fixed character.
     expect(await api.register({ email: 'x@exemplo.com', password: 'cavalo correto bateria', name: 'pixel dev', locale: 'pt-BR' })).toMatchObject({ code: 'name_taken', status: 409 });
     expect(await api.register({ email: 'x@exemplo.com', password: 'cavalo correto bateria', name: 'MARINA', locale: 'pt-BR' })).toMatchObject({ code: 'name_taken' });
     expect((await api.register({ email: 'x@exemplo.com', password: 'cavalo correto bateria', name: 'Xis Pixel', locale: 'pt-BR' })).ok).toBe(true);
     await api.verify({ email: 'x@exemplo.com', code: FAKE_CODE });
-    // Sem `name` no corpo: o personagem nasce com a reserva; com `name`, ele é ignorado.
+    // No `name` in the body: the character is born with the reservation; with `name`, it is ignored.
     const { name: _name, ...rest } = CHARACTER;
     expect((await api.saveCharacter(rest)).ok).toBe(true);
     const st = await api.status();
@@ -210,7 +210,7 @@ describe('FakeWorldApi', () => {
     const api = fake({ state: 'waiting' });
     await api.logout();
     expect((await api.register({ email: FAKE_EMAIL, password: 'cavalo correto bateria', name: 'Outra Pessoa', locale: 'pt-BR' })).ok).toBe(true);
-    // A senha antiga continua valendo.
+    // The old password still works.
     expect((await api.login({ email: FAKE_EMAIL, password: FAKE_PASSWORD })).ok).toBe(true);
   });
 
@@ -288,7 +288,7 @@ describe('FakeWorldApi', () => {
     await api.register({ email: 'nova@exemplo.com', password: 'cavalo correto bateria', name: 'Nova Pixel', locale: 'pt-BR' });
     await api.verify({ email: 'nova@exemplo.com', code: FAKE_CODE });
     expect(n).toBe(2);
-    // Ler não avisa (senão a interface releria o status sem parar).
+    // Reading does not notify (otherwise the UI would re-read the status endlessly).
     await api.status();
     await api.devices();
     expect(n).toBe(2);
@@ -320,7 +320,7 @@ describe('de onde vêm os dados', () => {
       enabled: true,
       configured: true,
       state: 'approved',
-      // Fase 5: likes do dia (3 e mais um por minuto) e o resumo não visto do modo demonstração
+      // Phase 5: today's likes (3 plus one per minute) and the unseen summary in demo mode
       building: { connected: true, paused: false, floors: 2, agents: 3, lastUplinkAt: expect.any(Number), visitors: 0, likesToday: 3, awaySummary: true },
       scene: { available: true },
     });
@@ -335,7 +335,7 @@ describe('de onde vêm os dados', () => {
   });
 });
 
-// ------------------------------------------------------------------ Fase 2: prédio no mundo
+// ------------------------------------------------------------------ Phase 2: building in the world
 
 describe('prédio: rotas locais da Fase 2', () => {
   it('última remessa, pausar, retomar, sair do mundo e tema vão para as rotas do contrato', async () => {
@@ -367,7 +367,7 @@ describe('prédio: rotas locais da Fase 2', () => {
   it('a resposta recusada sem código (ou com um que esta versão não conhece) vira "internal"; números tortos viram 0', () => {
     expect(parseLastUplink({ at: 5, bytes: 10, uplink: { v: 1 }, ack: { ok: false, at: 6 } })?.ack).toEqual({ ok: false, error: 'internal', at: 6 });
     expect(parseLastUplink({ at: 5, bytes: 10, uplink: { v: 1 }, ack: { ok: false, error: 'novo', at: 6 } })?.ack).toEqual({ ok: false, error: 'internal', at: 6 });
-    // Aceita: os bytes que o mundo contou; sem horário, a resposta não vale.
+    // Accepted: the bytes the world counted; without a timestamp, the response is invalid.
     expect(parseLastUplink({ at: 5, bytes: 10, uplink: { v: 1 }, ack: { ok: true, at: 6, bytes: 10 } })?.ack).toEqual({ ok: true, at: 6, bytes: 10 });
     expect(parseLastUplink({ at: 5, bytes: 10, uplink: { v: 1 }, ack: { ok: true } })?.ack).toBeUndefined();
     expect(parseBuilding({ connected: 'sim', paused: true, floors: -3, agents: 2.7, lastUplinkAt: 'now', lastAck: { ok: false, error: 'rate' } })).toEqual({
@@ -397,7 +397,7 @@ describe('prédio: rotas locais da Fase 2', () => {
     const odd = parseWorldStatus({ state: 'approved', building: { ...base, stopped: 'deploy', left: 'sim' }, theme: 'pascoa' });
     expect(odd?.building).toEqual(base);
     expect(odd?.theme).toBeUndefined();
-    // No snapshot, a parada é só sim/não (o motivo não vai ao celular).
+    // In the snapshot, the stop is just yes/no (the reason does not go to the phone).
     expect(readWorldMeta(snap({ enabled: true, configured: true, state: 'approved', building: { ...base, stopped: true } }))?.building).toEqual({ ...base, stopped: true });
     expect(readWorldMeta(snap({ enabled: true, configured: true, state: 'approved', building: { ...base, stopped: 'update' } }))?.building).toEqual(base);
     expect(buildingFromMeta({ ...base, stopped: true, left: true })).toEqual({ ...base, left: true });
@@ -453,7 +453,7 @@ describe('FakeWorldApi: prédio', () => {
     const last = await api.lastUplink();
     const bytes = uplinkBytes({ ...FAKE_UPLINK, theme: 'halloween' });
     expect(last.ok && last.data).toEqual({ at: OCT, bytes, uplink: { ...FAKE_UPLINK, theme: 'halloween' }, ack: { ok: true, at: OCT, bytes } });
-    // Fora de outubro, o automático manda o visual original.
+    // Outside October, automatic sends the original look.
     const july = await new FakeWorldApi({ state: 'approved', delayMs: 0, now: () => JULY }).lastUplink();
     expect(july.ok && july.data?.uplink.theme).toBe('none');
   });
@@ -462,7 +462,7 @@ describe('FakeWorldApi: prédio', () => {
     expect(new FakeWorldApi({ state: 'waiting', delayMs: 0 }).meta()).not.toHaveProperty('building');
     expect(await new FakeWorldApi({ state: 'logged_out', delayMs: 0 }).lastUplink()).toMatchObject({ ok: false, code: 'not_logged_in' });
     const api = new FakeWorldApi({ state: 'waiting', delayMs: 0 });
-    // A conta de exemplo da espera não tem personagem: aprovada, ainda sem prédio; com o personagem, ele acende.
+    // The waiting sample account has no character: approved, still no building; with the character, it lights up.
     api.approve();
     expect(api.meta()).not.toHaveProperty('building');
     expect(await api.pause()).toMatchObject({ ok: false, code: 'no_player' });
@@ -479,7 +479,7 @@ describe('FakeWorldApi: prédio', () => {
     c.tick(60_000);
     expect(await api.pause()).toEqual({ ok: true, data: { paused: true } });
     expect(api.meta().building).toMatchObject({ connected: false, paused: true, floors: 2, agents: 3, lastUplinkAt: OCT });
-    // Pausado, mudar o tema não manda nada.
+    // While paused, changing the theme sends nothing.
     await api.setTheme('christmas');
     expect(api.meta().building?.lastUplinkAt).toBe(OCT);
     c.tick(60_000);
@@ -520,7 +520,7 @@ describe('FakeWorldApi: prédio', () => {
     c.tick(60_000);
     expect(await api.join()).toEqual({ ok: true, data: null });
     expect(api.meta().building).toMatchObject({ connected: true, paused: false, floors: 2, agents: 3, lastUplinkAt: OCT + 60_000, visitors: expect.any(Number) });
-    // Sem ter saído, voltar não muda nada (nem manda outra remessa).
+    // Without having left, rejoining changes nothing (nor sends another uplink).
     c.tick(60_000);
     expect((await api.join()).ok).toBe(true);
     expect(api.meta().building?.lastUplinkAt).toBe(OCT + 60_000);

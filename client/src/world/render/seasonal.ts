@@ -19,7 +19,7 @@ function prop(kind: SeasonalProp): Sprite {
   return sprite;
 }
 
-/** Cores de cada tema decorado (guirlanda, luzes, tapete, parede). */
+/** Colors of each decorated theme (garland, lights, rug, wall). */
 interface ThemePalette {
   rug: string;
   rugMotif: string;
@@ -46,7 +46,7 @@ export function seasonalCostume(theme: SeasonalTheme, seed: number): CharacterFr
   return undefined;
 }
 
-/** Reutiliza footprints de plantas: nenhuma nova colisão ou mudança de caminhos. */
+/** Reuses plant footprints: no new collisions or path changes. */
 export function seasonalFurniture(theme: SeasonalTheme, kind: FurnitureKind, area: AreaLayout, seed: number): Sprite | null {
   if (theme === 'none' || area.kind === 'restroom') return null;
   if (kind === 'plant_tall') {
@@ -69,7 +69,7 @@ export function seasonalWallStyle(theme: SeasonalTheme, original: WallStyle): Wa
   return { ...original, base: mix(original.base, p.wallTint, 0.18), trim: p.trim };
 }
 
-/** Motivos de tapete (cacheados junto com o piso). */
+/** Rug motifs (cached together with the floor). */
 export function decorateSeasonalRug(ctx: CanvasRenderingContext2D, theme: SeasonalTheme, rug: { x: number; y: number; w: number; h: number }): void {
   if (theme === 'none') return;
   const x = Math.round(rug.x), y = Math.round(rug.y), w = Math.floor(rug.w), h = Math.floor(rug.h);
@@ -89,7 +89,7 @@ export function decorateSeasonalRug(ctx: CanvasRenderingContext2D, theme: Season
         ctx.fillRect(cx + d, cy - d, 1, 1);
       }
     } else if (theme === 'tet') {
-      // Flor de mai de cinco pétalas.
+      // Five-petal mai blossom.
       for (const [dx, dy] of [[0, -3], [-3, -1], [3, -1], [-2, 2], [2, 2]]) ctx.fillRect(cx + dx - 1, cy + dy - 1, 2, 2);
       ctx.fillStyle = PALETTES.tet.rug;
       ctx.fillRect(cx, cy, 1, 1);
@@ -106,7 +106,7 @@ export function decorateSeasonalRug(ctx: CanvasRenderingContext2D, theme: Season
   ctx.restore();
 }
 
-/** Enfeites no alto da parede, longe das telas e placas. Os vãos ficam livres. */
+/** Decorations high on the wall, away from screens and signs. Openings stay clear. */
 export function decorateSeasonalWall(ctx: CanvasRenderingContext2D, theme: SeasonalTheme, wall: WallSegment): void {
   if (theme === 'none' || wall.kind !== 'face') return;
   ctx.save();
@@ -125,7 +125,7 @@ export function decorateSeasonalWall(ctx: CanvasRenderingContext2D, theme: Seaso
     }
   }
   if (theme === 'halloween') {
-    // Teias pequenas nos cantos; não cobrem os equipamentos.
+    // Small webs in the corners; they don't cover the equipment.
     ctx.strokeStyle = '#d6bfdd';
     ctx.lineWidth = 1;
     for (const side of [1, -1]) {
@@ -154,7 +154,7 @@ export function decorateSeasonalWall(ctx: CanvasRenderingContext2D, theme: Seaso
   ctx.restore();
 }
 
-/** Guirlandas nas molduras dos elevadores (sem cobrir a porta animada). */
+/** Garlands on the elevator frames (without covering the animated door). */
 export function decorateElevator(ctx: CanvasRenderingContext2D, theme: SeasonalTheme, x: number, y: number): void {
   if (theme === 'none') return;
   const sprite = prop(theme === 'christmas' ? 'wreath' : theme === 'tet' ? 'lantern' : 'bat');
@@ -178,7 +178,7 @@ function glowSprite(theme: SeasonalTheme): HTMLCanvasElement {
   return canvas;
 }
 
-/** Luz decorativa suave, limitada à face da parede. Não interfere com salas apagadas. */
+/** Soft decorative light, limited to the wall face. Doesn't interfere with dark rooms. */
 export function drawSeasonalLights(ctx: CanvasRenderingContext2D, theme: SeasonalTheme, layout: AreaLayout, light: number): void {
   if (theme === 'none' || light <= 0.01) return;
   ctx.save();
@@ -219,7 +219,7 @@ export function drawSeasonalWindow(ctx: CanvasRenderingContext2D, theme: Seasona
   ctx.restore();
 }
 
-/** Tết: pétalas de mai e đào caindo devagar, e de vez em quando um fogo de artifício no céu da janela. */
+/** Tết: mai and đào petals falling slowly, and now and then a firework in the window's sky. */
 function drawTetWindow(ctx: CanvasRenderingContext2D, glass: { x: number; y: number; w: number; h: number }, now: number, seed: number): void {
   const w = Math.max(1, Math.floor(glass.w)), hgt = Math.max(1, Math.floor(glass.h));
   ctx.save();
@@ -232,7 +232,7 @@ function drawTetWindow(ctx: CanvasRenderingContext2D, glass: { x: number; y: num
     ctx.fillStyle = i % 2 === 0 ? '#ffd65a' : '#ff9fbd';
     ctx.fillRect(Math.floor(glass.x + x), Math.floor(glass.y + y), 1, 1);
   }
-  // Um estouro a cada ~6 s, em lugar sorteado pela janela e pelo ciclo.
+  // One burst every ~6 s, at a spot drawn from the window and the cycle.
   const cycle = Math.floor(now / 6000), t = (now % 6000) / 1000;
   if (t < 1.2) {
     const k = hash32(`${seed}:${cycle}`);

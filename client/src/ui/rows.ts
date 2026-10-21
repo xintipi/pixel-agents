@@ -1,4 +1,4 @@
-// Linha de agente (avatar, nome, conta, papel, status e atividade), usada na barra lateral e na gaveta.
+// Agent row (avatar, name, account, role, status and activity), used in the sidebar and the drawer.
 import type { AccountInfo, AgentInfo } from '../../../shared/types';
 import { createAvatar, updateAvatar, type AvatarSize } from './avatar';
 import { h, setAttr, setHidden, setStyleVar, setText, setTitle, setVariant } from './dom';
@@ -25,11 +25,11 @@ interface RowRefs {
   role: HTMLElement;
   dot: HTMLElement;
   activity: HTMLElement;
-  /** Título da sessão (do que se trata), como no hover do personagem. */
+  /** Session title (what it is about), as in the character hover. */
   task: HTMLElement;
-  /** Há quanto tempo está ocioso (no lugar do "Principal"). */
+  /** How long it has been idle (in place of "Main"). */
   since: HTMLElement;
-  /** Custo do agente (quando o Claude Code o grava e a preferência está ligada). */
+  /** Agent cost (when Claude Code records it and the preference is on). */
   cost: HTMLElement;
   size: AvatarSize;
 }
@@ -60,9 +60,9 @@ export function createAgentRow(agent: AgentInfo, onPick: (id: string) => void, s
 }
 
 /**
- * `now` = relógio do servidor (cronômetro do shell e limiar dos comandos longos em primeiro plano);
- * `agents` = agentes do escritório (shells que um subagente deixou rodando contam para o principal);
- * `showCost` = mostrar o custo do agente (a partir de 1 centavo).
+ * `now` = server clock (shell stopwatch and threshold for long foreground commands);
+ * `agents` = office agents (shells a subagent left running count for the main agent);
+ * `showCost` = show the agent's cost (from 1 cent up).
  */
 export function updateAgentRow(
   row: HTMLElement,
@@ -85,7 +85,7 @@ export function updateAgentRow(
   setText(r.task, title);
   setTitle(r.task, title);
   setHidden(r.task, !title);
-  // Agente principal ocioso há 1 min ou mais: o tempo aparece no lugar do "Principal".
+  // Main agent idle for 1 min or more: the time shows in place of "Main".
   const idleFor = agent.kind === 'main' && agent.status === 'idle' && agent.statusSince ? now - agent.statusSince : 0;
   const showIdle = idleFor >= 60_000;
   setText(r.since, showIdle ? tr('idle {0}', [formatDuration(idleFor)]) : '');
@@ -97,7 +97,7 @@ export function updateAgentRow(
   setText(r.cost, costText);
   setTitle(r.cost, costText ? tr('Session cost: {0} (calculated by Claude Code itself)', [costText]) : '');
   setHidden(r.cost, !costText);
-  // Esperando um shell (ou parado num comando longo): ampulheta no ponto e o cronômetro na linha de atividade.
+  // Waiting on a shell (or stuck on a long command): hourglass on the dot and the stopwatch in the activity line.
   const wait = shellWaitIn(agent, agents, now);
   const status = wait ? 'shell' : agent.status;
   updateStatusDot(r.dot, status);
@@ -106,7 +106,7 @@ export function updateAgentRow(
   setVariant(row, 'is-', status);
   row.classList.toggle('is-selected', selected);
   setAttr(row, 'aria-current', selected ? 'true' : null);
-  // Para leitores de tela, o tempo em minutos (o cronômetro mudaria o rótulo a cada segundo).
+  // For screen readers, the time in minutes (the stopwatch would change the label every second).
   const doing = wait ? tr('{0}, for {1}', [shellLine(wait, now).label, formatDuration(now - wait.since)]) : agent.activity?.text;
   setAttr(
     row,
