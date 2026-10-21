@@ -38,7 +38,7 @@ function shortStr(v: unknown, max: number): string | undefined {
 export function parseCodexEvent(raw: unknown): CodexHookEvent {
   const r = rec(raw);
   const event = rec(r?.event);
-  if (!r || !event || typeof event.hook_event_name !== 'string') throw new HttpError(400, 'esperado {account?, codexHome?, event: <JSON do hook do Codex>}');
+  if (!r || !event || typeof event.hook_event_name !== 'string') throw new HttpError(400, tr('expected {account?, codexHome?, event: <Codex hook JSON>}'));
   const out: CodexHookEvent = { event };
   const account = shortStr(r.account, 200);
   const codexHome = shortStr(r.codexHome, 4_096);
@@ -72,7 +72,7 @@ export async function handleCodexEvent(
     try {
       ok = deps.live.applyHookEvent(codexAccountOf(deps.entries(), body.account, body.codexHome), body.event) === true;
     } catch (err) {
-      log.warnOnce(`codex-event:${errMsg(err)}`, tr('Eventos do Codex: falha ao aplicar um evento ({0}).', [errMsg(err)]));
+      log.warnOnce(`codex-event:${errMsg(err)}`, tr('Codex events: failed to apply an event ({0}).', [errMsg(err)]));
     }
   }
   sendJson(res, 200, { ok });

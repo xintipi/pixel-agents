@@ -74,12 +74,12 @@ describe('CityState', () => {
   it('area.patch mescla só os campos mudados, aceita prédio novo inteiro e remove os de `removed`', () => {
     const s = new CityState();
     s.apply({ t: 'area', chunk: 'c:0,0', rev: 1, buildings: [building('a', 3, 0), building('b', 4, 0)] }, 0);
-    s.apply({ t: 'area.patch', chunk: 'c:0,0', rev: 2, changes: [{ id: 'a', state: 'away' }, building('n', 5, 0), { id: 'desconhecido', likes: 3 }], removed: ['b'] }, 0);
+    s.apply({ t: 'area.patch', chunk: 'c:0,0', rev: 2, changes: [{ id: 'a', state: 'away' }, building('n', 5, 0), { id: 'unknown', likes: 3 }], removed: ['b'] }, 0);
     expect(s.buildings.get('a')?.state).toBe('away');
     expect(s.buildings.get('a')?.owner.name).toBe('Dono a');
     expect(s.buildingAt({ x: 5, y: 0 })?.id).toBe('n');
     expect(s.buildings.has('b')).toBe(false);
-    expect(s.buildings.has('desconhecido')).toBe(false);
+    expect(s.buildings.has('unknown')).toBe(false);
     expect(s.chunkRev.get('c:0,0')).toBe(2);
   });
 

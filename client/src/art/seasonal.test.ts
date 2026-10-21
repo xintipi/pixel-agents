@@ -13,7 +13,7 @@ describe('acessórios sazonais', () => {
         for (let frame = 0; frame < POSE_FRAMES[pose]; frame++) {
           const req = { appearance, dir, pose, frame };
           const plain = renderCharacter(req);
-          for (const costume of ['santa', 'witch', 'pumpkin', 'vampire'] as const) {
+          for (const costume of ['santa', 'witch', 'pumpkin', 'vampire', 'khandong', 'nonla'] as const) {
             const dressed = renderCharacter({ ...req, costume });
             expect(dressed.buf.data.some((byte, i) => byte !== plain.buf.data[i])).toBe(true);
             expect([dressed.ax, dressed.ay]).toEqual([plain.ax, plain.ay]);
@@ -24,7 +24,7 @@ describe('acessórios sazonais', () => {
     expect(appearance).toEqual(original);
   });
   it('mantém decorações dentro das folhas de desenho, com margem transparente', () => {
-    for (const kind of ['tree', 'gift', 'pumpkin', 'ghost', 'wreath', 'bat'] as const) {
+    for (const kind of ['tree', 'gift', 'pumpkin', 'ghost', 'wreath', 'bat', 'mai', 'dao', 'kumquat', 'lantern'] as const) {
       const { buf } = renderSeasonalProp(kind);
       const bounds = buf.bounds()!;
       expect(buf.countOpaque()).toBeGreaterThan(40);

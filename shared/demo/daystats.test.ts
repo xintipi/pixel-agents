@@ -1,4 +1,4 @@
-// Histórico fictício do "Meu dia" com a conta do Codex: ela sempre tem algum projeto, com tokens e sem custo.
+// Histórico fictício do "My day" com a conta do Codex: ela sempre tem algum projeto, com tokens e sem custo.
 import { describe, expect, it } from 'vitest';
 import type { AgentInfo } from '../types';
 import { dayKeyOf, queryDay, StatsBook, type StatsView } from '../daystats';
@@ -13,7 +13,7 @@ function agent(id: string, roomId: string, account: string): AgentInfo {
     roomId,
     name: id,
     look: 'f',
-    role: 'Agente principal',
+    role: 'Main agent',
     sessionId: `s-${id}`,
     account,
     status: 'working',

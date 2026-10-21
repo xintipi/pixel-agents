@@ -134,7 +134,7 @@ export interface CharacterFrameRequest {
   /** Para poses que podem ser em pé ou sentado (raise_hand, read, talk). */
   seated?: boolean;
   /** Acessório sazonal; ausente mantém a aparência original. */
-  costume?: 'santa' | 'witch' | 'pumpkin' | 'vampire';
+  costume?: 'santa' | 'witch' | 'pumpkin' | 'vampire' | 'khandong' | 'nonla';
 }
 
 export type FurnitureKind =

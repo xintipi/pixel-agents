@@ -3,6 +3,7 @@ import { partsKey } from '../../../shared/appearance';
 import type { AgentInfo } from '../../../shared/types';
 import { avatarCanvas } from '../art';
 import { h } from './dom';
+import { tr } from '../../../shared/i18n';
 
 const cache = new Map<string, { url: string; w: number; h: number }>();
 
@@ -53,6 +54,6 @@ export function updateAvatar(box: HTMLElement, agent: AvatarSource, size: Avatar
     img.src = data.url;
   } catch (err) {
     // A arte ainda pode estar em construção; a moldura vazia continua legível.
-    console.warn('[ui] falha ao gerar avatar', err);
+    console.warn(tr('[ui] failed to generate the avatar'), err);
   }
 }

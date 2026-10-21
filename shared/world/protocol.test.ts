@@ -28,6 +28,7 @@ import {
   VISIBILITY_DEFAULTS,
   WORLD_ERROR_CODES,
   WORLD_LOCALES,
+  worldLocaleFor,
   type AppearanceParts,
   type DeleteConfirmRequest,
   type MeBuilding,
@@ -215,7 +216,9 @@ describe('listas do protocolo', () => {
     expect(TRAIT_CLASHES.map((p) => p.join('×'))).toEqual(['timidez×piadas', 'timidez×fofoca', 'apostas×economia', 'esporte×sonecas', 'calma×competicao']);
     for (const [a, b] of TRAIT_CLASHES) expect(TRAIT_IDS.includes(a) && TRAIT_IDS.includes(b)).toBe(true);
     expect(LOCALES).toBe(WORLD_LOCALES);
-    expect([...WORLD_LOCALES]).toEqual(UI_LOCALES.map((l) => l.id));
+    // Contrato fixo com o servidor do mundo; os idiomas da interface (vi, en) chegam lá por worldLocaleFor.
+    expect([...WORLD_LOCALES]).toEqual(['pt-BR', 'en', 'es', 'fr']);
+    for (const l of UI_LOCALES) expect(WORLD_LOCALES).toContain(worldLocaleFor(l.id));
     expect(GOODBYE_REASONS).toEqual(expect.arrayContaining(['waiting', 'unauthorized', 'banned', 'suspended', 'update', 'no_player']));
     expect(PLAYER_NAME_LIMITS).toEqual({ min: 3, max: 20 });
   });
@@ -252,7 +255,7 @@ describe('listas do protocolo', () => {
     expect('notifyInactivity' in v).toBe(false);
     const b: Pick<WorldBuildingPublic, 'unverified'> & Pick<MeBuilding, 'unverified'> = {};
     expect(b.unverified).toBeUndefined();
-    // O pedido de exclusão e o arquivo "Baixar meus dados" (WorldExport) também são do protocolo.
+    // O pedido de exclusão e o arquivo "Download my data" (WorldExport) também são do protocolo.
     const del: DeleteConfirmRequest = { code: '123456' };
     expect(del.code).toHaveLength(6);
     const exp: Pick<WorldExport, 'format' | 'version'> = { format: 'habblaud-world-export', version: 1 };

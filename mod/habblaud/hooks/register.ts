@@ -32,8 +32,10 @@ export const OFFLINE_POLL_MS = 30_000
 export const FETCH_TIMEOUT_MS = 2_000
 /** Valores idênticos gravados há menos que isto não são regravados (a mesma regra do tap). */
 export const MIN_REWRITE_MS = 10_000
-/** Nomes na linha embaixo do prompt antes do "e mais N". */
+/** Nomes na linha embaixo do prompt antes do "and N more". */
 const MAX_NAMES = 3
+/** O erro de rota desconhecida do servidor, em cada idioma que ele já falou (pt nas versões antigas, en, vi). */
+const UNKNOWN_ROUTE = ['rota desconhecida', 'unknown route', 'route không xác định']
 
 /** Uma janela no formato do tap: percentual 0–100 e reinício em SEGUNDOS desde a época. */
 export interface UsageWindow {
@@ -206,7 +208,7 @@ export function parseSummary(text: string): Summary | undefined {
       name,
       room: str(w.room) ?? '?',
       account: str(w.account) ?? '',
-      waitingFor: str(w.waitingFor) ?? 'responder no terminal',
+      waitingFor: str(w.waitingFor) ?? 'answer in the terminal',
       answerable: w.answerable === true,
     }
     if (typeof w.since === 'number' && Number.isFinite(w.since)) agent.since = w.since
@@ -219,27 +221,27 @@ export function parseSummary(text: string): Summary | undefined {
 export function statusText(waiting: readonly WaitingAgent[]): string | undefined {
   const first = waiting[0]
   if (!first) return undefined
-  if (waiting.length === 1) return `🏢 ${first.name} precisa de você em ${first.room}`
+  if (waiting.length === 1) return `🏢 ${first.name} needs you in ${first.room}`
   const shown = waiting.slice(0, MAX_NAMES).map((w) => `${w.name} (${w.room})`)
   const rest = waiting.length - shown.length
-  return `🏢 ${waiting.length} precisam de você: ${shown.join(', ')}${rest > 0 ? ` e mais ${rest}` : ''}`
+  return `🏢 ${waiting.length} need you: ${shown.join(', ')}${rest > 0 ? ` and ${rest} more` : ''}`
 }
 
 /** A resposta do /habblaud com o Habblaud no ar. */
 export function summaryText(s: Summary, url: string): string {
-  const agents = s.agents === 1 ? '1 agente' : `${s.agents} agentes`
-  const waiting = s.waiting.length === 0 ? 'ninguém precisa de você' : s.waiting.length === 1 ? '1 precisa de você' : `${s.waiting.length} precisam de você`
-  const lines = [`Habblaud ${s.version} em ${url}`, `${agents} · ${s.working} trabalhando · ${waiting}`]
-  for (const w of s.waiting) lines.push(`✋ ${w.name} (${w.room}): ${w.waitingFor}${w.answerable ? ' · dá para responder pelo escritório' : ''}`)
+  const agents = s.agents === 1 ? '1 agent' : `${s.agents} agents`
+  const waiting = s.waiting.length === 0 ? 'nobody needs you' : s.waiting.length === 1 ? '1 needs you' : `${s.waiting.length} need you`
+  const lines = [`Habblaud ${s.version} at ${url}`, `${agents} · ${s.working} working · ${waiting}`]
+  for (const w of s.waiting) lines.push(`✋ ${w.name} (${w.room}): ${w.waitingFor}${w.answerable ? ' · can be answered from the office' : ''}`)
   return lines.join('\n')
 }
 
 export function offlineText(url: string): string {
-  return `O Habblaud não respondeu em ${url}. Para subir: npm run docker:up na pasta do Habblaud.`
+  return `Habblaud did not respond at ${url}. To start it: npm run docker:up in the Habblaud folder.`
 }
 
 export function outdatedText(url: string): string {
-  return `O Habblaud em ${url} está numa versão sem a rota do mod. Para atualizar: git pull e npm run docker:up na pasta do Habblaud.`
+  return `Habblaud at ${url} is running a version without the mod route. To update: git pull and npm run docker:up in the Habblaud folder.`
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -301,8 +303,9 @@ async function askHabblaud($: EngineInterface, port: number, query: string): Pro
   try {
     const res = await Promise.race([$.http.fetch(`http://127.0.0.1:${port}/api/mod/summary${query}`, { headers: { accept: 'application/json' } }), timeout])
     if (!res) return { kind: 'offline' }
-    // 404 JSON = um Habblaud de antes do mod (rota desconhecida); outro 404 qualquer = não é o Habblaud.
-    if (res.status === 404 && res.text.includes('rota desconhecida')) return { kind: 'outdated' }
+    // 404 JSON = um Habblaud de antes do mod (rota desconhecida); outro 404 qualquer = não é o Habblaud. O texto do erro
+    // segue o idioma do servidor: as versões antigas (as que não têm a rota) respondem em português.
+    if (res.status === 404 && UNKNOWN_ROUTE.some((t) => res.text.includes(t))) return { kind: 'outdated' }
     const summary = res.ok ? parseSummary(res.text) : undefined
     return summary ? { kind: 'ok', summary } : { kind: 'offline' }
   } catch {
@@ -371,7 +374,7 @@ async function habblaudText($: EngineInterface): Promise<string> {
 export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     try {
-      await $.command.register({ name: 'habblaud', description: 'Resumo do Habblaud: quantos agentes, quem trabalha e quem precisa de você' })
+      await $.command.register({ name: 'habblaud', description: 'Habblaud summary: how many agents, who is working and who needs you' })
     } catch {
       // sem o comando, o resto segue
     }

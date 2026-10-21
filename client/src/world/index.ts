@@ -18,6 +18,7 @@ import { Renderer } from './render/renderer';
 import { Sim, type VisitLight } from './sim/sim';
 import { NO_INTENT, VISITOR_ID, visitorInfo, type VisitorIntent } from './sim/visitor';
 import { SoundCues } from './sound-cues';
+import { getLocale, tr } from '../../../shared/i18n';
 
 export * from './api';
 export type { WorldDebug } from './debug';
@@ -254,7 +255,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       if (playback) sim.applySnapshot(rebaseSnapshot(snap, worldNow - snap.serverTime), worldNow);
       else sim.applySnapshot(snap, Date.now());
     } catch (err) {
-      console.error('[mundo] snapshot inválido ignorado', err);
+      console.error(tr('[world] invalid snapshot ignored'), err);
     }
   };
   const offSnapshot = store.on('snapshot', onSnapshot);
@@ -291,7 +292,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
         if (!playback) for (const e of events) for (const cb of socialCbs) cb(e);
         events.length = 0;
       }
-      renderer.sync(seasonalThemeFor(options.theme, new Date()));
+      renderer.sync(seasonalThemeFor(options.theme, new Date(), getLocale() === 'vi'));
       if (sim.building.cols !== lastCols) {
         lastCols = sim.building.cols;
         updateBounds();
@@ -318,7 +319,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       if (selection?.type === 'agent' && !sim.chars.has(selection.id)) setSelection(null);
       if (selection?.type === 'room' && !sim.rooms.has(selection.id)) setSelection(null);
     } catch (err) {
-      console.error('[mundo] erro no frame', err);
+      console.error(tr('[world] frame error'), err);
     }
   };
 

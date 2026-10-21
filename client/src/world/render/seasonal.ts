@@ -19,9 +19,30 @@ function prop(kind: SeasonalProp): Sprite {
   return sprite;
 }
 
+/** Cores de cada tema decorado (guirlanda, luzes, tapete, parede). */
+interface ThemePalette {
+  rug: string;
+  rugMotif: string;
+  wallTint: string;
+  trim: string;
+  garland: string;
+  garlandThick: boolean;
+  bulb: string;
+  bulbShine: string;
+  glow: string;
+  light: string;
+}
+
+const PALETTES: Record<Exclude<SeasonalTheme, 'none'>, ThemePalette> = {
+  christmas: { rug: '#a93649', rugMotif: '#ddb66e', wallTint: '#ffe3b4', trim: '#4e7756', garland: '#347653', garlandThick: true, bulb: '#f5d491', bulbShine: '#fff0be', glow: '#ffd58b', light: '#ffe4a9' },
+  halloween: { rug: '#60416f', rugMotif: '#e5a457', wallTint: '#bc97d1', trim: '#725486', garland: '#584068', garlandThick: false, bulb: '#eea24d', bulbShine: '#ffd78a', glow: '#d8a5ed', light: '#ffd181' },
+  tet: { rug: '#a8262f', rugMotif: '#e8bf55', wallTint: '#ffd6a0', trim: '#a8262f', garland: '#b8283a', garlandThick: false, bulb: '#e3b24c', bulbShine: '#fff0b0', glow: '#ffb070', light: '#ffd36b' },
+};
+
 export function seasonalCostume(theme: SeasonalTheme, seed: number): CharacterFrameRequest['costume'] {
   if (theme === 'christmas') return 'santa';
   if (theme === 'halloween') return (['witch', 'pumpkin', 'vampire'] as const)[(seed >>> 0) % 3];
+  if (theme === 'tet') return (['khandong', 'nonla'] as const)[(seed >>> 0) % 2];
   return undefined;
 }
 
@@ -31,19 +52,21 @@ export function seasonalFurniture(theme: SeasonalTheme, kind: FurnitureKind, are
   if (kind === 'plant_tall') {
     const first = area.furniture.find((f) => f.kind === 'plant_tall');
     if (!first || hash32(first.id) !== seed) return null;
+    if (theme === 'tet') return prop(seed % 2 === 0 ? 'mai' : 'dao');
     return prop(theme === 'christmas' ? 'tree' : seed % 3 === 0 ? 'ghost' : 'pumpkin');
   }
-  if (kind === 'plant_small') return prop(theme === 'christmas' ? 'gift' : 'pumpkin');
+  if (kind === 'plant_small') return prop(theme === 'christmas' ? 'gift' : theme === 'tet' ? 'kumquat' : 'pumpkin');
   return null;
 }
 
 export function seasonalRugColor(theme: SeasonalTheme, original: string): string {
-  return theme === 'christmas' ? '#a93649' : theme === 'halloween' ? '#60416f' : original;
+  return theme === 'none' ? original : PALETTES[theme].rug;
 }
 
 export function seasonalWallStyle(theme: SeasonalTheme, original: WallStyle): WallStyle {
   if (theme === 'none' || original.pattern === 'glass') return original;
-  return { ...original, base: mix(original.base, theme === 'christmas' ? '#ffe3b4' : '#bc97d1', 0.18), trim: theme === 'christmas' ? '#4e7756' : '#725486' };
+  const p = PALETTES[theme];
+  return { ...original, base: mix(original.base, p.wallTint, 0.18), trim: p.trim };
 }
 
 /** Motivos de tapete (cacheados junto com o piso). */
@@ -52,7 +75,8 @@ export function decorateSeasonalRug(ctx: CanvasRenderingContext2D, theme: Season
   const x = Math.round(rug.x), y = Math.round(rug.y), w = Math.floor(rug.w), h = Math.floor(rug.h);
   if (w < 25 || h < 16) return;
   ctx.save();
-  ctx.fillStyle = theme === 'christmas' ? '#ddb66e' : '#e5a457';
+  const motif = PALETTES[theme].rugMotif;
+  ctx.fillStyle = motif;
   ctx.fillRect(x + 4, y + 4, w - 8, 1);
   ctx.fillRect(x + 4, y + h - 5, w - 8, 1);
   for (let cx = x + 14; cx < x + w - 10; cx += 28) {
@@ -64,6 +88,12 @@ export function decorateSeasonalRug(ctx: CanvasRenderingContext2D, theme: Season
         ctx.fillRect(cx + d, cy + d, 1, 1);
         ctx.fillRect(cx + d, cy - d, 1, 1);
       }
+    } else if (theme === 'tet') {
+      // Flor de mai de cinco pétalas.
+      for (const [dx, dy] of [[0, -3], [-3, -1], [3, -1], [-2, 2], [2, 2]]) ctx.fillRect(cx + dx - 1, cy + dy - 1, 2, 2);
+      ctx.fillStyle = PALETTES.tet.rug;
+      ctx.fillRect(cx, cy, 1, 1);
+      ctx.fillStyle = motif;
     } else {
       ctx.fillRect(cx - 3, cy - 2, 7, 5);
       ctx.fillRect(cx, cy - 4, 1, 2);
@@ -84,12 +114,13 @@ export function decorateSeasonalWall(ctx: CanvasRenderingContext2D, theme: Seaso
   for (let x = x0; x < end; x++) {
     if (wall.doorways?.some((d) => x >= d.x - 1 && x < d.x + d.w + 1)) continue;
     const sag = Math.round(Math.sin(((x - x0) % 48) / 48 * Math.PI) * 3);
-    ctx.fillStyle = theme === 'christmas' ? '#347653' : '#584068';
-    ctx.fillRect(x, y + sag, 1, theme === 'christmas' ? 3 : 1);
+    const p = PALETTES[theme];
+    ctx.fillStyle = p.garland;
+    ctx.fillRect(x, y + sag, 1, p.garlandThick ? 3 : 1);
     if ((x - x0) % 12 === 6) {
-      ctx.fillStyle = theme === 'christmas' ? '#f5d491' : '#eea24d';
+      ctx.fillStyle = p.bulb;
       ctx.fillRect(x, y + sag + 3, 2, 3);
-      ctx.fillStyle = theme === 'christmas' ? '#fff0be' : '#ffd78a';
+      ctx.fillStyle = p.bulbShine;
       ctx.fillRect(x, y + sag + 3, 1, 1);
     }
   }
@@ -116,13 +147,17 @@ export function decorateSeasonalWall(ctx: CanvasRenderingContext2D, theme: Seaso
       ctx.drawImage(bat.canvas, Math.round(wall.x + wall.w / 2 - bat.ax), y + 18 - bat.ay);
     }
   }
+  if (theme === 'tet' && wall.w > 90) {
+    const lantern = prop('lantern');
+    for (const fx of [0.3, 0.7]) ctx.drawImage(lantern.canvas, Math.round(wall.x + wall.w * fx - lantern.ax), y + 26 - lantern.ay);
+  }
   ctx.restore();
 }
 
 /** Guirlandas nas molduras dos elevadores (sem cobrir a porta animada). */
 export function decorateElevator(ctx: CanvasRenderingContext2D, theme: SeasonalTheme, x: number, y: number): void {
   if (theme === 'none') return;
-  const sprite = prop(theme === 'christmas' ? 'wreath' : 'bat');
+  const sprite = prop(theme === 'christmas' ? 'wreath' : theme === 'tet' ? 'lantern' : 'bat');
   ctx.drawImage(sprite.canvas, Math.round(x - sprite.ax), Math.round(y - 19 - sprite.ay));
 }
 
@@ -134,7 +169,7 @@ function glowSprite(theme: SeasonalTheme): HTMLCanvasElement {
     canvas.width = canvas.height = 34;
     const ctx = canvas.getContext('2d')!;
     const glow = ctx.createRadialGradient(17, 17, 1, 17, 17, 17);
-    glow.addColorStop(0, theme === 'christmas' ? '#ffd58b' : '#d8a5ed');
+    glow.addColorStop(0, theme === 'none' ? '#ffd58b' : PALETTES[theme].glow);
     glow.addColorStop(1, 'rgba(255,220,180,0)');
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, 34, 34);
@@ -158,7 +193,7 @@ export function drawSeasonalLights(ctx: CanvasRenderingContext2D, theme: Seasona
       ctx.globalAlpha = light * 0.3;
       ctx.drawImage(glowSprite(theme), Math.round(x - 17), wall.y - 8);
       ctx.globalAlpha = light * 0.85;
-      ctx.fillStyle = theme === 'christmas' ? '#ffe4a9' : '#ffd181';
+      ctx.fillStyle = PALETTES[theme as Exclude<SeasonalTheme, 'none'>].light;
       ctx.fillRect(Math.round(x), wall.y + 9, 2, 2);
     }
     ctx.restore();
@@ -167,6 +202,7 @@ export function drawSeasonalLights(ctx: CanvasRenderingContext2D, theme: Seasona
 }
 
 export function drawSeasonalWindow(ctx: CanvasRenderingContext2D, theme: SeasonalTheme, glass: { x: number; y: number; w: number; h: number }, now: number, seed: number): void {
+  if (theme === 'tet') return drawTetWindow(ctx, glass, now, seed);
   if (theme !== 'christmas') return;
   ctx.save();
   ctx.beginPath();
@@ -179,6 +215,35 @@ export function drawSeasonalWindow(ctx: CanvasRenderingContext2D, theme: Seasona
     const x = ((seed >>> 0) + i * 17) % Math.max(1, Math.floor(glass.w));
     const y = (Math.floor(now / 180) + i * 11) % Math.max(1, Math.floor(glass.h));
     ctx.fillRect(Math.floor(glass.x + x), Math.floor(glass.y + y), 1, 1);
+  }
+  ctx.restore();
+}
+
+/** Tết: pétalas de mai e đào caindo devagar, e de vez em quando um fogo de artifício no céu da janela. */
+function drawTetWindow(ctx: CanvasRenderingContext2D, glass: { x: number; y: number; w: number; h: number }, now: number, seed: number): void {
+  const w = Math.max(1, Math.floor(glass.w)), hgt = Math.max(1, Math.floor(glass.h));
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(glass.x, glass.y, glass.w, glass.h);
+  ctx.clip();
+  for (let i = 0; i < 8; i++) {
+    const x = ((seed >>> 0) + i * 23 + Math.floor(now / 900)) % w;
+    const y = (Math.floor(now / 260) + i * 13) % hgt;
+    ctx.fillStyle = i % 2 === 0 ? '#ffd65a' : '#ff9fbd';
+    ctx.fillRect(Math.floor(glass.x + x), Math.floor(glass.y + y), 1, 1);
+  }
+  // Um estouro a cada ~6 s, em lugar sorteado pela janela e pelo ciclo.
+  const cycle = Math.floor(now / 6000), t = (now % 6000) / 1000;
+  if (t < 1.2) {
+    const k = hash32(`${seed}:${cycle}`);
+    const cx = glass.x + 4 + (k % Math.max(1, w - 8)), cy = glass.y + 3 + ((k >>> 8) % Math.max(1, Math.floor(hgt / 2)));
+    const r = 1 + t * 4;
+    ctx.globalAlpha *= 1 - t / 1.2;
+    ctx.fillStyle = (k >>> 16) % 2 === 0 ? '#ffd36b' : '#ff6b6b';
+    for (let a = 0; a < 8; a++) {
+      const ang = (a / 8) * Math.PI * 2;
+      ctx.fillRect(Math.round(cx + Math.cos(ang) * r), Math.round(cy + Math.sin(ang) * r), 1, 1);
+    }
   }
   ctx.restore();
 }

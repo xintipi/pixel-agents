@@ -10,6 +10,23 @@ do meio (0.**3**.0).
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Idiomas: só vietnamita e inglês.** A interface passa a ter só tiếng Việt (o padrão, sem escolha salva) e inglês,
+  em Configurações › Idioma. O inglês vira a língua de origem do código: todo `tr()` usa o texto em inglês, e a
+  tradução fica em `shared/locales/vi.ts`. O servidor fala vietnamita, ou inglês com `HABBLAUD_LANG=en` (o idioma do
+  sistema não conta mais). Saem o português, o espanhol e o francês (com `README.pt-BR.md`, `README.es.md` e
+  `README.fr.md`); uma escolha salva num deles volta para o vietnamita. O Habblaud World não conhece o vietnamita: o
+  cadastro e o prédio vão com inglês.
+- **Tema Tết (Ano Novo Lunar vietnamita).** Em Configurações › Aparência › Tema do escritório: galhos de mai e đào,
+  pés de quất, lanternas vermelhas nas paredes e nos elevadores, tapetes vermelhos com flores douradas, khăn đóng e
+  nón lá nos personagens e pétalas e fogos nas janelas. No Automático, aparece de 23 tháng Chạp a mùng 7 (até 2040)
+  quando a interface está em vietnamita. Fica só no escritório: no Habblaud World o prédio vai sem tema.
+- **Custo dos agentes.** Nova seção Configurações › Custo: o custo de cada sessão ao lado do nome na barra lateral,
+  a moeda (dólar ou đồng, numa conversão aproximada pelo câmbio que você escolhe; vale também para a gaveta e o Meu
+  dia) e um aviso quando um agente gasta US$ 1, 2 ou 5 em 10 minutos (US$ 2 por padrão). O valor continua sendo o
+  que o próprio Claude Code grava; o Codex não grava custo e fica de fora.
+
 ## [1.0.3] - 2026-10-16
 
 ### Corrigido

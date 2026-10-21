@@ -21,14 +21,15 @@ O escritório de desenvolvimento fica em <http://localhost:4747>.
 
 ## Textos e traduções
 
-O Habblaud tem interface em português, inglês, espanhol e francês. O português é a língua de origem:
+O Habblaud tem interface em vietnamita (o idioma padrão) e inglês. O inglês é a língua de origem:
 
-- Todo texto que aparece para quem usa (interface, erros, logs, scripts de instalação) é escrito em português dentro
-  de `tr()` (`shared/i18n.ts`). Valores entram por lacunas numeradas: `tr('Lendo {0}', [arquivo])`, nunca uma
+- Todo texto que aparece para quem usa (interface, erros, logs, scripts de instalação) é escrito em inglês dentro
+  de `tr()` (`shared/i18n.ts`). Valores entram por lacunas numeradas: `tr('Reading {0}', [file])`, nunca uma
   template string dentro do `tr()`.
-- A chave da tradução é o próprio texto em português: mudar o texto muda a chave. Atualize as traduções dele em
-  `shared/locales/` (`en.ts`, `es.ts`, `fr.ts`) ou deixe sem: um texto sem tradução aparece em português.
+- A chave da tradução é o próprio texto em inglês: mudar o texto muda a chave. Atualize a tradução dele em
+  `shared/locales/vi.ts` ou deixe sem: um texto sem tradução aparece em inglês.
 - `npm run i18n:check` lista os textos sem tradução e as traduções que sobraram.
+- Os testes rodam em inglês (`HABBLAUD_LANG_TEST=vi` para rodar em vietnamita).
 
 ## Verificar uma mudança
 

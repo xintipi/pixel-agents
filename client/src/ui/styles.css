@@ -7505,6 +7505,32 @@ html.is-replay #world {
   white-space: nowrap;
 }
 
+/* Custo do agente: logo depois da conta, discreto (o tempo ocioso ou o papel continuam à direita). */
+.ui-agent__cost {
+  flex: none;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ui-muted);
+  white-space: nowrap;
+}
+
+/* Câmbio em Configurações › Custo. */
+.ui-set__rate {
+  width: 110px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ui-line-strong);
+  background: rgba(0, 0, 0, 0.25);
+  font: 600 13px/1 var(--font-ui);
+  color: var(--ui-text);
+}
+
+.ui-root .ui-set__rate:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 1px;
+}
+
 /* ------------------------------------------------------------------ janelas móveis (ui/movable.ts) */
 
 .ui-move-handle {

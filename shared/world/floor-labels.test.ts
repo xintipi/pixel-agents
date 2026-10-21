@@ -4,7 +4,7 @@ import { setLocale } from '../i18n';
 import { floorLabel, isFloorNameId } from './floor-labels';
 import { FLOOR_NAME_IDS } from './floor-names';
 
-afterEach(() => setLocale('pt-BR'));
+afterEach(() => setLocale('en'));
 
 describe('nomes dos andares', () => {
   it('60 ids ASCII, sem repetir, e a ordem do sorteio começa por ipe, jade e aurora', () => {
@@ -14,12 +14,12 @@ describe('nomes dos andares', () => {
     expect([FLOOR_NAME_IDS[0], FLOOR_NAME_IDS[20], FLOOR_NAME_IDS[40]]).toEqual(['ipe', 'jade', 'aurora']);
   });
 
-  it('cada id tem rótulo próprio nos 4 idiomas', () => {
-    expect(floorLabel('ipe')).toBe('Projeto Ipê');
-    expect(floorLabel('lapislazuli')).toBe('Projeto Lápis-lazúli');
+  it('cada id tem rótulo próprio nos 2 idiomas', () => {
+    expect(floorLabel('ipe')).toBe('Project Ipê');
+    expect(floorLabel('lapislazuli')).toBe('Project Lapis Lazuli');
     const pt = FLOOR_NAME_IDS.map(floorLabel);
     expect(new Set(pt).size).toBe(60);
-    for (const [locale, prefix] of [['en', 'Project '], ['es', 'Proyecto '], ['fr', 'Projet ']] as const) {
+    for (const [locale, prefix] of [['vi', 'Dự án '], ['en', 'Project ']] as const) {
       setLocale(locale);
       const labels = FLOOR_NAME_IDS.map(floorLabel);
       expect(new Set(labels).size, locale).toBe(60);
@@ -33,6 +33,6 @@ describe('nomes dos andares', () => {
   it('id desconhecido (de uma versão mais nova do servidor) vira só "Projeto"', () => {
     expect(isFloorNameId('ipe')).toBe(true);
     expect(isFloorNameId('novo')).toBe(false);
-    expect(floorLabel('novo')).toBe('Projeto');
+    expect(floorLabel('novo')).toBe('Project');
   });
 });

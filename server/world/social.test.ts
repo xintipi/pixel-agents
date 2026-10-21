@@ -243,7 +243,7 @@ describe('pela conexão do prédio e pelas rotas locais', () => {
   const wait = async (cond: () => boolean) => {
     const until = Date.now() + 3_000;
     while (!cond()) {
-      if (Date.now() > until) throw new Error('esperando');
+      if (Date.now() > until) throw new Error('waiting');
       await new Promise((ok) => setTimeout(ok, 5));
     }
   };

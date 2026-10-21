@@ -7,7 +7,7 @@ describe('procinfo', () => {
   it('lê o FILETIME e o nome do PowerShell', () => {
     const info = parseWindows('134360309381229341\r\nclaude\r\n');
     expect(info).toEqual({ startMs: 1_791_557_338_122, name: 'claude', fileTime: '134360309381229341' });
-    expect(parseWindows('erro')).toBeUndefined();
+    expect(parseWindows('error')).toBeUndefined();
   });
 
   it('lê o lstart e o comando do ps', () => {

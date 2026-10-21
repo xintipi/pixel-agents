@@ -1510,6 +1510,23 @@ function drawCostume(dc: Dc, costume: CharacterFrameRequest['costume']): void {
     b.vline(x + 4, y + 1, y + 4, '#f9ae48');
     b.vline(x + 8, y + 1, y + 4, '#f9ae48');
     b.hline(x + 2, x + 11, y + 5, '#8d4930');
+  } else if (costume === 'khandong') {
+    // Khăn đóng (turbante do áo dài no Tết): faixas vermelhas com dobras douradas.
+    b.rect(x + 1, y + 1, 12, 5, '#b8283a');
+    b.rect(x + 2, y, 10, 1, '#d23c48');
+    for (const dy of [2, 4]) b.hline(x + 1, x + 12, y + dy, '#e3b24c');
+    b.set(x + 6, y + 1, '#ffe08a');
+  } else if (costume === 'nonla') {
+    // Nón lá: chapéu cônico de palha.
+    b.rect(x + 6, y - 3, 2, 1, '#f0dca0');
+    b.rect(x + 5, y - 2, 4, 1, '#e8cf8f');
+    b.rect(x + 4, y - 1, 6, 1, '#e8cf8f');
+    b.rect(x + 3, y, 8, 1, '#ddc17d');
+    b.rect(x + 1, y + 1, 12, 1, '#e8cf8f');
+    b.rect(x - 1, y + 2, 16, 2, '#ddc17d');
+    b.hline(x - 1, x + 14, y + 3, '#b8955a');
+    b.set(x + 5, y - 1, '#fff0c0');
+    b.set(x + 4, y, '#fff0c0');
   } else {
     // Gola da capa: rosto e crachá continuam visíveis.
     b.rect(x, y + 12, 2, 5, '#702743');

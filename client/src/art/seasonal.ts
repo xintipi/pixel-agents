@@ -2,7 +2,7 @@
 import { PixelBuf } from './core/pixbuf';
 import type { BufSprite } from './core/sprite';
 
-export type SeasonalProp = 'tree' | 'gift' | 'pumpkin' | 'ghost' | 'wreath' | 'bat';
+export type SeasonalProp = 'tree' | 'gift' | 'pumpkin' | 'ghost' | 'wreath' | 'bat' | 'mai' | 'dao' | 'kumquat' | 'lantern';
 
 export function renderSeasonalProp(kind: SeasonalProp): BufSprite {
   const b = new PixelBuf(40, 64);
@@ -73,6 +73,48 @@ export function renderSeasonalProp(kind: SeasonalProp): BufSprite {
     rect(15, 55, 4, 4, '#c93945');
     rect(21, 55, 4, 4, '#c93945');
     rect(19, 54, 2, 4, '#f07368');
+  } else if (kind === 'mai' || kind === 'dao') {
+    // Tết: galhos floridos num vaso de cerâmica (mai amarela no sul, đào rosa no norte).
+    const [petal, light, heart] = kind === 'mai' ? ['#f2c23a', '#ffe27a', '#d9822b'] : ['#e886a6', '#ffc2d4', '#c2456d'];
+    b.shadow(20, 59, 11, 2, '#252c39', 0.22);
+    rect(13, 49, 15, 10, '#2f5f8f');
+    rect(12, 48, 17, 3, '#3f78ad');
+    rect(15, 53, 11, 2, '#e9d9a8');
+    b.vline(20, 22, 48, '#6b4430');
+    b.vline(21, 30, 48, '#5a3826');
+    b.line(20, 38, 11, 27, '#6b4430');
+    b.line(21, 34, 30, 22, '#6b4430');
+    b.line(20, 30, 14, 16, '#6b4430');
+    b.line(21, 28, 26, 13, '#5a3826');
+    for (const [x, y] of [[10, 26], [13, 21], [15, 16], [18, 12], [22, 15], [26, 12], [29, 20], [31, 23], [24, 27], [16, 30], [12, 33], [27, 32], [19, 22], [8, 31], [33, 28], [23, 36]]) {
+      rect(x - 1, y, 3, 1, petal);
+      rect(x, y - 1, 1, 3, petal);
+      b.set(x, y, heart);
+      b.set(x - 1, y - 1, light);
+    }
+  } else if (kind === 'kumquat') {
+    // Tết: pé de quất (kinkan) com frutinhas, num vaso vermelho.
+    b.shadow(20, 59, 9, 2, '#252c39', 0.2);
+    rect(14, 50, 13, 9, '#b8323b');
+    rect(13, 49, 15, 2, '#d64848');
+    rect(18, 52, 5, 4, '#f0c85a');
+    rect(19, 44, 3, 6, '#6b4430');
+    b.ellipse(20, 36, 10, 10, '#2f6b3f');
+    b.ellipse(19, 34, 7, 7, '#3f8a4f');
+    for (const [x, y] of [[13, 33], [17, 28], [24, 30], [26, 37], [15, 40], [21, 38], [11, 38], [23, 43], [20, 33]]) {
+      rect(x, y, 2, 2, '#f39a2b');
+      b.set(x, y, '#ffd27a');
+    }
+  } else if (kind === 'lantern') {
+    // Tết: lanterna vermelha pendurada, com franja dourada.
+    b.vline(20, 36, 41, '#8a6a3a');
+    rect(16, 41, 9, 2, '#e3b24c');
+    rect(13, 43, 15, 10, '#c9303c');
+    rect(12, 45, 17, 6, '#c9303c');
+    rect(15, 44, 4, 8, '#e24b4f');
+    b.vline(20, 43, 52, '#a8222f');
+    rect(16, 53, 9, 2, '#e3b24c');
+    for (const x of [17, 19, 21, 23]) b.vline(x, 55, 59, '#f0c85a');
   } else {
     rect(18, 51, 5, 6, '#47344f');
     rect(10, 50, 9, 4, '#47344f');

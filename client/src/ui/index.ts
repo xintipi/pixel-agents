@@ -34,6 +34,7 @@ import { TERMINAL_UNAVAILABLE_HINT, TerminalPanel } from './terminal';
 import { PtyPanel } from './pty';
 import { TimelapsePlayer } from './timelapse';
 import { Toasts } from './toasts';
+import { CostBurnWatch, costAlertUsd, costBurnText, setCostDisplay } from './cost';
 import { UpdateToaster } from './version';
 import { TopBar } from './topbar';
 import { UpdateBanner } from './update';
@@ -62,6 +63,7 @@ function isTypingTarget(t: EventTarget | null): boolean {
 export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi, city?: CitySceneHost): void {
   const storage = safeLocalStorage();
   let prefs: UiPrefs = loadPrefs(storage);
+  setCostDisplay({ currency: prefs.costCurrency, vndRate: prefs.vndRate });
   let selection: Selection = world.getSelection();
   let skew = 0;
   const narrowMq = typeof matchMedia === 'function' ? matchMedia(NARROW_QUERY) : null;
@@ -96,6 +98,7 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
     updatePrefs(patch) {
       prefs = { ...prefs, ...patch };
       savePrefs(storage, prefs);
+      setCostDisplay({ currency: prefs.costCurrency, vndRate: prefs.vndRate });
       world.setOptions(worldOptionsFrom(prefs));
       invalidate();
     },
@@ -252,6 +255,15 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
     toast: (n) => toasts.push(n),
     openWorld: () => worldDialog.show('home'),
   });
+  // Aviso de gasto: quem passou do valor escolhido em Configurações › Custo nos últimos 10 minutos (só ao vivo).
+  const costWatch = new CostBurnWatch();
+  store.on('snapshot', (snap) => {
+    if (store.replaying) return;
+    for (const burn of costWatch.observe(snap.agents, snap.serverTime, costAlertUsd(prefs.costAlert))) {
+      const agent = snap.agents.find((a) => a.id === burn.agentId);
+      if (agent) toasts.push({ id: `cost:${agent.id}:${snap.serverTime}`, level: 'warn', text: costBurnText(agent.name, burn.spent), agentId: agent.id, at: snap.serverTime });
+    }
+  });
   // Botão Mundo: troca o escritório pela cidade (a cena vem de app.ts, carregada sob demanda).
   if (city) {
     scene = new SceneSwitch(ctx, hw, city, () => {
@@ -312,7 +324,7 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
       try {
         c.render();
       } catch (err) {
-        console.error('[ui] falha ao renderizar', c.constructor.name, err);
+        console.error(tr('[ui] render failed'), c.constructor.name, err);
       }
     }
   }
@@ -423,7 +435,7 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
       case 'F':
         e.preventDefault();
         if (selection?.type === 'agent') drawer.toggleFollow();
-        else ctx.announce(tr('Selecione um agente para seguir.'));
+        else ctx.announce(tr('Select an agent to follow.'));
         break;
       case 't':
       case 'T':
@@ -442,7 +454,7 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
         e.preventDefault();
         const next = nextPermissionAgent(store.snapshot?.agents ?? [], selection?.type === 'agent' ? selection.id : undefined);
         if (next) focusPermission(ctx, next.id);
-        else ctx.announce(tr('Nenhum pedido de permissão ou pergunta para responder agora.'));
+        else ctx.announce(tr('No permission requests or questions to answer right now.'));
         break;
       }
       case 'o':
@@ -474,9 +486,9 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
     if (id !== null && pty.enabled && ctx.agent(id)?.kind === 'main') return router.toggle(id);
     if (id === null && pty.isOpen) return pty.close();
     if (terminal.isOpen && (id === null || terminal.agentId === id)) terminal.close();
-    else if (id === null) ctx.announce(tr('Selecione um agente para abrir o terminal.'));
+    else if (id === null) ctx.announce(tr('Select an agent to open the terminal.'));
     else if (!store.snapshot?.meta.terminal || !access().terminal) ctx.announce(`${TERMINAL_UNAVAILABLE_HINT}.`);
-    else if (!ctx.agent(id)) ctx.announce(tr('O agente já saiu do escritório.'));
+    else if (!ctx.agent(id)) ctx.announce(tr('The agent has already left the office.'));
     else terminal.open(id);
   }
 

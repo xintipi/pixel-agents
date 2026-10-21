@@ -32,7 +32,7 @@ const ASK = {
   questions: [
     { question: 'Qual banco usar?', header: 'Banco', multiSelect: false, options: [{ label: 'Postgres' }, { label: 'Bearer abcdef123456', description: 'o token' }] },
     null,
-    { question: 'Quais testes rodar?', header: 'Testes', multiSelect: true, options: [{ label: 'Unidade' }, { label: 'E2E' }, { label: 'Lint' }] },
+    { question: 'Quais testes rodar?', header: 'Tests', multiSelect: true, options: [{ label: 'Unit' }, { label: 'E2E' }, { label: 'Lint' }] },
   ],
   metadata: { source: 'teste' },
 };
@@ -114,7 +114,7 @@ describe('permission-hook.mjs (processo)', () => {
     srv.registry!.decide(await pendingId(srv), { behavior: 'deny', message: 'use pnpm', interrupt: true });
     const r = await run;
     expect(r.code).toBe(0);
-    expect(JSON.parse(r.stdout).hookSpecificOutput.decision).toEqual({ behavior: 'deny', message: 'Recusado pelo usuário no Habblaud: use pnpm', interrupt: true });
+    expect(JSON.parse(r.stdout).hookSpecificOutput.decision).toEqual({ behavior: 'deny', message: 'Denied by the user in Habblaud: use pnpm', interrupt: true });
   });
 
   it('pergunta respondida no Habblaud: aprova com a entrada original mais `answers` (textos originais)', async () => {
@@ -132,7 +132,7 @@ describe('permission-hook.mjs (processo)', () => {
         hookEventName: 'PermissionRequest',
         decision: {
           behavior: 'allow',
-          updatedInput: { ...ASK, answers: { 'Qual banco usar?': 'Bearer abcdef123456', 'Quais testes rodar?': 'Unidade, Lint, e o build' } },
+          updatedInput: { ...ASK, answers: { 'Qual banco usar?': 'Bearer abcdef123456', 'Quais testes rodar?': 'Unit, Lint, e o build' } },
         },
       },
     });
@@ -142,7 +142,7 @@ describe('permission-hook.mjs (processo)', () => {
     srv = await servePermissions();
     const run = runHook(JSON.stringify(askJson()), ['--port', String(srv.port)]);
     srv.registry!.decide(await pendingId(srv), { behavior: 'deny', message: 'decida você' });
-    expect(JSON.parse((await run).stdout).hookSpecificOutput.decision).toEqual({ behavior: 'deny', message: 'Recusado pelo usuário no Habblaud: decida você' });
+    expect(JSON.parse((await run).stdout).hookSpecificOutput.decision).toEqual({ behavior: 'deny', message: 'Denied by the user in Habblaud: decida você' });
   });
 
   it('"responder no terminal": sai sem decisão (stdout vazio)', async () => {
@@ -217,7 +217,7 @@ describe('permission-hook.mjs (funções)', () => {
       hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } },
     });
     expect(decisionOutput({ status: 'decided', behavior: 'deny' }, hookJson())).toEqual({
-      hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'deny', message: 'Recusado pelo usuário no Habblaud.' } },
+      hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'deny', message: 'Denied by the user in Habblaud.' } },
     });
     expect(decisionOutput({ status: 'released', reason: 'terminal' }, hookJson())).toBeUndefined();
     expect(decisionOutput({ status: 'pending' }, hookJson())).toBeUndefined();

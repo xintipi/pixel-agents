@@ -47,7 +47,7 @@ function transcript(): string[] {
     say('a5', 9, 'De nada!'),
     user('u3', 10, 'Agora rode os testes'),
     tool('a6', 11, 'Bash', { command: 'npm test' }),
-    say('a7', 12, 'Rodando os testes… ainda falta a parte de integração, já volto.', 'tool_use'),
+    say('a7', 12, 'Running os testes… ainda falta a parte de integração, já volto.', 'tool_use'),
   ].map((l) => JSON.stringify(l));
 }
 
@@ -96,8 +96,8 @@ describe('entregas: pedidos do transcript', () => {
     expect(d.attachments.map((a) => [a.name, a.kind, a.caption ?? '', !!a.capture])).toEqual([
       ['print.png', 'image', 'A tela nova', false],
       ['relatorio.pdf', 'pdf', '', false],
-      ['tela-1.png', 'image', 'Tela capturada pelo agente', true],
-      ['tela-2.png', 'image', 'Tela capturada pelo agente', true],
+      ['screenshot-1.png', 'image', 'Screenshot taken by the agent', true],
+      ['screenshot-2.png', 'image', 'Screenshot taken by the agent', true],
     ]);
     expect(JSON.stringify(list)).not.toContain('/Users/ana/proj/print.png');
     expect(JSON.stringify(list)).not.toContain('.ssh');

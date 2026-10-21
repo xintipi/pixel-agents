@@ -7,8 +7,8 @@ describe('FileFetcher', () => {
   it('Node: lê direto do disco, com a checagem', async () => {
     const f = new FileFetcher({ direct: true, check: ok, read: () => Buffer.from('abc') });
     expect(await f.get('/a/x.png')).toEqual({ data: Buffer.from('abc') });
-    const denied = new FileFetcher({ direct: true, check: () => ({ error: 'arquivo protegido' }) });
-    expect(await denied.get('/a/.ssh/x.png')).toEqual({ error: 'arquivo protegido', status: 403 });
+    const denied = new FileFetcher({ direct: true, check: () => ({ error: 'protected file' }) });
+    expect(await denied.get('/a/.ssh/x.png')).toEqual({ error: 'protected file', status: 403 });
   });
 
   it('Docker: pasta montada lê aqui; o resto vai pelo auxiliar (poll → ack) e fica no cache', async () => {
@@ -38,8 +38,8 @@ describe('FileFetcher', () => {
     f.poll();
     const pending = f.get('/tmp/y.png');
     const [req] = f.poll();
-    f.ack({ results: [{ id: req.id, ok: false, error: 'arquivo protegido' }] });
-    expect(await pending).toEqual({ error: 'arquivo protegido', status: 404 });
+    f.ack({ results: [{ id: req.id, ok: false, error: 'protected file' }] });
+    expect(await pending).toEqual({ error: 'protected file', status: 404 });
   });
 
   it('rodada com espera (?wait=1): o auxiliar fica parado até a página pedir um arquivo, e conta como presente', async () => {

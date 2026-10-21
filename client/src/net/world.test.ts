@@ -104,7 +104,7 @@ describe('HttpWorldApi', () => {
   });
 
   it('sem código (guarda, rota desligada, corpo vazio): decide pelo status HTTP', async () => {
-    expect(await recorder(403, { error: 'Origem não permitida.' }).api.logout()).toMatchObject({ code: 'forbidden' });
+    expect(await recorder(403, { error: 'Origin not allowed.' }).api.logout()).toMatchObject({ code: 'forbidden' });
     expect(await recorder(404, undefined).api.status()).toMatchObject({ code: 'not_configured' });
     expect(await recorder(429, '').api.resend({ email: 'a@b.co' })).toMatchObject({ code: 'rate_limited' });
     expect(await recorder(500, { error: { code: 'algo_novo' } }).api.logout()).toMatchObject({ code: 'unknown' });
@@ -370,7 +370,7 @@ describe('prédio: rotas locais da Fase 2', () => {
     // Aceita: os bytes que o mundo contou; sem horário, a resposta não vale.
     expect(parseLastUplink({ at: 5, bytes: 10, uplink: { v: 1 }, ack: { ok: true, at: 6, bytes: 10 } })?.ack).toEqual({ ok: true, at: 6, bytes: 10 });
     expect(parseLastUplink({ at: 5, bytes: 10, uplink: { v: 1 }, ack: { ok: true } })?.ack).toBeUndefined();
-    expect(parseBuilding({ connected: 'sim', paused: true, floors: -3, agents: 2.7, lastUplinkAt: 'agora', lastAck: { ok: false, error: 'rate' } })).toEqual({
+    expect(parseBuilding({ connected: 'sim', paused: true, floors: -3, agents: 2.7, lastUplinkAt: 'now', lastAck: { ok: false, error: 'rate' } })).toEqual({
       connected: false,
       paused: true,
       floors: 0,

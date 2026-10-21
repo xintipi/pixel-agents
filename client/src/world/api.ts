@@ -17,24 +17,51 @@ export interface WorldOptions {
   dayNight: boolean;
   /** (Opcional, aditivo) Ciclo dia/noite: automático, sempre dia ou sempre noite. Vale sobre `dayNight`. */
   daylight?: DaylightMode;
-  /** Tema visual: automático (segue o calendário; ver seasonalThemeFor), nenhum, Natal ou Halloween. */
+  /** Tema visual: automático (segue o calendário; ver seasonalThemeFor), nenhum, Natal, Halloween ou Tết. */
   theme?: OfficeTheme;
 }
 
-/** Tema que o renderer desenha: o escritório original ('none') ou um dos sazonais. */
-export type SeasonalTheme = 'none' | 'christmas' | 'halloween';
+/**
+ * Tema que o renderer desenha: o escritório original ('none') ou um dos sazonais. O Tết (Ano Novo Lunar vietnamita)
+ * é só do escritório: o Habblaud World não o conhece, e o prédio vai com 'none' (ver officeThemeForWorld).
+ */
+export type SeasonalTheme = 'none' | 'christmas' | 'halloween' | 'tet';
 export type OfficeTheme = 'auto' | SeasonalTheme;
+
+/** Dia 1 do Tết (mùng 1 Tết, calendário do Vietnã), de 2024 a 2040: mês (1-12) e dia. */
+const TET_DAYS: Record<number, [number, number]> = {
+  2024: [2, 10], 2025: [1, 29], 2026: [2, 17], 2027: [2, 6], 2028: [1, 26], 2029: [2, 13], 2030: [2, 3],
+  2031: [1, 23], 2032: [2, 11], 2033: [1, 31], 2034: [2, 19], 2035: [2, 8], 2036: [1, 28], 2037: [2, 15],
+  2038: [2, 4], 2039: [1, 24], 2040: [2, 12],
+};
+
+/** Tết na data (hora local): de 23 tháng Chạp (7 dias antes do mùng 1) a mùng 7 (6 dias depois). */
+export function isTetSeason(date: Date): boolean {
+  const day = TET_DAYS[date.getFullYear()];
+  if (!day) return false;
+  const tet = new Date(date.getFullYear(), day[0] - 1, day[1]);
+  const today = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diff = Math.round((today.getTime() - tet.getTime()) / 86_400_000);
+  return diff >= -7 && diff <= 6;
+}
 
 /**
  * Tema desenhado numa data (hora local). No automático: Halloween de 1º a 31 de outubro, Natal de 1º de novembro a
- * 26 de dezembro e, no resto do ano, o escritório original.
+ * 26 de dezembro, Tết em volta do Ano Novo Lunar (só com `lunarNewYear`, a interface em vietnamita) e, no resto do
+ * ano, o escritório original.
  */
-export function seasonalThemeFor(theme: OfficeTheme | undefined, date: Date): SeasonalTheme {
+export function seasonalThemeFor(theme: OfficeTheme | undefined, date: Date, lunarNewYear = false): SeasonalTheme {
   if (theme && theme !== 'auto') return theme;
   const month = date.getMonth();
   if (month === 9) return 'halloween';
   if (month === 10 || (month === 11 && date.getDate() <= 26)) return 'christmas';
+  if (lunarNewYear && isTetSeason(date)) return 'tet';
   return 'none';
+}
+
+/** A escolha do escritório no formato do Habblaud World, que não tem o Tết: lá o prédio fica sem tema. */
+export function officeThemeForWorld(theme: OfficeTheme): Exclude<OfficeTheme, 'tet'> {
+  return theme === 'tet' ? 'none' : theme;
 }
 
 /** Ciclo dia/noite: segue a hora local, ou fixa o dia ou a noite. */

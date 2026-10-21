@@ -10,6 +10,7 @@
 // - quando a seleção foi aberta "com foco" (lista, feed, aviso, Centralizar, duplo clique), o foco é refeito a
 //   cada mudança da área livre, até o usuário mexer na câmera.
 import type { Selection, ViewInsets, WorldApi } from '../world/api';
+import { tr } from '../../../shared/i18n';
 
 /** Folga entre a borda do painel e o conteúdo enquadrado (px CSS). */
 export const INSET_GAP = 8;
@@ -191,7 +192,7 @@ export class FreeArea {
     try {
       this.world.setViewInsets?.(insets);
     } catch (err) {
-      console.error('[ui] setViewInsets falhou', err);
+      console.error(tr('[ui] setViewInsets failed'), err);
     }
     if (opts.refocus !== false) this.refocus();
   }

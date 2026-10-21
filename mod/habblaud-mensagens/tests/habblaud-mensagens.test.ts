@@ -145,8 +145,8 @@ describe('rodadas', () => {
         { id: 'b', ok: false, error: 'recusada por um hook: proibida' },
         // O hook de baixo que lança é pulado e, sem nada embaixo dele, a chamada rejeita: o motivo é o do kit.
         { id: 'c', ok: false, error: expect.stringMatching(/\S/) },
-        { id: 'd', ok: false, error: 'mensagem vazia' },
-        { id: 'e', ok: false, error: 'mensagem vazia' },
+        { id: 'd', ok: false, error: 'empty message' },
+        { id: 'e', ok: false, error: 'empty message' },
       ],
     })
   })
@@ -212,10 +212,10 @@ describe('rodadas', () => {
     expect(w.inboxes().length).toBe(1)
     await w.clock.advance(28_000)
     expect(w.inboxes().length).toBe(1)
-    answer = { status: 403, text: '{"error":"mensagens pelo escritório desligadas"}' }
+    answer = { status: 403, text: '{"error":"messages from the office disabled"}' }
     await w.clock.advance(2_000)
     expect(w.inboxes().length).toBe(2)
-    answer = { status: 404, text: '{"error":"rota desconhecida"}' }
+    answer = { status: 404, text: '{"error":"unknown route"}' }
     await w.clock.advance(30_000)
     expect(w.inboxes().length).toBe(3)
     answer = []

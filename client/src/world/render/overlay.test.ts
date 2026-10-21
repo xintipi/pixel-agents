@@ -5,10 +5,10 @@ import { rationBubbles, waitBubbleText } from './overlay';
 
 describe('balões', () => {
   it('espera: só o motivo, sem o prefixo redundante', () => {
-    expect(waitBubbleText('aprovar uma permissão')).toBe('Aprovar uma permissão');
-    expect(waitBubbleText('Precisa de você: escolher uma opção')).toBe('Escolher uma opção');
-    expect(waitBubbleText(undefined)).toBe('Responder no terminal');
-    expect(waitBubbleText('   ')).toBe('Responder no terminal');
+    expect(waitBubbleText('approve a permission')).toBe('Approve a permission');
+    expect(waitBubbleText('Needs you: choose an option')).toBe('Choose an option');
+    expect(waitBubbleText(undefined)).toBe('Answer in terminal');
+    expect(waitBubbleText('   ')).toBe('Answer in terminal');
   });
 
   it('visão geral: no máximo 1 balão com texto por área e 4 na tela (mais recentes primeiro)', () => {

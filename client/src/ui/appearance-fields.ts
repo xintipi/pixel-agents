@@ -19,7 +19,7 @@ export class AppearanceFields {
   private draft: Appearance | null = null;
 
   constructor(private readonly onChange: (a: Appearance) => void = () => {}) {
-    this.preview = h('canvas', { class: 'ui-char__preview', role: 'img', attrs: { 'aria-label': tr('Prévia do personagem') } });
+    this.preview = h('canvas', { class: 'ui-char__preview', role: 'img', attrs: { 'aria-label': tr('Character preview') } });
     this.groups = h('div', { class: 'ui-char__groups' });
   }
 
@@ -114,7 +114,7 @@ export class AppearanceFields {
       g.drawImage(s.canvas, 0, 0, c.width, c.height);
     } catch (err) {
       // A arte ainda pode estar em construção: o editor continua utilizável sem a prévia.
-      console.warn('[ui] falha ao desenhar a prévia do personagem', err);
+      console.warn(tr('[ui] failed to draw the character preview'), err);
     }
   }
 }

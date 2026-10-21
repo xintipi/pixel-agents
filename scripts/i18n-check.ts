@@ -1,15 +1,13 @@
-// Confere as traduções: lista os textos passados a tr() sem tradução e as traduções que sobraram
-// (o texto em PT mudou ou saiu do código). Uso: npm run i18n:check [-- en|es|fr]
-// Não falha o build: um texto sem tradução simplesmente aparece em PT.
+// Checks the translations: lists the texts passed to tr() without a translation and the leftover translations
+// (the English text changed or left the code). Usage: npm run i18n:check
+// Doesn't fail the build: an untranslated text simply shows up in English.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { EN } from '../shared/locales/en';
-import { ES } from '../shared/locales/es';
-import { FR } from '../shared/locales/fr';
+import { VI } from '../shared/locales/vi';
 
 const ROOT = join(import.meta.dirname, '..');
 const DIRS = ['client/src', 'shared', 'server', 'scripts'];
-const DICTS: Record<string, Readonly<Record<string, string>>> = { en: EN, es: ES, fr: FR };
+const DICTS: Record<string, Readonly<Record<string, string>>> = { vi: VI };
 
 /** Primeiro argumento literal de cada tr('...') do código (sem os testes). */
 export function collectKeys(root = ROOT): Map<string, string[]> {
@@ -21,7 +19,8 @@ export function collectKeys(root = ROOT): Map<string, string[]> {
       if (statSync(p).isDirectory()) {
         if (name !== 'node_modules' && name !== 'dist' && name !== 'locales') walk(p);
       } else if (p.endsWith('.ts') && !p.endsWith('.test.ts') && name !== 'i18n-check.ts') {
-        const src = readFileSync(p, 'utf8');
+        // Template literals turn CRLF into LF: on a Windows checkout the keys match the runtime ones.
+        const src = readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
         for (const m of src.matchAll(re)) {
           const key = unescapeJs(m[2]);
           const line = src.slice(0, m.index).split('\n').length;
@@ -52,8 +51,8 @@ if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith
     if (only && only !== lang) continue;
     const missing = [...keys.keys()].filter((k) => !(k in dict));
     const stale = Object.keys(dict).filter((k) => !keys.has(k));
-    console.log(`${lang}: ${keys.size - missing.length}/${keys.size} textos traduzidos`);
-    for (const k of missing) console.log(`  sem tradução: ${JSON.stringify(k)}  (${keys.get(k)![0]})`);
-    for (const k of stale) console.log(`  sobrando:     ${JSON.stringify(k)}`);
+    console.log(`${lang}: ${keys.size - missing.length}/${keys.size} texts translated`);
+    for (const k of missing) console.log(`  untranslated: ${JSON.stringify(k)}  (${keys.get(k)![0]})`);
+    for (const k of stale) console.log(`  leftover:     ${JSON.stringify(k)}`);
   }
 }

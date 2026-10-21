@@ -2,8 +2,9 @@
 
 O Habblaud é um escritório virtual em pixel art que mostra, em tempo real, o que os agentes do Claude Code e do Codex
 estão fazendo: servidor Node sem dependências de runtime (`server/`), página no navegador (`client/`) e código comum
-(`shared/`). Todo texto visível passa por `tr('texto em PT')`, com as traduções em `shared/locales/` (`npm run
-i18n:check`), e toda mudança visível entra em "Não lançado" no `CHANGELOG.md`. O resto está no `CONTRIBUTING.md`.
+(`shared/`). Todo texto visível passa por `tr('text in English')` (o inglês é a língua de origem; o vietnamita é o
+idioma padrão), com a tradução em `shared/locales/vi.ts` (`npm run i18n:check`), e toda mudança visível entra em
+"Não lançado" no `CHANGELOG.md`. O resto está no `CONTRIBUTING.md`.
 
 ## AVISO — Habblaud World: dados verdadeiros
 

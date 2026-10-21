@@ -64,6 +64,10 @@ export const WORLD_LOCALES = ['pt-BR', 'en', 'es', 'fr'] as const;
 export type WorldLocale = (typeof WORLD_LOCALES)[number];
 /** O mesmo que WORLD_LOCALES (nome usado no contrato da Fase 1). */
 export const LOCALES = WORLD_LOCALES;
+/** Idioma da interface -> idioma que o mundo conhece (os que o contrato ainda não traz caem no inglês). */
+export function worldLocaleFor(l: string): WorldLocale {
+  return (WORLD_LOCALES as readonly string[]).includes(l) ? (l as WorldLocale) : 'en';
+}
 
 /**
  * Traços de personalidade do jogador: os mesmos ids (e a mesma ordem) dos personagens do escritório

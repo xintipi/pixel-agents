@@ -3,6 +3,7 @@
 import { DEFAULT_SOUND_SETTINGS, sanitizeSoundSettings, type SoundSettings } from '../audio/scheduler';
 import type { DaylightMode, WorldOptions } from '../world/api';
 import { DEFAULT_WORLD_OPTIONS } from '../world/api';
+import { clampVndRate, DEFAULT_VND_RATE, type CostAlert, type CostCurrency } from './cost';
 
 export const PREFS_KEY = 'habblaud:prefs';
 
@@ -25,6 +26,14 @@ export interface UiPrefs {
   hiddenAccounts: string[];
   /** Habblaud World: aviso quando o primeiro visitante entra no seu prédio (a cada conexão). Ligado por padrão. */
   worldVisitNotify: boolean;
+  /** Custo de cada agente na barra lateral (quando o Claude Code o grava). */
+  rowCost: boolean;
+  /** Moeda dos custos: dólar ou real vietnamita (aproximado, pelo câmbio `vndRate`). */
+  costCurrency: CostCurrency;
+  /** Câmbio (VND por US$) da conversão. */
+  vndRate: number;
+  /** Aviso quando um agente gasta esse valor (US$) em 10 minutos. */
+  costAlert: CostAlert;
 }
 
 export const DEFAULT_PREFS: UiPrefs = {
@@ -40,6 +49,10 @@ export const DEFAULT_PREFS: UiPrefs = {
   feedOpen: true,
   hiddenAccounts: [],
   worldVisitNotify: true,
+  rowCost: true,
+  costCurrency: 'usd',
+  vndRate: DEFAULT_VND_RATE,
+  costAlert: '2',
 };
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
@@ -58,7 +71,7 @@ export function sanitizePrefs(raw: unknown): UiPrefs {
     liveliness: oneOf(o.liveliness, ['calm', 'normal', 'lively'] as const, d.liveliness),
     // preferências antigas: o interruptor "dia e noite" desligado vira "sempre dia"
     daylight: oneOf(o.daylight, ['auto', 'day', 'night'] as const, o.dayNight === false ? 'day' : d.daylight),
-    theme: oneOf(o.theme, ['auto', 'none', 'christmas', 'halloween'] as const, d.theme),
+    theme: oneOf(o.theme, ['auto', 'none', 'christmas', 'halloween', 'tet'] as const, d.theme),
     sound: bool(o.sound, d.sound),
     sounds: sanitizeSoundSettings(o.sounds),
     browserNotifications: bool(o.browserNotifications, d.browserNotifications),
@@ -66,6 +79,10 @@ export function sanitizePrefs(raw: unknown): UiPrefs {
     feedOpen: bool(o.feedOpen, d.feedOpen),
     hiddenAccounts: Array.isArray(o.hiddenAccounts) ? o.hiddenAccounts.filter((x): x is string => typeof x === 'string').slice(0, 20) : [],
     worldVisitNotify: bool(o.worldVisitNotify, d.worldVisitNotify),
+    rowCost: bool(o.rowCost, d.rowCost),
+    costCurrency: oneOf(o.costCurrency, ['usd', 'vnd'] as const, d.costCurrency),
+    vndRate: o.vndRate === undefined ? d.vndRate : clampVndRate(o.vndRate),
+    costAlert: oneOf(o.costAlert, ['off', '1', '2', '5'] as const, d.costAlert),
   };
 }
 

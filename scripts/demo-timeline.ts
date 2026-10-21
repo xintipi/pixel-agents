@@ -203,7 +203,7 @@ async function main(): Promise<void> {
   }
   const t0 = Date.now();
   const r = generateDemoTimeline(opts);
-  const hhmm = (at: number) => new Date(at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const hhmm = (at: number) => new Date(at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   console.log(`Linha do tempo fictícia de ${opts.date}, ${hhmm(r.from)}–${hhmm(r.to)}, gerada em ${((Date.now() - t0) / 1000).toFixed(1)} s:`);
   for (const f of r.files) console.log(`  ${f}`);
   console.log(`\nPara assistir:\n  HABBLAUD_DATA_DIR=${opts.dataDir} HABBLAUD_TIMELINE=0 npm start\ne abra o Timelapse na barra superior.`);

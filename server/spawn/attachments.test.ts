@@ -12,7 +12,7 @@ describe('anexos do Novo agente', () => {
     expect(safeFileName('C:\\Users\\x\\foto 1.jpg')).toBe('foto 1.jpg');
     expect(safeFileName('.env')).toBe('env');
     expect(safeFileName('a\u0000b:c?.png')).toBe('a_b_c_.png');
-    expect(safeFileName('')).toBe('arquivo');
+    expect(safeFileName('')).toBe('file');
     const long = safeFileName(`${'x'.repeat(300)}.jpeg`);
     expect(long.length).toBe(120);
     expect(long.endsWith('.jpeg')).toBe(true);
@@ -63,9 +63,9 @@ describe('anexos do Novo agente', () => {
 
   it('o pedido ganha a lista dos caminhos', () => {
     expect(promptWithAttachments('Corrija o layout', ['/h/.habblaud/attachments/x/print.png'])).toBe(
-      'Corrija o layout\n\nAnexo enviado pelo Habblaud (leia antes de começar):\n- /h/.habblaud/attachments/x/print.png',
+      'Corrija o layout\n\nAttachment sent via Habblaud (read it before starting):\n- /h/.habblaud/attachments/x/print.png',
     );
-    expect(promptWithAttachments('', ['/a', '/b'])).toBe('Anexos enviados pelo Habblaud (leia antes de começar):\n- /a\n- /b');
+    expect(promptWithAttachments('', ['/a', '/b'])).toBe('Attachments sent via Habblaud (read them before starting):\n- /a\n- /b');
     expect(promptWithAttachments('só texto', [])).toBe('só texto');
   });
 
