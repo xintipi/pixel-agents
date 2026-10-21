@@ -30,6 +30,7 @@ import {
 } from './behavior';
 import { Character, dirOf, facing } from './character';
 import { Elevator } from './elevator';
+import { PARTY_MS } from '../../../../shared/github';
 import { RoomFxState } from './github';
 import { RoomState } from './room-state';
 import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, spinDir, spinPhase, yawnPhase } from './shell';
@@ -64,6 +65,9 @@ export type VisitLight = 'live' | 'discreet' | 'away';
 /** Comemoração (shell concluído) e lamento (falhou/morto). */
 const CHEER_MS = 2_200;
 const SULK_MS = 4_000;
+/** Três erros nesta janela: mãos na cabeça por FRUSTRATED_MS. */
+const FRUSTRATION_WINDOW_MS = 120_000;
+const FRUSTRATED_MS = 5_000;
 const MAX_EFFECTS = 32;
 /** Dono das reservas dos lugares de uma sala fantasma (endereço antigo de uma mudança). */
 const GHOST_OWNER = '@mudança';
@@ -300,7 +304,7 @@ export class Sim {
       if (!firstSeen) {
         ch.activityChangedAt = now;
         if (act.kind === 'done') ch.setIcon('check', 2600, now);
-        if (act.kind === 'error') ch.setIcon('sweat', 2200, now);
+        if (act.kind === 'error') this.reactError(ch, now);
         if (act.kind === 'delegate' && ch.info.kind === 'main' && a.status === 'working') this.planDelegate(ch, now);
         // pedido atendido: moedinhas pelo trabalho
         if (act.kind === 'done' && ch.info.kind === 'main') this.social.turnDone(ch, now);
@@ -397,6 +401,34 @@ export class Sim {
       ch.reactUntil = now + SULK_MS;
       ch.queue.push({ t: 'act', pose: home.seated ? 'sleep' : 'stand', ms: SULK_MS });
     }
+  }
+
+  /**
+   * Um erro: gota de suor. Três erros em FRUSTRATION_WINDOW_MS e ele põe as mãos na cabeça por FRUSTRATED_MS (na mesa,
+   * sem sair do lugar; ver restPose), com a nuvenzinha de chuva.
+   */
+  private reactError(ch: Character, now: number): void {
+    ch.errorTimes = ch.errorTimes.filter((t) => now - t < FRUSTRATION_WINDOW_MS);
+    ch.errorTimes.push(now);
+    if (ch.errorTimes.length < 3 || now < ch.frustratedUntil) {
+      ch.setIcon('sweat', 2200, now);
+      return;
+    }
+    ch.errorTimes = [];
+    ch.frustratedUntil = now + FRUSTRATED_MS;
+    ch.setIcon('storm', FRUSTRATED_MS, now);
+  }
+
+  /**
+   * Festa na sala (a mesma do PR mergeado: confete, faixa e a turma comemorando) pedida pela interface, por uma
+   * conquista ou um trabalho grande entregue. `sticky`: o snapshot seguinte não a apaga; ela acaba sozinha.
+   */
+  celebrate(roomId: string, text: string, agentId?: string): void {
+    if (!this.rooms.has(roomId) || this.visit) return;
+    const now = this.now;
+    const cur = this.roomFx.active.get(roomId);
+    if (cur && cur.kind === 'alarm') return;
+    this.roomFx.active.set(roomId, { roomId, kind: 'party', text, agentId, key: now, start: now, end: now + PARTY_MS, cheered: new Set(), sticky: true });
   }
 
   /** Lance do futebol da TV agora (para a torcida comemorar junto com o "GOL" da tela). */
@@ -1647,6 +1679,12 @@ export class Sim {
   private restPose(ch: Character, now: number): void {
     const spot = ch.atSpot ? this.spots.get(ch.atSpot) : undefined;
     const atHome = !!spot && ch.atSpot === ch.homeSpot;
+    // erro atrás de erro: mãos na cabeça, ali mesmo (sentado ou em pé)
+    if (now < ch.frustratedUntil && (atHome || !spot) && ch.mode === 'work') {
+      if (spot) ch.dir = spot.dir;
+      ch.setPose('facepalm');
+      return;
+    }
     if (!spot) {
       // sem lugar (sala lotada): trabalha em pé com o notebook
       if (ch.mode === 'wait') ch.setPose('raise_hand');

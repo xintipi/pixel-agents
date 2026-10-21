@@ -19,18 +19,18 @@ export const SEAT_DROP = 4;
 
 export const POSE_FRAMES: Readonly<Record<Pose, number>> = {
   stand: 2, walk: 4, run: 4, sit: 2, type: 4, sleep: 2, drink: 2, use: 2, raise_hand: 2, talk: 2, stretch: 2,
-  read: 2, play: 2, wait: 2, cheer: 2, laugh: 2, game: 2, rps: 2, groom: 2, sulk: 2,
+  read: 2, play: 2, wait: 2, cheer: 2, laugh: 2, game: 2, rps: 2, groom: 2, sulk: 2, facepalm: 2,
 };
 
 export const POSE_DURATION: Readonly<Record<Pose, number>> = {
   stand: 650, walk: 140, run: 95, sit: 800, type: 120, sleep: 1000, drink: 700, use: 380, raise_hand: 320, talk: 280,
-  stretch: 800, read: 1100, play: 200, wait: 480, cheer: 260, laugh: 190, game: 150, rps: 300, groom: 420, sulk: 1300,
+  stretch: 800, read: 1100, play: 200, wait: 480, cheer: 260, laugh: 190, game: 150, rps: 300, groom: 420, sulk: 1300, facepalm: 420,
 };
 
 const SEATED_ONLY: ReadonlySet<Pose> = new Set<Pose>(['sit', 'type', 'sleep', 'wait']);
 const NEVER_SEATED: ReadonlySet<Pose> = new Set<Pose>(['walk', 'run', 'stretch', 'play', 'groom']);
 /** Poses que posicionam as mãos (e o item) por conta própria: a lógica genérica de itens não mexe nelas. */
-const OWN_HANDS: ReadonlySet<Pose> = new Set<Pose>(['play', 'drink', 'raise_hand', 'stretch', 'cheer', 'laugh', 'game', 'rps', 'groom', 'sulk']);
+const OWN_HANDS: ReadonlySet<Pose> = new Set<Pose>(['play', 'drink', 'raise_hand', 'stretch', 'cheer', 'laugh', 'game', 'rps', 'groom', 'sulk', 'facepalm']);
 /** Gestos do jokenpô (a mão vira pedra, papel ou tesoura). */
 const GESTURES: ReadonlySet<HeldItem> = new Set<HeldItem>(['rock', 'paper', 'scissors']);
 
@@ -303,6 +303,9 @@ function makeRig(req: CharacterFrameRequest, view: HeadView): Rig {
     case 'sulk':
       sulkRig(rig, view, f);
       break;
+    case 'facepalm':
+      facepalmRig(rig, view, f);
+      break;
   }
 
   // Itens segurados: braços e posição do item (exceto poses que já posicionam a mão).
@@ -544,6 +547,24 @@ function sulkRig(rig: Rig, view: HeadView, f: number): void {
   }
   rig.armA = arm([6, 18], [7, 22]);
   rig.armB = arm([16, 18], [15, 22]);
+}
+
+/**
+ * 'facepalm' (erro atrás de erro): as duas mãos nos lados da cabeça, olhos fechados e boca torta; a cabeça balança
+ * 1 px de um quadro para o outro. De perfil, uma mão na testa e o corpo um pouco para trás.
+ */
+function facepalmRig(rig: Rig, view: HeadView, f: number): void {
+  rig.eyes = 'closed';
+  rig.mouth = 'frown';
+  rig.hd = f;
+  if (view === 'side') {
+    rig.lean = -1;
+    rig.armA = arm([12, 18], [16, 15], [15, 9 + f]);
+    rig.armB = arm([10, 18], [10, 22]);
+    return;
+  }
+  rig.armA = arm([6, 18], [2, 15], [4, 10 + f]);
+  rig.armB = arm([16, 18], [20, 15], [18, 10 + f]);
 }
 
 /**

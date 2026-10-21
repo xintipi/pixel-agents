@@ -125,6 +125,11 @@ export interface WorldApi {
    * câmera; ao voltar, a simulação avança o tempo que passou (como com a aba em segundo plano).
    */
   setSuspended?(suspended: boolean): void;
+  /**
+   * (Opcional, aditivo) Festa numa sala (confete, faixa com `text` e a turma comemorando, ~12 s), como a do PR
+   * mergeado: conquistas e trabalhos grandes entregues. Só ao vivo (no timelapse não faz nada).
+   */
+  celebrate?(roomId: string, text: string, agentId?: string): void;
   destroy(): void;
 }
 

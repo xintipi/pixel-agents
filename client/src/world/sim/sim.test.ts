@@ -741,6 +741,49 @@ describe('espera de shell', () => {
     expect(sim.effects.length).toBe(1);
   });
 
+  it('erro atrás de erro: três em pouco tempo e as mãos vão à cabeça (na mesa), depois volta a digitar', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    const rooms = [room('/a', 0)];
+    const err = (id: string) => ({ id, kind: 'error' as const, icon: '⚠️', text: 'Erro no Bash', at: T0, error: true });
+    sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working', { activity: { id: 'a0', kind: 'run', icon: '💻', text: 'Rodando', at: T0 } })]), clock.now);
+    run(sim, clock, 1);
+    const ana = sim.chars.get('ana')!;
+    expect(ana.pose).toBe('type');
+    for (const [i, id] of ['e1', 'e2'].entries()) {
+      sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working', { activity: err(id) })], 2 + i), clock.now);
+      run(sim, clock, 0.5);
+      expect(ana.icon).toBe('sweat');
+      expect(ana.pose).toBe('type');
+    }
+    sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working', { activity: err('e3') })], 4), clock.now);
+    run(sim, clock, 0.5);
+    expect(ana.icon).toBe('storm');
+    expect(ana.pose).toBe('facepalm');
+    expect(ana.atSpot).toBe(ana.homeSpot);
+    run(sim, clock, 5);
+    expect(ana.pose).toBe('type');
+  });
+
+  it('festa pedida pela interface (conquista): confete na sala, a turma comemora e acaba sozinha', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    const rooms = [room('/a', 0)];
+    sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'idle'), agent('bia', '/a', 'working')]), clock.now);
+    run(sim, clock, 1);
+    sim.celebrate('/a', '🏆 Cất cánh', 'bia');
+    expect(sim.roomFx.active.get('/a')).toMatchObject({ kind: 'party', text: '🏆 Cất cánh', agentId: 'bia' });
+    // o snapshot seguinte (sem efeito do servidor) não apaga a festa
+    sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'idle'), agent('bia', '/a', 'working')], 2), clock.now);
+    run(sim, clock, 1);
+    expect(sim.roomFx.active.has('/a')).toBe(true);
+    expect(sim.chars.get('bia')!.icon).toBe('star');
+    run(sim, clock, 12);
+    expect(sim.roomFx.active.has('/a')).toBe(false);
+    sim.celebrate('/nada', 'x');
+    expect(sim.roomFx.active.size).toBe(0);
+  });
+
   it('shell falhou: nuvenzinha de chuva, cabeça baixa por ~4 s, sem confete', () => {
     const sim = newSim();
     const clock = { now: T0 };

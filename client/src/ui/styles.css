@@ -11173,3 +11173,86 @@ html.is-replay #world {
 .ui-world-chip__visitors[hidden] {
   display: none;
 }
+
+/* ------------------------------------------------------------------ conquistas (ui/achievements-panel.ts) */
+.ui-dialog.ui-ach {
+  width: min(560px, calc(100vw - 32px));
+}
+
+/* Uma coluna só (o corpo padrão dos diálogos é em duas). */
+.ui-ach .ui-dialog__body {
+  display: block;
+}
+
+.ui-ach__summary {
+  margin: 0 0 10px;
+  color: var(--ui-muted);
+}
+
+.ui-ach__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.ui-ach__item {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ui-line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ui-ach__icon {
+  font-size: 22px;
+  text-align: center;
+}
+
+.ui-ach__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ui-ach__text > span {
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+.ui-ach__when {
+  font-size: 11px;
+  color: var(--ui-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-ach__item.is-locked .ui-ach__icon {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+.ui-ach__item.is-locked strong {
+  color: var(--ui-muted);
+}
+
+.ui-ach__bar {
+  display: block;
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.ui-ach__fill {
+  display: block;
+  height: 100%;
+  background: var(--ui-accent);
+}

@@ -449,6 +449,10 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       soundCbs.add(cb);
       return () => void soundCbs.delete(cb);
     },
+    celebrate: (roomId, text, agentId) => {
+      // só ao vivo: no timelapse a festa seria do dia reproduzido
+      if (!playback) sim.celebrate(roomId, text, agentId);
+    },
     setSuspended: (on) => {
       if (on === suspended) return;
       suspended = on;

@@ -113,6 +113,9 @@ export class Character {
    * modo não a interrompe (a fila termina de volta na mesa e o planejador segue o status atual).
    */
   reactUntil = 0;
+  /** Erros recentes (ms): três em pouco tempo e o personagem põe as mãos na cabeça até `frustratedUntil`. */
+  errorTimes: number[] = [];
+  frustratedUntil = 0;
   /** `at` da última Activity 'ShellDone' já tratada (as anteriores à chegada não comemoram). */
   shellDoneAt = 0;
   /** Render: próxima pipoca que pula do balde (epoch ms). */

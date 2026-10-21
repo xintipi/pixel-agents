@@ -12,6 +12,12 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Conquistas e comemorações.** Um troféu na barra superior abre o painel com 12 conquistas (de "100 pedidos
+  atendidos" e "10 seguidos sem erro" a "5 agentes trabalhando ao mesmo tempo" e "coruja da madrugada"), com o
+  progresso de cada uma, contado ao vivo e guardado neste navegador (o modo demonstração do servidor fica de fora).
+  Desbloquear avisa com um toast e faz festa na sala de quem conseguiu (confete, faixa e a turma comemorando), como
+  a do PR mergeado; um agente que fecha uma lista de 3 ou mais tarefas também ganha festa. E quem erra três vezes em
+  dois minutos põe as mãos na cabeça por alguns segundos, ali na mesa.
 - **Idiomas: só vietnamita e inglês.** A interface passa a ter só tiếng Việt (o padrão, sem escolha salva) e inglês,
   em Configurações › Idioma. O inglês vira a língua de origem do código: todo `tr()` usa o texto em inglês, e a
   tradução fica em `shared/locales/vi.ts`. O servidor fala vietnamita, ou inglês com `HABBLAUD_LANG=en` (o idioma do
