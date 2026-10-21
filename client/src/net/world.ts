@@ -749,7 +749,7 @@ export class FakeWorldApi implements WorldClient {
     const at = this.now();
     // Without Tết (office-only): the World only receives the themes it knows.
     const theme = seasonalThemeFor(this.theme, new Date(at));
-    const uplink: WorldUplink = { ...structuredClone(FAKE_UPLINK as WorldUplink), theme: theme === 'tet' ? 'none' : theme };
+    const uplink: WorldUplink = { ...structuredClone(FAKE_UPLINK as WorldUplink), theme: theme === 'christmas' || theme === 'halloween' ? theme : 'none' };
     const bytes = uplinkBytes(uplink);
     const ack: WorldUplinkAck = this.rejectCode ? { ok: false, error: this.rejectCode, at } : { ok: true, at, bytes };
     b.last = { at, bytes, uplink, ack };

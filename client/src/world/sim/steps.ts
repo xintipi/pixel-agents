@@ -5,6 +5,11 @@ import type { Gathering } from '../social/gathering';
 export type Step =
   /** Walks (or runs) to tile (tx, ty); then, optionally, to the fine position (fx, fy) and turns to `dir`. */
   | { t: 'go'; tx: number; ty: number; run?: boolean; fx?: number; fy?: number; dir?: Dir; held?: HeldItem; path?: number[]; i?: number; fine?: boolean }
+  /**
+   * Walks straight through points (flat x,y pairs, world px) with no walk grid: outside the building (tea stall).
+   * 'out' leaves a trail of the points reached (the way back); 'back' ends indoors, on the corridor door tile.
+   */
+  | { t: 'route'; pts: number[]; run?: boolean; held?: HeldItem; i?: number; trail?: 'out' | 'back' }
   /** Snaps into the spot (seat or use point). Requires being on the approach tile. */
   | { t: 'enter'; spot: string }
   /** Leaves the current spot back to the approach tile (stand up). */

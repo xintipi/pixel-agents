@@ -71,7 +71,7 @@ export function sanitizePrefs(raw: unknown): UiPrefs {
     liveliness: oneOf(o.liveliness, ['calm', 'normal', 'lively'] as const, d.liveliness),
     // old preferences: the "day and night" switch turned off becomes "always day"
     daylight: oneOf(o.daylight, ['auto', 'day', 'night'] as const, o.dayNight === false ? 'day' : d.daylight),
-    theme: oneOf(o.theme, ['auto', 'none', 'christmas', 'halloween', 'tet'] as const, d.theme),
+    theme: oneOf(o.theme, ['auto', 'none', 'christmas', 'halloween', 'tet', 'midautumn', 'valentine', 'women', 'devday', 'national', 'children'] as const, d.theme),
     sound: bool(o.sound, d.sound),
     sounds: sanitizeSoundSettings(o.sounds),
     browserNotifications: bool(o.browserNotifications, d.browserNotifications),

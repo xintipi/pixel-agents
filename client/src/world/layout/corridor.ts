@@ -4,6 +4,8 @@ import { AreaBuilder } from './builder';
 import type { AreaLayout } from './types';
 
 export const CORRIDOR_ID = 'core:corredor';
+/** Local row of the open panel in the west glass facade. */
+export const WEST_GAP_ROW = 2;
 
 const TALL = ['ficus', 'palm', 'monstera', 'bonsai'] as const;
 const SMALL = ['fern', 'succulent', 'flower'] as const;
@@ -16,7 +18,8 @@ export function layoutCorridor(cols: number): AreaLayout {
   b.floor('concrete', 0, 0, w, CORRIDOR_H, 501);
   // glass facades at the corridor ends (main entrance to the west)
   for (let ly = 0; ly < CORRIDOR_H; ly++) {
-    b.furn('glass_partition', 0, ly, ly === 0 || ly === CORRIDOR_H - 1 ? 'end' : 'v', { order: 0.1 });
+    // west: the middle panel stays open (the way out to the iced tea stall on the sidewalk, sim/tea.ts)
+    if (ly !== WEST_GAP_ROW) b.furn('glass_partition', 0, ly, ly === 0 || ly === CORRIDOR_H - 1 ? 'end' : 'v', { order: 0.1 });
     b.furn('glass_partition', w - 1, ly, ly === 0 || ly === CORRIDOR_H - 1 ? 'end' : 'v', { order: 0.1 });
   }
   b.walk(1, 0, w - 2, CORRIDOR_H);

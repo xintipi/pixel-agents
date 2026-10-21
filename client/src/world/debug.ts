@@ -65,6 +65,8 @@ export interface WorldDebug {
   fastForward(): void;
   /** Makes all idle ones go out for a walk now. */
   wanderNow(): void;
+  /** Sends whoever is idle at the desk to the iced tea stall now (while it's set up). Returns how many went. */
+  teaNow(): number;
   /**
    * Starts a round now with whoever is idle/waiting on shell (or with `ids`): all go back to the table
    * right away and leave together. Returns the participants' names or null.
@@ -353,6 +355,8 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     wanderNow: () => {
       for (const c of sim.chars.values()) c.nextOutingAt = 1;
     },
+
+    teaNow: () => sim.teaNow(),
 
     socialize: (kind, ids) => {
       sim.fastForward(now());

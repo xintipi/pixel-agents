@@ -138,7 +138,7 @@ export interface CharacterFrameRequest {
   /** For poses that can be standing or seated (raise_hand, read, talk). */
   seated?: boolean;
   /** Seasonal accessory; absent keeps the original look. */
-  costume?: 'santa' | 'witch' | 'pumpkin' | 'vampire' | 'khandong' | 'nonla';
+  costume?: 'santa' | 'witch' | 'pumpkin' | 'vampire' | 'khandong' | 'nonla' | 'lion' | 'bunny' | `${string}:${string}`;
 }
 
 export type FurnitureKind =

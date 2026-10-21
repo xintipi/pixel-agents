@@ -2,6 +2,8 @@
 // 24x34 px sheet with anchor (12, 31) at the center of the feet. Standing: hair from y≈5,
 // head y 7–17, torso 18–23, pants 24–28, shoes 29–30. Seated: torso/head 4px lower.
 import type { Appearance, CharacterFrameRequest, HeldItem, Pose } from '../api';
+import { THEME_COSTUMES } from '../themes/registry';
+import '../themes';
 import { luminance, mix, ramp, shade, type Ramp } from '../core/color';
 import { PixelBuf, type Palette } from '../core/pixbuf';
 import type { BufSprite } from '../core/sprite';
@@ -1525,6 +1527,11 @@ function drawCostume(dc: Dc, costume: CharacterFrameRequest['costume']): void {
   const { b, r } = dc;
   const x = HX + r.lean;
   const y = HY + r.ub + r.hd;
+  const extra = THEME_COSTUMES.get(costume);
+  if (extra) {
+    extra(b, x, y);
+    return;
+  }
   if (costume === 'santa') {
     b.rect(x + 2, y, 9, 4, '#c93945');
     b.rect(x + 4, y - 2, 5, 2, '#e95452');
@@ -1563,7 +1570,29 @@ function drawCostume(dc: Dc, costume: CharacterFrameRequest['costume']): void {
     b.hline(x - 1, x + 14, y + 3, '#b8955a');
     b.set(x + 5, y - 1, '#fff0c0');
     b.set(x + 4, y, '#fff0c0');
-  } else {
+  } else if (costume === 'lion') {
+    // Mid-Autumn: lion-dance head (đầu lân) worn on top: red with a gold brow, big eyes and a fur fringe.
+    // Only ~3 px above the head fit on the sheet: the horn tops out at y - 3.
+    b.rect(x, y - 1, 14, 5, '#d43a3d');
+    b.rect(x + 1, y - 2, 12, 1, '#f0534f');
+    b.hline(x, x + 13, y + 1, '#f2c94c');
+    b.rect(x + 3, y - 1, 2, 2, '#ffffff');
+    b.rect(x + 9, y - 1, 2, 2, '#ffffff');
+    b.set(x + 4, y, '#2a1f26');
+    b.set(x + 10, y, '#2a1f26');
+    b.rect(x + 6, y - 3, 2, 1, '#f2c94c'); // horn
+    for (let i = 0; i < 14; i += 2) b.set(x + i, y + 4, '#f7f2e8'); // fur fringe
+  } else if (costume === 'bunny') {
+    // Mid-Autumn: jade rabbit (thỏ ngọc) ears on a headband.
+    // Ears lean outward so they stay within the 3 px above the head.
+    b.hline(x + 1, x + 12, y + 1, '#f2c94c');
+    b.rect(x + 2, y - 2, 2, 3, '#f7f2e8');
+    b.rect(x + 10, y - 2, 2, 3, '#f7f2e8');
+    b.rect(x + 1, y - 3, 2, 1, '#f7f2e8');
+    b.rect(x + 11, y - 3, 2, 1, '#f7f2e8');
+    b.vline(x + 3, y - 2, y, '#f2a6b6');
+    b.vline(x + 10, y - 2, y, '#f2a6b6');
+  } else if (costume === 'vampire') {
     // Cape collar: face and badge stay visible.
     b.rect(x, y + 12, 2, 5, '#702743');
     b.rect(x + 12, y + 12, 2, 5, '#702743');

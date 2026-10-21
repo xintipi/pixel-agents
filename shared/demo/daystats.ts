@@ -5,7 +5,7 @@
 // Codex account rooms only add tokens (Codex doesn't record cost).
 import { addDays, dayKeyOf, dayStart, HOUR_MS, hourStart, localHourOf, type AgentRef, type StatsBook, type StatsView, type TimedStatus } from '../daystats';
 import { hash32, mulberry32 } from '../hash';
-import { pickName } from '../names';
+import { pickOfficeName } from '../office-names';
 import { DEMO_PROJECT_NAMES } from './simulator';
 import { tr } from '../i18n';
 
@@ -66,7 +66,7 @@ export function seedDemoHistory(book: StatsBook, view: StatsView, now: number, t
   const rooms: FakeRoom[] = [...byRoom].map(([id, accs]) => {
     const account = [...accs].sort((x, y) => y[1] - x[1])[0]?.[0] ?? accounts[0].id;
     const people = [0, 1, 2].map((k) => {
-      const p = pickName(`${id}:${k}:${seed}`, usedNames);
+      const p = pickOfficeName(`${id}:${k}:${seed}`, usedNames);
       usedNames.add(p.name);
       return p.name;
     });

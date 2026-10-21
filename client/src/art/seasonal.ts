@@ -1,12 +1,36 @@
 // Procedural pixel-art decorations. Same scale as the office furniture.
 import { PixelBuf } from './core/pixbuf';
 import type { BufSprite } from './core/sprite';
+import { THEME_PROPS } from './themes/registry';
+import './themes';
 
-export type SeasonalProp = 'tree' | 'gift' | 'pumpkin' | 'ghost' | 'wreath' | 'bat' | 'mai' | 'dao' | 'kumquat' | 'lantern';
+export type SeasonalProp =
+  | 'tree'
+  | 'gift'
+  | 'pumpkin'
+  | 'ghost'
+  | 'wreath'
+  | 'bat'
+  | 'mai'
+  | 'dao'
+  | 'kumquat'
+  | 'lantern'
+  // Mid-Autumn (Trung thu)
+  | 'starlantern'
+  | 'carp'
+  | 'mooncake'
+  // extra themes (art/themes/*): "theme:prop"
+  | `${string}:${string}`;
 
 export function renderSeasonalProp(kind: SeasonalProp): BufSprite {
   const b = new PixelBuf(40, 64);
   const rect = (x: number, y: number, w: number, h: number, c: string) => b.rect(x, y, w, h, c);
+  const extra = THEME_PROPS.get(kind);
+  if (extra) {
+    extra(b);
+    b.outline();
+    return { buf: b, ax: 20, ay: 60 };
+  }
   if (kind === 'tree') {
     b.shadow(20, 59, 17, 3, '#252c39', 0.22);
     rect(17, 49, 6, 9, '#80573d');
@@ -115,6 +139,60 @@ export function renderSeasonalProp(kind: SeasonalProp): BufSprite {
     b.vline(20, 43, 52, '#a8222f');
     rect(16, 53, 9, 2, '#e3b24c');
     for (const x of [17, 19, 21, 23]) b.vline(x, 55, 59, '#f0c85a');
+  } else if (kind === 'starlantern') {
+    // Mid-Autumn: five-pointed star lantern (đèn ông sao) of red cellophane on a bamboo frame, tassels below.
+    b.vline(20, 30, 36, '#8a6a3a');
+    const cx = 20;
+    const cy = 45;
+    const pts: [number, number][] = [];
+    for (let k = 0; k < 10; k++) {
+      const ang = -Math.PI / 2 + (k * Math.PI) / 5;
+      const r = k % 2 === 0 ? 9 : 4;
+      pts.push([cx + Math.cos(ang) * r, cy + Math.sin(ang) * r]);
+    }
+    // fill the star scanline by scanline (point-in-polygon)
+    for (let y = cy - 10; y <= cy + 9; y++) {
+      for (let x = cx - 10; x <= cx + 10; x++) {
+        let inside = false;
+        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+          const [xi, yi] = pts[i];
+          const [xj, yj] = pts[j];
+          if (yi > y + 0.5 !== yj > y + 0.5 && x + 0.5 < ((xj - xi) * (y + 0.5 - yi)) / (yj - yi) + xi) inside = !inside;
+        }
+        if (inside) b.set(x, y, y < cy - 1 ? '#f0534f' : '#d43a3d');
+      }
+    }
+    for (const [x, y] of pts.filter((_, k) => k % 2 === 0)) b.line(cx, cy, Math.round(x), Math.round(y), '#f2c94c');
+    rect(cx - 1, cy - 1, 3, 3, '#ffe28a');
+    for (const x of [17, 20, 23]) b.vline(x, 54, 58, '#f2c94c');
+  } else if (kind === 'carp') {
+    // Mid-Autumn: carp lantern (đèn cá chép) on a pole, orange and gold with a fan tail.
+    b.shadow(20, 59, 7, 2, '#252c39', 0.2);
+    rect(19, 30, 2, 29, '#8a6a3a');
+    rect(9, 22, 18, 9, '#e8732e');
+    rect(11, 21, 14, 11, '#e8732e');
+    rect(12, 23, 12, 3, '#f59a4a');
+    for (const x of [13, 16, 19, 22]) b.set(x, 27, '#c4501f');
+    for (const x of [14, 17, 20, 23]) b.set(x, 29, '#c4501f');
+    rect(24, 23, 4, 7, '#f2c94c'); // head
+    b.set(26, 25, '#2a1f26');
+    rect(5, 21, 5, 4, '#f2c94c'); // tail
+    rect(4, 27, 5, 4, '#f2c94c');
+    rect(7, 24, 3, 4, '#e8732e');
+  } else if (kind === 'mooncake') {
+    // Mid-Autumn: mooncakes (bánh trung thu) on a little red stand, one cut open with the yolk.
+    b.shadow(20, 59, 9, 2, '#252c39', 0.2);
+    rect(10, 54, 20, 5, '#b5452a');
+    rect(11, 53, 18, 1, '#d4623f');
+    for (const [x, y] of [[12, 47], [22, 47], [17, 42]]) {
+      rect(x, y, 7, 6, '#c98a42');
+      rect(x + 1, y + 1, 5, 4, '#dfa45a');
+      b.set(x + 3, y + 2, '#f3cf8a');
+      b.set(x + 2, y + 3, '#b8763a');
+      b.set(x + 4, y + 3, '#b8763a');
+    }
+    rect(25, 44, 3, 3, '#f2b632'); // yolk of the cut one
+    b.set(26, 45, '#ffd46b');
   } else {
     rect(18, 51, 5, 6, '#47344f');
     rect(10, 50, 9, 4, '#47344f');

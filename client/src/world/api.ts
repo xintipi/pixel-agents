@@ -25,7 +25,9 @@ export interface WorldOptions {
  * Theme the renderer draws: the original office ('none') or one of the seasonal ones. Tết (Vietnamese Lunar New Year)
  * is office-only: Habblaud World does not know it, and the building goes with 'none' (see officeThemeForWorld).
  */
-export type SeasonalTheme = 'none' | 'christmas' | 'halloween' | 'tet';
+export type SeasonalTheme = 'none' | 'christmas' | 'halloween' | 'tet' | 'midautumn' | 'valentine' | 'women' | 'devday' | 'national' | 'children';
+/** Themes Habblaud World knows (the others are office-only: there the building goes without a theme). */
+const WORLD_KNOWN = new Set<OfficeTheme>(['auto', 'none', 'christmas', 'halloween']);
 export type OfficeTheme = 'auto' | SeasonalTheme;
 
 /** Day 1 of Tết (mùng 1 Tết, Vietnamese calendar), from 2024 to 2040: month (1-12) and day. */
@@ -34,6 +36,23 @@ const TET_DAYS: Record<number, [number, number]> = {
   2031: [1, 23], 2032: [2, 11], 2033: [1, 31], 2034: [2, 19], 2035: [2, 8], 2036: [1, 28], 2037: [2, 15],
   2038: [2, 4], 2039: [1, 24], 2040: [2, 12],
 };
+
+/** Mid-Autumn day (rằm tháng 8, the 15th of the 8th lunar month), from 2024 to 2040: month (1-12) and day. */
+const MID_AUTUMN_DAYS: Record<number, [number, number]> = {
+  2024: [9, 17], 2025: [10, 6], 2026: [9, 25], 2027: [9, 15], 2028: [10, 3], 2029: [9, 22], 2030: [9, 12],
+  2031: [10, 1], 2032: [9, 19], 2033: [9, 8], 2034: [9, 27], 2035: [9, 16], 2036: [10, 4], 2037: [9, 24],
+  2038: [9, 13], 2039: [10, 2], 2040: [9, 20],
+};
+
+/** Mid-Autumn on the date (local time): the week before the full moon and two days after. */
+export function isMidAutumnSeason(date: Date): boolean {
+  const day = MID_AUTUMN_DAYS[date.getFullYear()];
+  if (!day) return false;
+  const moon = new Date(date.getFullYear(), day[0] - 1, day[1]);
+  const today = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diff = Math.round((today.getTime() - moon.getTime()) / 86_400_000);
+  return diff >= -7 && diff <= 2;
+}
 
 /** Mùng 1 Tết of the year (local date, midnight), or null outside the table. */
 export function tetDay(year: number): Date | null {
@@ -58,6 +77,10 @@ export function isTetSeason(date: Date): boolean {
  */
 export function seasonalThemeFor(theme: OfficeTheme | undefined, date: Date, lunarNewYear = false): SeasonalTheme {
   if (theme && theme !== 'auto') return theme;
+  // Vietnamese UI: Mid-Autumn first (when the full moon falls in October it wins over Halloween), then the dated days
+  if (lunarNewYear && isMidAutumnSeason(date)) return 'midautumn';
+  const special = lunarNewYear ? specialDayTheme(date) : null;
+  if (special) return special;
   const month = date.getMonth();
   if (month === 9) return 'halloween';
   if (month === 10 || (month === 11 && date.getDate() <= 26)) return 'christmas';
@@ -65,9 +88,35 @@ export function seasonalThemeFor(theme: OfficeTheme | undefined, date: Date, lun
   return 'none';
 }
 
-/** The office choice in Habblaud World's format, which has no Tết: there the building has no theme. */
-export function officeThemeForWorld(theme: OfficeTheme): Exclude<OfficeTheme, 'tet'> {
-  return theme === 'tet' ? 'none' : theme;
+/** The office choice in Habblaud World's format, which only knows Christmas and Halloween: the others go as none. */
+export function officeThemeForWorld(theme: OfficeTheme): 'auto' | 'none' | 'christmas' | 'halloween' {
+  return WORLD_KNOWN.has(theme) ? (theme as 'auto' | 'none' | 'christmas' | 'halloween') : 'none';
+}
+
+/** Days from `month`/`day` of this year to `date` (negative before). */
+function daysFrom(date: Date, month: number, day: number): number {
+  const ref = new Date(date.getFullYear(), month - 1, day);
+  const today = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((today.getTime() - ref.getTime()) / 86_400_000);
+}
+
+/**
+ * The dated days of the Vietnamese calendar, on automatic with the Vietnamese UI: Valentine (Feb 12–15), Women's Day
+ * (Mar 6–9 and Oct 18–21), Programmer's Day (the 256th day of the year, ±1), National Day (Apr 29–May 2, Reunification
+ * and Labor Day, and Sep 1–3) and Children's Day (May 30–Jun 2).
+ */
+export function specialDayTheme(date: Date): SeasonalTheme | null {
+  const near = (m: number, d: number, before: number, after: number) => {
+    const n = daysFrom(date, m, d);
+    return n >= -before && n <= after;
+  };
+  if (near(2, 14, 2, 1)) return 'valentine';
+  if (near(3, 8, 2, 1) || near(10, 20, 2, 1)) return 'women';
+  const day256 = new Date(date.getFullYear(), 0, 256);
+  if (near(day256.getMonth() + 1, day256.getDate(), 1, 1)) return 'devday';
+  if (near(4, 30, 1, 2) || near(9, 2, 1, 1)) return 'national';
+  if (near(6, 1, 2, 1)) return 'children';
+  return null;
 }
 
 /** Day/night cycle: follows local time, or fixes day or night. */

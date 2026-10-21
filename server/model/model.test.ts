@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { Activity } from '../../shared/types';
 import { nameKey } from '../../shared/appearance';
 import { hash32 } from '../../shared/hash';
-import { NAME_POOL } from '../../shared/names';
+import { OFFICE_NAME_POOL } from '../../shared/office-names';
 import { setQuiet } from '../log';
 import { tempDir } from '../test/fixtures';
 import { NameStore } from './names';
@@ -62,7 +62,7 @@ describe('NameStore', () => {
       used.add(first.name);
       const second = a.assign('sess-2', used);
       expect(second.name).not.toBe(first.name);
-      expect(NAME_POOL.some((p) => p.name === first.name && p.look === first.look)).toBe(true);
+      expect(OFFICE_NAME_POOL.some((p) => p.name === first.name && p.look === first.look)).toBe(true);
       a.flush();
       expect(JSON.parse(readFileSync(file, 'utf8')).names['sess-1'].name).toBe(first.name);
 

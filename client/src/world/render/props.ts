@@ -321,6 +321,140 @@ function totemSprite(): PropSprite {
   return { canvas: c, ax: 7, ay: 32 };
 }
 
+/** Plastic stool colors (base, dark, light): the classic red and blue of the sidewalk. */
+const STOOL_COLORS: [string, string, string][] = [
+  ['#d8383e', '#9e2328', '#f06a6a'],
+  ['#2f7fd8', '#1f5aa6', '#6aa8f0'],
+];
+
+/** Low plastic stool (3/4 view): round seat with the hole in the middle and four splayed legs. */
+function drawStool(ctx: CanvasRenderingContext2D, x: number, y: number, color: number): void {
+  const [base, dk, lt] = STOOL_COLORS[color % STOOL_COLORS.length];
+  ctx.fillStyle = dk;
+  ctx.fillRect(x + 1, y + 3, 1, 5);
+  ctx.fillRect(x + 8, y + 3, 1, 5);
+  ctx.fillRect(x + 3, y + 3, 1, 4);
+  ctx.fillRect(x + 6, y + 3, 1, 4);
+  ctx.fillStyle = base;
+  ctx.fillRect(x, y + 1, 10, 2);
+  ctx.fillRect(x + 1, y, 8, 1);
+  ctx.fillRect(x + 1, y + 4, 8, 1);
+  ctx.fillStyle = lt;
+  ctx.fillRect(x + 2, y, 6, 1);
+  ctx.fillStyle = dk;
+  ctx.fillRect(x, y + 3, 10, 1);
+  ctx.fillRect(x + 4, y + 1, 2, 1);
+}
+
+function teaStoolSprite(color: number): PropSprite {
+  const [c, ctx] = makeCanvas(12, 10);
+  shadowEllipse(ctx, 6, 8, 5, 1, 0.22);
+  drawStool(ctx, 1, 1, color);
+  return { canvas: c, ax: 6, ay: 9 };
+}
+
+/** Glass of iced tea: amber tea, ice on top, the glass catching the light. */
+function drawTeaGlass(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = '#9fc4d6';
+  ctx.fillRect(x, y, 3, 4);
+  ctx.fillStyle = '#c98a3a';
+  ctx.fillRect(x, y + 1, 3, 3);
+  ctx.fillStyle = '#f4fbff';
+  ctx.fillRect(x, y + 1, 1, 1);
+  ctx.fillRect(x + 2, y, 1, 1);
+}
+
+/** Low wooden table with the big tea jug (yellow, red lid, little tap), glasses and a plate of peanut candy. */
+function teaTableSprite(): PropSprite {
+  const [c, ctx] = makeCanvas(34, 22);
+  shadowEllipse(ctx, 17, 20, 15, 2, 0.24);
+  // legs
+  ctx.fillStyle = '#5b3c25';
+  ctx.fillRect(3, 15, 2, 5);
+  ctx.fillRect(29, 15, 2, 5);
+  ctx.fillRect(10, 15, 1, 4);
+  ctx.fillRect(23, 15, 1, 4);
+  // top
+  ctx.fillStyle = '#a0703f';
+  ctx.fillRect(1, 11, 32, 4);
+  ctx.fillStyle = '#c08a52';
+  ctx.fillRect(2, 11, 30, 1);
+  ctx.fillStyle = '#7a5232';
+  ctx.fillRect(1, 14, 32, 1);
+  // jug: yellow insulated body, red lid and handle, white tap
+  ctx.fillStyle = '#2e3648';
+  ctx.fillRect(2, 2, 10, 10);
+  ctx.fillStyle = '#f2b33d';
+  ctx.fillRect(3, 4, 8, 8);
+  ctx.fillStyle = '#ffd36b';
+  ctx.fillRect(4, 5, 2, 5);
+  ctx.fillStyle = '#c88a1f';
+  ctx.fillRect(9, 4, 2, 8);
+  ctx.fillStyle = '#d8383e';
+  ctx.fillRect(3, 2, 8, 2);
+  ctx.fillRect(5, 1, 4, 1);
+  ctx.fillStyle = '#f06a6a';
+  ctx.fillRect(4, 2, 3, 1);
+  ctx.fillStyle = '#f4f6f8';
+  ctx.fillRect(11, 9, 2, 1);
+  ctx.fillRect(12, 10, 1, 1);
+  // glasses and the candy plate
+  drawTeaGlass(ctx, 15, 8);
+  drawTeaGlass(ctx, 19, 7);
+  drawTeaGlass(ctx, 23, 8);
+  ctx.fillStyle = '#e9edf1';
+  ctx.fillRect(27, 10, 5, 1);
+  ctx.fillStyle = '#b07a3e';
+  ctx.fillRect(28, 9, 3, 1);
+  ctx.fillStyle = '#e8c27a';
+  ctx.fillRect(29, 9, 1, 1);
+  return { canvas: c, ax: 17, ay: 20 };
+}
+
+/** Ice cooler (blue box, white lid) with a cardboard sign showing a glass of iced tea. */
+function teaCoolerSprite(): PropSprite {
+  const [c, ctx] = makeCanvas(18, 22);
+  shadowEllipse(ctx, 9, 20, 8, 1.5, 0.24);
+  ctx.fillStyle = '#2e3648';
+  ctx.fillRect(1, 10, 16, 10);
+  ctx.fillStyle = '#3f8fd8';
+  ctx.fillRect(2, 12, 14, 7);
+  ctx.fillStyle = '#2c6fb3';
+  ctx.fillRect(2, 17, 14, 2);
+  ctx.fillStyle = '#f4f6f8';
+  ctx.fillRect(2, 11, 14, 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(3, 11, 6, 1);
+  // cardboard sign standing on the lid
+  ctx.fillStyle = '#7a5232';
+  ctx.fillRect(4, 1, 10, 10);
+  ctx.fillStyle = '#d9b07a';
+  ctx.fillRect(5, 2, 8, 8);
+  ctx.fillStyle = '#9fc4d6';
+  ctx.fillRect(7, 3, 4, 6);
+  ctx.fillStyle = '#c98a3a';
+  ctx.fillRect(7, 5, 4, 4);
+  ctx.fillStyle = '#f4fbff';
+  ctx.fillRect(7, 4, 2, 1);
+  ctx.fillRect(10, 5, 1, 1);
+  return { canvas: c, ax: 9, ay: 20 };
+}
+
+/** Closed: the stools stacked (red and blue) with the folded table leaning beside them. */
+function teaStackSprite(): PropSprite {
+  const [c, ctx] = makeCanvas(26, 30);
+  shadowEllipse(ctx, 12, 28, 11, 2, 0.24);
+  // folded table, standing on its side
+  ctx.fillStyle = '#5b3c25';
+  ctx.fillRect(15, 8, 9, 20);
+  ctx.fillStyle = '#a0703f';
+  ctx.fillRect(16, 9, 7, 18);
+  ctx.fillStyle = '#c08a52';
+  ctx.fillRect(16, 9, 1, 18);
+  for (let i = 0; i < 6; i++) drawStool(ctx, 2, 19 - i * 3, i % 2);
+  return { canvas: c, ax: 12, ay: 28 };
+}
+
 export function propSprite(prop: ExteriorProp): PropSprite {
   const key = prop.kind === 'lamp' || prop.kind === 'bench' || prop.kind === 'totem' ? prop.kind : `${prop.kind}:${prop.seed % 7}`;
   let s = cache.get(key);
@@ -355,6 +489,18 @@ export function propSprite(prop: ExteriorProp): PropSprite {
       break;
     case 'totem':
       s = totemSprite();
+      break;
+    case 'tea_stool':
+      s = teaStoolSprite(prop.seed);
+      break;
+    case 'tea_table':
+      s = teaTableSprite();
+      break;
+    case 'tea_cooler':
+      s = teaCoolerSprite();
+      break;
+    case 'tea_stack':
+      s = teaStackSprite();
       break;
     default:
       // 'paving' and other kinds drawn by the renderer itself

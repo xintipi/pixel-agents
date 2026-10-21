@@ -14,6 +14,7 @@ import type { Character } from '../sim/character';
 import type { RoomState } from '../sim/room-state';
 import { cobwebScale, hourglassIcon, HOURGLASS_FLIP_MS, STORM_LIFT } from '../sim/shell';
 import type { Sim } from '../sim/sim';
+import { teaStallProps } from '../sim/tea';
 import { buildAnim, furnitureScale, NO_ANIM, sweepDelay, type BuildAnim } from './anim';
 import { daylightModeOf, parseHourParam } from './daylight';
 import { RoomFxRenderer } from './github-fx';
@@ -485,6 +486,8 @@ export class Renderer {
         push(K.Prop, prop.y, prop, null, alpha);
       }
     }
+    // iced tea stall on the sidewalk: set up while the seller is there, stools stacked otherwise
+    for (const prop of teaStallProps(this.sim.teaUp)) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     for (const car of this.cars) if (visible(car.x - 24, car.y - 24, 48, 28)) push(K.Car, car.y, car, null, 1);
     this.petBoxes.clear();
     for (const pet of this.sim.pets.pets) if (visible(pet.x - 16, pet.y - 20, 32, 24)) push(K.Pet, pet.depth(), pet, null, 1);
@@ -971,7 +974,7 @@ export class Renderer {
     req.pose = ch.pose;
     req.held = ch.held;
     req.seated = ch.seated;
-    req.costume = seasonalCostume(this.theme, ch.info.seed);
+    req.costume = ch.costume ?? seasonalCostume(this.theme, ch.info.seed);
     try {
       sprite = this.charSprite(req, ch.animT);
     } catch {
@@ -1180,7 +1183,7 @@ export class Renderer {
       req.pose = ch.pose === 'groom' ? 'groom' : 'stand';
       req.held = ch.pose === 'groom' ? ch.held : 'none';
       req.seated = false;
-      req.costume = seasonalCostume(this.theme, ch.info.seed);
+      req.costume = ch.costume ?? seasonalCostume(this.theme, ch.info.seed);
       let s: Sprite;
       try {
         s = this.charSprite(req, ch.animT);

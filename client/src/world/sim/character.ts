@@ -1,6 +1,6 @@
 // A character's state: position, pose, animation, step queue and visual markers.
 import type { AgentInfo } from '../../../../shared/types';
-import type { Appearance, Dir, HeldItem, IconName, Pose } from '../../art/api';
+import type { Appearance, CharacterFrameRequest, Dir, HeldItem, IconName, Pose } from '../../art/api';
 import { mulberry32 } from '../../../../shared/hash';
 import { FOOT_DX, FOOT_DY, TILE } from '../constants';
 import type { Mode } from './behavior';
@@ -124,6 +124,10 @@ export class Character {
   shellDoneAt = 0;
   /** Render: next popcorn to jump from the bucket (epoch ms). */
   popcornAt = 0;
+  /** Outside the building (tea stall): the route back to the corridor door; null = indoors. */
+  outdoors: number[] | null = null;
+  /** Fixed costume (extras, e.g. the tea seller's conical hat); absent = the theme's. */
+  costume?: CharacterFrameRequest['costume'];
 
   constructor(info: AgentInfo, appearance: Appearance) {
     this.id = info.id;

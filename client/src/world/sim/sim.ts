@@ -40,6 +40,21 @@ import { RoomState } from './room-state';
 import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, spinDir, spinPhase, yawnPhase } from './shell';
 import { SpotRegistry } from './spots';
 import type { Step } from './steps';
+import {
+  TEA_DOOR,
+  TEA_SEATS,
+  TEA_SELLER_SEAT,
+  TeaStall,
+  chatLine,
+  orderLine,
+  routeToSeat,
+  seatDepth,
+  sellerLine,
+  sellerRouteIn,
+  sellerRouteOut,
+  teaOpen,
+  wayBack,
+} from './tea';
 import { EXIT_RADIUS, NO_INTENT, stepFree, tileAt, VISITOR_LANYARD, type VisitorIntent } from './visitor';
 import { tr } from '../../../../shared/i18n';
 
@@ -80,6 +95,10 @@ const PIZZA_MS = 90_000;
 const NAP_WAKE_MS = 70_000;
 /** Id of the pizza delivery guy (extra). */
 const PIZZA_ID = 'npc:pizza';
+/** Id of the iced tea seller (extra). */
+const TEA_SELLER_ID = 'npc:tra-da';
+/** The seller walks in from (and back to) this x (px), off to the west on the sidewalk. */
+const TEA_SELLER_FROM_X = -19 * TILE;
 /** Once awake, doesn't nap for this long. */
 const AWAKE_MS = 5 * 60_000;
 const DISCO_FADE_MS = 700;
@@ -159,6 +178,10 @@ export class Sim {
   pizzaTile: { tx: number; ty: number } | null = null;
   /** Extras who are not agents (the pizza delivery guy): drawn with the people, without an agent label. */
   readonly extras: Character[] = [];
+  /** Iced tea stall on the sidewalk: who holds each stool (sim/tea.ts). */
+  readonly tea = new TeaStall();
+  /** The stall is set up (the seller is there): the renderer shows the stools out or stacked. */
+  teaUp = false;
   /** New Year (Dec 31 and Tết eve): current phase and the one forced by debug. */
   newYearOverride: 'countdown' | 'party' | null = null;
   newYear: { phase: 'countdown' | 'party' | null; secondsLeft: number; lunar: boolean } = { phase: null, secondsLeft: 0, lunar: false };
@@ -890,12 +913,14 @@ export class Sim {
     for (const [id, ch] of this.chars) {
       if (ch.gone) {
         this.spots.releaseAll(id);
+        this.tea.release(id);
         this.chars.delete(id);
       }
     }
     if (now >= this.nextHousekeeping) {
       this.nextHousekeeping = now + 1000;
       this.housekeeping(now);
+      this.updateTea(now);
     }
   }
 
@@ -1122,6 +1147,8 @@ export class Sim {
     switch (s.t) {
       case 'go':
         return this.stepGo(ch, s, dt);
+      case 'route':
+        return this.stepRoute(ch, s, dt);
       case 'enter': {
         const spot = this.spots.get(s.spot);
         if (!spot) return true;
@@ -1268,6 +1295,38 @@ export class Sim {
       return true;
     }
     if (moved) ch.setPose(s.run ? 'run' : 'walk', s.held ?? 'none');
+    return false;
+  }
+
+  /** Straight walk through px points (outside the building: no grid). The logical tile stays at the door. */
+  private stepRoute(ch: Character, s: Extract<Step, { t: 'route' }>, dt: number): boolean {
+    if (s.trail === 'out') ch.outdoors ??= [];
+    let budget = (s.run ? RUN_SPEED : WALK_SPEED) * ch.speedK * dt;
+    let i = s.i ?? 0;
+    while (budget > 0.0001 && i < s.pts.length) {
+      const dx = s.pts[i] - ch.x;
+      const dy = s.pts[i + 1] - ch.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 0.001) ch.dir = dirOf(dx, dy, ch.dir);
+      if (d <= budget) {
+        ch.x = s.pts[i];
+        ch.y = s.pts[i + 1];
+        budget -= d;
+        if (s.trail === 'out') ch.outdoors?.push(ch.x, ch.y);
+        i += 2;
+      } else {
+        ch.x += (dx / d) * budget;
+        ch.y += (dy / d) * budget;
+        budget = 0;
+      }
+    }
+    s.i = i;
+    if (i >= s.pts.length) {
+      if (s.trail === 'back') this.backIndoors(ch);
+      ch.setPose('stand', s.held ?? 'none');
+      return true;
+    }
+    ch.setPose(s.run ? 'run' : 'walk', s.held ?? 'none');
     return false;
   }
 
@@ -1468,6 +1527,23 @@ export class Sim {
     if (room && room.switchClaim === ch.id) room.switchClaim = null;
     if (ch.gathering) this.social.leave(ch, this.now);
     ch.chatUntil = 0;
+    // out at the tea stall: whatever comes next starts by walking back in through the corridor door
+    if (ch.outdoors) {
+      this.tea.release(ch.id);
+      ch.seated = false;
+      ch.sortY = null;
+      ch.queue.push({ t: 'route', pts: wayBack(ch.outdoors), run: ch.mode === 'wait' || ch.mode === 'work', trail: 'back' });
+    }
+  }
+
+  /** End of the way back: indoors again, on the corridor door tile (where the walk grid picks up). */
+  private backIndoors(ch: Character): void {
+    ch.outdoors = null;
+    const x = ch.x;
+    const y = ch.y;
+    ch.placeAtTile(TEA_DOOR.tx, TEA_DOOR.ty);
+    ch.x = x;
+    ch.y = y;
   }
 
   releaseTemp(ch: Character): void {
@@ -1856,6 +1932,7 @@ export class Sim {
       stretch: true,
       mirror: !!this.social.plan('mirror', 1, ch),
       phone: !!this.randomFree(PHONE_SEATS, ch),
+      tea: this.teaUp && this.tea.hasFree(),
     };
     const what = pickIdleActivity(rng, avail, soloWeights(persona));
     if (!what) return false;
@@ -1977,6 +2054,8 @@ export class Sim {
         release(s);
         break;
       }
+      case 'tea':
+        return this.planTea(ch);
       case 'stretch': {
         const home = ch.homeSpot;
         if (!home) return false;
@@ -1990,6 +2069,157 @@ export class Sim {
     this.pushHome(ch, carry);
     void now;
     return true;
+  }
+
+  /**
+   * Iced tea on the sidewalk: out through the corridor's west glass, down the stone path, a glass on a plastic stool
+   * (ordering out loud, chatting if there's company) and back in the same way.
+   */
+  private planTea(ch: Character): boolean {
+    const i = this.tea.reserve(ch.id, ch.rng);
+    if (i < 0) return false;
+    const seat = TEA_SEATS[i];
+    const rng = ch.rng;
+    const steps: Step[] = [];
+    this.pushLeave(ch, steps);
+    steps.push(
+      { t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty },
+      { t: 'route', pts: routeToSeat(seat), trail: 'out' },
+      {
+        t: 'do',
+        fn: () => {
+          this.tea.sit(i, ch.id);
+          ch.seated = true;
+          ch.sortY = seatDepth(seat);
+          ch.dir = seat.dir;
+          this.social.say(ch, orderLine(rng), this.now);
+          const seller = this.extras.find((e) => e.id === TEA_SELLER_ID);
+          if (seller) seller.chatEmoji = '😊';
+          if (seller) seller.chatUntil = this.now + 1_500;
+        },
+      },
+      { t: 'act', pose: 'sit', dir: seat.dir, ms: between(rng, 3000, 5000) },
+      { t: 'act', pose: 'sit', held: 'water', dir: seat.dir, ms: between(rng, 14_000, 30_000) },
+      {
+        t: 'do',
+        fn: () => {
+          this.tea.release(ch.id);
+          ch.seated = false;
+          ch.sortY = null;
+          ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), trail: 'back' });
+        },
+      },
+    );
+    ch.queue.push(...steps);
+    this.pushHome(ch, 'none');
+    return true;
+  }
+
+  /** Debug: whoever is idle (and not already outside or in a circle) goes for iced tea now. Returns how many went. */
+  teaNow(): number {
+    if (!this.teaUp) return 0;
+    let n = 0;
+    for (const c of this.chars.values()) {
+      if (c.leaving || c.mode !== 'idle' || c.outdoors || c.gathering || c.inside || (c.step && !this.interruptible(c.step))) continue;
+      if (!this.tea.hasFree()) break;
+      this.clearPlan(c);
+      if (this.planTea(c)) n++;
+    }
+    return n;
+  }
+
+  /**
+   * The stall's day: the seller walks in at opening and sets up, calls out now and then, the customers chat; at
+   * closing she walks off and the stools get stacked. Runs once a second (housekeeping).
+   */
+  private updateTea(now: number): void {
+    const open = !this.visit && teaOpen(this.hourOf(now));
+    let seller = this.extras.find((e) => e.id === TEA_SELLER_ID);
+    if (open && !seller) seller = this.spawnTeaSeller(now) ?? undefined;
+    if (!seller) {
+      this.teaUp = false;
+      return;
+    }
+    const sitting = this.tea.sitting();
+    if (!seller.seated || seller.sayUntil > now) return;
+    const rng = seller.rng;
+    if (sitting.length >= 2 && rng() < 0.12) {
+      const who = this.chars.get(sitting[Math.floor(rng() * sitting.length)]);
+      if (who && who.sayUntil <= now) this.social.say(who, chatLine(rng), now);
+    } else if (sitting.length && rng() < 0.08) {
+      const who = this.chars.get(sitting[Math.floor(rng() * sitting.length)]);
+      if (who) {
+        who.chatEmoji = rng() < 0.5 ? '😂' : '🧊';
+        who.chatUntil = now + 1_400;
+      }
+    } else if (rng() < 0.015) this.social.say(seller, sellerLine(rng), now);
+  }
+
+  /** The seller: conical hat, brown blouse; walks in along the sidewalk, sits by the jug until closing, walks off. */
+  private spawnTeaSeller(now: number): Character | null {
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(7319, { look: 'f', sub: false });
+      appearance = { ...base, top: '#8a5a3c', topAccent: '#d9b48a', bottom: '#2e2a33', accessory: 'none' as const, lanyard: null };
+    } catch {
+      return null;
+    }
+    const info: AgentInfo = {
+      id: TEA_SELLER_ID,
+      kind: 'main',
+      provider: 'claude',
+      roomId: RECEPTION_ID,
+      name: tr('Iced tea seller'),
+      look: 'f',
+      role: tr('Iced tea seller'),
+      sessionId: TEA_SELLER_ID,
+      account: '',
+      status: 'working',
+      recent: [],
+      tasks: [],
+      startedAt: now,
+      lastEventAt: now,
+      statusSince: now,
+      stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
+      seed: 7319,
+    };
+    const ch = new Character(info, appearance);
+    ch.costume = 'nonla';
+    const pts = sellerRouteIn(TEA_SELLER_FROM_X);
+    ch.x = pts[0];
+    ch.y = pts[1];
+    ch.dir = 'right';
+    const seat = TEA_SELLER_SEAT;
+    ch.queue.push(
+      { t: 'route', pts, held: 'box' },
+      {
+        t: 'do',
+        fn: () => {
+          this.teaUp = true;
+          ch.seated = true;
+          ch.sortY = seatDepth(seat);
+          ch.dir = seat.dir;
+        },
+      },
+      { t: 'until', cond: () => this.visit || !teaOpen(this.hourOf(this.now)), minMs: 0, maxMs: Number.MAX_SAFE_INTEGER, pose: 'sit', dir: seat.dir },
+      {
+        t: 'do',
+        fn: () => {
+          this.teaUp = false;
+          ch.seated = false;
+          ch.sortY = null;
+          // whoever is still sitting there drinks up and goes back in
+          for (const id of this.tea.sitting()) {
+            const c = this.chars.get(id);
+            if (c) this.interrupt(c);
+          }
+        },
+      },
+      { t: 'route', pts: sellerRouteOut(TEA_SELLER_FROM_X), held: 'box' },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+    return ch;
   }
 
   /** Goes back to the desk at the end of a stroll. */
@@ -2247,6 +2477,9 @@ export class Sim {
       for (const s of [e.step, ...e.queue]) if (s?.t === 'do') s.fn();
       e.gone = true;
     }
+    // the tea stall starts over (the seller walks in again, if it's open)
+    this.teaUp = false;
+    this.tea.clear();
     for (const room of this.rooms.values()) {
       if (room.phase === 'building') room.setPhase('ready', now - 10_000);
       if (room.phase === 'dismantling') room.setPhase('gone', now);
@@ -2264,6 +2497,7 @@ export class Sim {
         ch.step = null;
       }
       ch.gathering = null;
+      ch.outdoors = null;
       if (ch.leaving && !ch.gone) ch.gone = true;
       if (ch.gone) {
         this.spots.releaseAll(ch.id);
@@ -2330,6 +2564,13 @@ export class Sim {
           ch.y = s.fy;
         }
         if (s.dir) ch.dir = s.dir;
+        break;
+      case 'route':
+        if (s.pts.length >= 2) {
+          ch.x = s.pts[s.pts.length - 2];
+          ch.y = s.pts[s.pts.length - 1];
+        }
+        if (s.trail === 'back') this.backIndoors(ch);
         break;
       case 'enter': {
         const spot = this.spots.get(s.spot);

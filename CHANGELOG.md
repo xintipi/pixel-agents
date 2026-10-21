@@ -12,6 +12,16 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Trà đá na calçada.** Na calçada em frente ao prédio tem uma barraquinha de chá gelado vietnamita: mesinha baixa
+  com a garrafa térmica, banquinhos de plástico vermelhos e azuis, a caixa de gelo e a vendedora de chapéu cônico,
+  que chega a pé de manhã (6h30) e vai embora à noite (21h30), quando os banquinhos ficam empilhados. Quem está à toa
+  às vezes sai pela fachada de vidro do corredor, desce o caminho de pedra, pede um copo e fica conversando; se o
+  agente volta a trabalhar, larga o copo e volta pelo mesmo caminho. No console: `habblaud.world.debug.teaNow()`.
+- **Mais temas de festa.** Tema do escritório agora é uma lista, com Trung thu (Festival do Meio do Outono: lanternas
+  de estrela e de carpa, bolos lunares, a lua cheia nas janelas, a cabeça do leão e orelhas de coelho), Valentine,
+  Dia da Mulher (8/3 e 20/10), Dia do Programador (256º dia do ano), Dia Nacional (30/4 e 2/9) e Dia das Crianças
+  (1/6), cada um com os seus enfeites, tapetes, fantasias e janelas. No Automático, com a interface em vietnamita,
+  aparecem perto das datas. Ficam só no escritório: no Habblaud World o prédio vai sem tema.
 - **Robô aspirador.** Um robozinho passeia limpando o prédio, com a luz verde; com pouca bateria (luz laranja
   piscando) volta para a base no lounge e carrega (luz azul). De vez em quando o gato sobe nele enquanto carrega e
   sai de carona.
@@ -66,6 +76,12 @@ do meio (0.**3**.0).
   a moeda (dólar ou đồng, numa conversão aproximada pelo câmbio que você escolhe; vale também para a gaveta e o Meu
   dia) e um aviso quando um agente gasta US$ 1, 2 ou 5 em 10 minutos (US$ 2 por padrão). O valor continua sendo o
   que o próprio Claude Code grava; o Codex não grava custo e fica de fora.
+
+### Alterado
+
+- **Nomes vietnamitas.** Os personagens novos do escritório (e da demonstração) ganham nomes vietnamitas — Lan,
+  Minh, Hương, Đức... — no lugar dos brasileiros. Quem já tinha nome guarda o seu. No Habblaud World os nomes
+  continuam vindo da lista de sempre.
 
 ## [1.0.3] - 2026-10-16
 

@@ -19,7 +19,7 @@ import { answerSummary, ASK_TOOL, checkAnswers } from '../answers';
 import { describeGitHubEvent, GITHUB_TOOL, RoomEffects } from '../github';
 import { hash32, mulberry32 } from '../hash';
 import { describeMessage, MESSAGE_TOOL } from '../messages';
-import { pickName } from '../names';
+import { pickOfficeName } from '../office-names';
 import { demoGitHubEvent } from './github';
 import { demoCodexPermission, demoPermission, type DemoPermissionKind } from './permission';
 import { tr } from '../i18n';
@@ -532,7 +532,7 @@ export class DemoSimulator {
     const id = `${this.prefix || 'demo:'}${this.tag}-${n}`;
     // Codex: in the opening, only the 2nd; after that, ~30% of new sessions (by the id hash, without spending the draw).
     const codex = !!host || (!warm && hash32(`codex:${sessionId}`) % 100 < CODEX_SHARE);
-    const person = pickName(sessionId, this.usedNames());
+    const person = pickOfficeName(sessionId, this.usedNames());
     const rng = mulberry32(hash32(sessionId));
     const tasks: TaskItem[] = project.tasks
       .slice(0, 3 + Math.floor(rng() * 2))
@@ -593,7 +593,7 @@ export class DemoSimulator {
     const n = ++this.seq;
     const agentId = `a${Math.floor(this.rng() * 1e12).toString(16)}`;
     const id = `${parent.info.sessionId}:${agentId}`;
-    const person = pickName(id, this.usedNames());
+    const person = pickOfficeName(id, this.usedNames());
     const rng = mulberry32(hash32(id));
     const desc = this.pick(SUB_TASKS, rng);
     const info: AgentInfo = {

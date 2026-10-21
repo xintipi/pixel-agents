@@ -83,13 +83,27 @@ export function segmented<T extends string>(label: string, options: readonly [T,
   };
 }
 
+/** Dropdown with a label (for long lists, like the office themes): the same interface as `segmented`. */
+export function selectRow<T extends string>(label: string, options: readonly [T, string][], onPick: (v: T) => void): { row: HTMLElement; set(v: T): void } {
+  const select = h('select', { class: 'ui-set__select', attrs: { 'aria-label': label } }) as HTMLSelectElement;
+  for (const [value, text] of options) select.append(h('option', { text, attrs: { value } }));
+  select.addEventListener('change', () => onPick(select.value as T));
+  const row = h('div', { class: 'ui-set ui-set--stack' }, h('span', { class: 'ui-set__label', text: label }), select);
+  return {
+    row,
+    set(v: T) {
+      if (select.value !== v) select.value = v;
+    },
+  };
+}
+
 export class SettingsPopover implements UiComponent {
   readonly el: HTMLElement;
   private switches = new Map<BoolPref | 'demo', SwitchRefs>();
   private bubbles: ReturnType<typeof segmented<UiPrefs['bubbles']>>;
   private liveliness: ReturnType<typeof segmented<UiPrefs['liveliness']>>;
   private daylight: ReturnType<typeof segmented<UiPrefs['daylight']>>;
-  private theme: ReturnType<typeof segmented<UiPrefs['theme']>>;
+  private theme: ReturnType<typeof selectRow<UiPrefs['theme']>>;
   private language: ReturnType<typeof segmented<LanguageChoice>>;
   private currency: ReturnType<typeof segmented<CostCurrency>>;
   private costAlert: ReturnType<typeof segmented<CostAlert>>;
@@ -146,17 +160,33 @@ export class SettingsPopover implements UiComponent {
       (v) => ctx.updatePrefs({ daylight: v }),
     );
     this.daylight.row.append(h('span', { class: 'ui-set__hint', text: tr('Automatic: the sky, lights and sun in the windows follow local time.') }));
-    this.theme = segmented<UiPrefs['theme']>(
+    this.theme = selectRow<UiPrefs['theme']>(
       tr('Office theme'),
-      [['auto', tr('Automatic')], ['none', tr('None')], ['christmas', tr('Christmas')], ['halloween', tr('Halloween')], ['tet', tr('Tết')]],
+      [
+        ['auto', tr('Automatic')],
+        ['none', tr('None')],
+        ['christmas', tr('Christmas')],
+        ['halloween', tr('Halloween')],
+        ['tet', tr('Tết')],
+        ['midautumn', tr('Mid-Autumn')],
+        ['valentine', tr('Valentine')],
+        ['women', tr("Women's Day")],
+        ['devday', tr("Programmer's Day")],
+        ['national', tr('National Day')],
+        ['children', tr("Children's Day")],
+      ],
       (v) => {
         ctx.updatePrefs({ theme: v });
         // With the World on and the account approved, the theme also goes to the building (clicking again resends).
         void this.world.onThemePicked(officeThemeForWorld(v));
       },
     );
-    this.theme.row.append(h('span', { class: 'ui-set__hint', text: tr('Automatic: Halloween in October and Christmas from November 1 to December 26; the rest of the year, the original look. None: always the original.') }));
-    this.theme.row.append(h('span', { class: 'ui-set__hint', text: tr('Tết: mai and đào blossoms, lanterns and fireworks in the windows; on Automatic, it shows up around the Lunar New Year when the interface is in Vietnamese. It stays in the office: in Habblaud World the building goes without a theme.') }));
+    this.theme.row.append(
+      h('span', {
+        class: 'ui-set__hint',
+        text: tr('Automatic: Halloween in October and Christmas from November 1 to December 26; with the interface in Vietnamese, also Tết, Mid-Autumn, Valentine, Women\'s Day (8/3 and 20/10), Programmer\'s Day, National Day (30/4 and 2/9) and Children\'s Day around their dates. None: always the original look. Only Christmas and Halloween go to Habblaud World; with the others the building goes without a theme.'),
+      }),
+    );
     this.soundGroup = new SoundSettingsGroup(ctx, sound);
 
     // Language names always in their own language, so someone who does not understand the current one can find theirs.
