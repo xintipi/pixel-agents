@@ -1276,6 +1276,8 @@ const SLICE: readonly string[] = ['bbbb', 'cpcc', '.cp.', '.c..'];
 const BAGUETTE: readonly string[] = ['.lbbb', 'bghrb', 'bbbb.'];
 /** Xôi: banana leaf pack open on top, sticky rice with fried shallots. */
 const XOI: readonly string[] = ['.rr.', 'lrsl', 'lLLl', '.ll.'];
+/** Bánh bao: a round white bun, pleated on top, a wisp of steam. */
+const BUN: readonly string[] = ['.s..', '.pp.', 'whhw', 'wwww', '.dd.'];
 
 function drawItem(dc: Dc, x: number, y: number): void {
   const { b, r } = dc;
@@ -1299,6 +1301,9 @@ function drawItem(dc: Dc, x: number, y: number): void {
       break;
     case 'xoi':
       b.stamp(XOI, x, y - 1, { r: '#f7f1dc', s: '#c9893a', l: '#4f9a45', L: '#3a7a35' }, side);
+      break;
+    case 'banhbao':
+      b.stamp(BUN, x, y - 2, { s: '#dfe6ee', p: '#e8e0cc', h: '#ffffff', w: '#f6f1e4', d: '#d6ccb4' }, side);
       break;
     case 'bubbletea':
       b.stamp(BOBA, x, y - 2, { s: '#e05a7a', l: '#f2f4f8', t: '#cf9a62', p: '#3a2626' }, side);

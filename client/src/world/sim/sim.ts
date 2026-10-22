@@ -43,6 +43,8 @@ import type { Step } from './steps';
 import { PARKING, floodLine } from './traffic';
 import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen } from './repair';
 import { trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './trash';
+import { LOA_LINE_MS, loaGroan, loaScript, loaWindow } from './loa';
+import { BUN_CALL_MS, BUN_MAX_BUYERS, bunBikeAt, bunCall, bunOrder, bunRoute, bunThanks, bunTime } from './banhbao';
 import { SCRAP_CALL_MS, scrapBikeAt, scrapCall, scrapPay, scrapRoute, scrapSell, scrapWindow } from './vechai';
 import { DRAW_H, ROUND_GAP_MIN, buyerLine, buyerSpot, loseLine, lotteryOpen, roundLegs, sellerCall, sellerThanks, winLine, wins } from './lottery';
 import {
@@ -119,6 +121,7 @@ const LOTTERY_SELLER_ID = 'npc:ve-so';
 const MECHANIC_ID = 'npc:sua-xe';
 const TRASH_ID = 'npc:rac';
 const SCRAP_ID = 'npc:ve-chai';
+const BUN_ID = 'npc:banh-bao';
 /** The garbage cart's bell rings every this many ms while she's out. */
 const TRASH_BELL_MS = 2_600;
 /** At most this many from the office come down to buy when she calls at the path. */
@@ -242,6 +245,16 @@ export class Sim {
   /** Scrap buyer (sim/vechai.ts): the last window she came in (day + index), the next loudspeaker call. */
   private scrapDone = '';
   private nextScrapCallAt = 0;
+  /** Ward loudspeaker (sim/loa.ts): the last window it played (day + index), and the broadcast on air. */
+  private loaDone = '';
+  private loaLines: string[] = [];
+  private loaStartedAt = 0;
+  /** Someone in the office groans about it then (0: done). */
+  private loaGroanAt = 0;
+  /** Night bánh bao seller (sim/banhbao.ts): day he came, next loudspeaker call, who's coming down to buy. */
+  private bunDoneOn = '';
+  private nextBunCallAt = 0;
+  private readonly bunBuyers = new Set<string>();
   /** Thần Tài altar (sim/altar.ts): incense lit until; last prayer for a waiting agent; day of the morning incense. */
   altarLitUntil = 0;
   private altarPrayedAt = 0;
@@ -1150,6 +1163,8 @@ export class Sim {
       this.updateRepair(now);
       this.updateTrash(now);
       this.updateScrap(now);
+      this.updateLoa(now);
+      this.updateBun(now);
     }
   }
 
@@ -2956,6 +2971,139 @@ export class Sim {
   trashNow(): boolean {
     if (this.visit || this.extras.some((e) => e.id === TRASH_ID)) return false;
     return !!this.spawnTrash(this.now);
+  }
+
+  /** The ward radio comes on once in each window (6:00, 17:00); someone in the office groans about it. */
+  private updateLoa(now: number): void {
+    if (this.loaGroanAt && now >= this.loaGroanAt) {
+      this.loaGroanAt = 0;
+      const who = [...this.chars.values()].filter((c) => !c.leaving);
+      const c = who[Math.floor(Math.random() * who.length)];
+      if (c) this.social.say(c, loaGroan(c.rng), now);
+    }
+    const w = loaWindow(this.hourOf(now));
+    const key = `${dayKey(now)}#${w}`;
+    if (this.visit || w < 0 || this.loaDone === key) return;
+    this.loaDone = key;
+    this.startLoa(now);
+  }
+
+  private startLoa(now: number): void {
+    this.loaLines = loaScript(Math.random);
+    this.loaStartedAt = now;
+    this.loaGroanAt = now + LOA_LINE_MS * 1.5;
+  }
+
+  /** What the loudspeaker is saying now (null: off air), for the overlay. */
+  loaSay(): { text: string; at: number; until: number } | null {
+    if (!this.loaLines.length || this.visit) return null;
+    const i = Math.floor((this.now - this.loaStartedAt) / LOA_LINE_MS);
+    if (i < 0 || i >= this.loaLines.length) return null;
+    const at = this.loaStartedAt + i * LOA_LINE_MS;
+    return { text: this.loaLines[i], at, until: at + LOA_LINE_MS };
+  }
+
+  /** Debug: the ward radio comes on now. */
+  loaNow(): boolean {
+    if (this.visit) return false;
+    this.startLoa(this.now);
+    return true;
+  }
+
+  /** The bánh bao seller comes by once an evening, the loudspeaker calling all along. */
+  private updateBun(now: number): void {
+    const seller = this.extras.find((e) => e.id === BUN_ID);
+    if (seller && !seller.gone && now >= this.nextBunCallAt) {
+      this.nextBunCallAt = now + BUN_CALL_MS;
+      this.social.say(seller, bunCall(seller.rng), now);
+    }
+    const today = dayKey(now);
+    if (seller || this.visit || this.bunDoneOn === today || !bunTime(this.hourOf(now))) return;
+    this.bunDoneOn = today;
+    this.spawnBun(now);
+  }
+
+  /** Walks his bike in to the foot of the stone path, waits for whoever comes down to buy, walks on east. */
+  private spawnBun(now: number): Character | null {
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(7219, { look: 'm', sub: false });
+      appearance = { ...base, top: '#3f5f8a', topAccent: '#2c4566', topStyle: 'jacket' as const, bottom: '#2e3340', accessory: 'cap' as const, accessoryColor: '#c4402f', lanyard: null };
+    } catch {
+      return null;
+    }
+    const ch = new Character(this.npcInfo(BUN_ID, tr('Bánh bao seller'), 'm', 7219, now), appearance);
+    const route = bunRoute(TEA_SELLER_FROM_X, (this.building.cols * COL_W + 19) * TILE);
+    ch.x = route.in[0];
+    ch.y = route.in[1];
+    ch.dir = 'right';
+    ch.queue.push(
+      { t: 'route', pts: route.in },
+      { t: 'do', fn: () => this.callBunBuyers() },
+      { t: 'until', cond: () => this.bunBuyers.size === 0, minMs: 8_000, maxMs: 45_000, pose: 'stand', dir: 'left' },
+      { t: 'do', fn: () => this.bunBuyers.clear() },
+      { t: 'route', pts: route.out },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+    this.nextBunCallAt = now;
+    return ch;
+  }
+
+  /** He's calling at the path: a few of the idle ones come down for a bun. */
+  private callBunBuyers(): void {
+    for (const c of this.chars.values()) {
+      if (this.bunBuyers.size >= BUN_MAX_BUYERS) break;
+      if (c.leaving || c.mode !== 'idle' || c.outdoors || c.gathering || c.inside || c.step || c.queue.length) continue;
+      if (c.rng() < 0.5) this.planBunBuy(c, this.bunBuyers.size);
+    }
+  }
+
+  /** Down the stone path to him, a bun bought, back up and eaten at the desk. */
+  private planBunBuy(ch: Character, i: number): void {
+    const rng = ch.rng;
+    const spot = buyerSpot(i);
+    this.bunBuyers.add(ch.id);
+    const steps: Step[] = [];
+    this.pushLeave(ch, steps);
+    steps.push(
+      { t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty },
+      { t: 'route', pts: routeToSeat(spot), trail: 'out' },
+      { t: 'do', fn: () => this.social.say(ch, bunOrder(rng), this.now) },
+      { t: 'act', pose: 'stand', dir: 'right', ms: between(rng, 2_200, 3_200) },
+      {
+        t: 'do',
+        fn: () => {
+          const seller = this.extras.find((e) => e.id === BUN_ID);
+          if (seller) this.social.say(seller, bunThanks(rng), this.now);
+          this.bunBuyers.delete(ch.id);
+        },
+      },
+      { t: 'act', pose: 'stand', held: 'banhbao', dir: 'right', ms: between(rng, 1_200, 2_000) },
+      { t: 'do', fn: () => ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), held: 'banhbao', trail: 'back' }) },
+    );
+    ch.queue.push(...steps);
+    const home = this.spots.get(ch.homeSpot);
+    ch.queue.push({ t: 'do', fn: () => this.releaseTemp(ch) });
+    if (!home) return;
+    ch.queue.push(
+      { t: 'go', tx: home.tx, ty: home.ty, held: 'banhbao' },
+      { t: 'enter', spot: home.id },
+      { t: 'act', pose: 'sit', held: 'banhbao', ms: between(rng, 15_000, 30_000) },
+      { t: 'do', fn: () => (ch.nextOutingAt = this.now + idleSitMs(ch.rng, this.options().liveliness)) },
+    );
+  }
+
+  /** Where the bánh bao bike is drawn (bottom center, px): ahead of him while he's out, null otherwise. */
+  bunBike(): { x: number; y: number } | null {
+    const seller = this.extras.find((e) => e.id === BUN_ID && !e.gone);
+    return seller ? bunBikeAt(seller) : null;
+  }
+
+  /** Debug: the bánh bao seller comes by now (if he isn't already out). Returns whether he came. */
+  banhbaoNow(): boolean {
+    if (this.visit || this.extras.some((e) => e.id === BUN_ID)) return false;
+    return !!this.spawnBun(this.now);
   }
 
   /** The scrap buyer comes by once in each window (mid-morning, mid-afternoon), the loudspeaker calling all along. */

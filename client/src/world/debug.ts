@@ -89,6 +89,10 @@ export interface WorldDebug {
   trashNow(): boolean;
   /** The scrap buyer (ve chai) comes by now. */
   scrapNow(): boolean;
+  /** The ward loudspeaker (loa phường) broadcasts now. */
+  loaNow(): boolean;
+  /** The night bánh bao seller comes by now. */
+  banhbaoNow(): boolean;
   /** The lottery seller starts a round now (if she isn't already out). Returns whether she came. */
   lotteryNow(): boolean;
   /** Reads the lottery draw now (normally 16:15): ticket holders check theirs. Returns who had one and who won. */
@@ -416,6 +420,8 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
 
     trashNow: () => sim.trashNow(),
     scrapNow: () => sim.scrapNow(),
+    loaNow: () => sim.loaNow(),
+    banhbaoNow: () => sim.banhbaoNow(),
 
     lotteryDraw: () => sim.lotteryDraw(sim.now),
 

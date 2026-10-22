@@ -276,6 +276,55 @@ describe('simulação do escritório', () => {
     expect(sim.repairUp).toBe(false);
   });
 
+  it('loa phường: às 6h e às 17h lê os avisos uma vez e alguém reclama', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.hourOverride = 5.9;
+    sim.applySnapshot(snap([room('/a', 0)], [agent('ana', '/a', 'working')]), clock.now);
+    run(sim, clock, 3);
+    expect(sim.loaSay()).toBeNull();
+    sim.hourOverride = 6.05;
+    run(sim, clock, 2);
+    const first = sim.loaSay();
+    expect(first).not.toBeNull();
+    run(sim, clock, 10);
+    expect(sim.loaSay()!.text).not.toBe(first!.text);
+    run(sim, clock, 60);
+    expect(sim.loaSay()).toBeNull();
+    expect([...sim.people()].some((c) => c.sayText && !sim.extras.includes(c))).toBe(true);
+    // once per window: not again this morning, but again at 17h
+    run(sim, clock, 5);
+    expect(sim.loaSay()).toBeNull();
+    sim.hourOverride = 17.05;
+    run(sim, clock, 2);
+    expect(sim.loaSay()).not.toBeNull();
+  });
+
+  it('bánh bao: à noite passa uma vez, para no caminho e quem está à toa desce para comprar', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.hourOverride = 20.4;
+    sim.applySnapshot(snap([room('/a', 0)], [agent('ana', '/a', 'idle'), agent('bia', '/a', 'idle'), agent('caio', '/a', 'idle')]), clock.now);
+    run(sim, clock, 3);
+    expect(sim.bunBike()).toBeNull();
+    sim.hourOverride = 20.6;
+    run(sim, clock, 2);
+    const bike = sim.bunBike();
+    expect(bike).not.toBeNull();
+    run(sim, clock, 5);
+    expect(sim.bunBike()!.x).toBeGreaterThan(bike!.x);
+    let bought = false;
+    run(sim, clock, 400, () => {
+      bought ||= [...sim.people()].some((c) => c.held === 'banhbao');
+      return !sim.bunBike();
+    });
+    expect(bought).toBe(true);
+    expect(sim.bunBike()).toBeNull();
+    run(sim, clock, 5);
+    expect(sim.bunBike()).toBeNull();
+    expect(sim.banhbaoNow()).toBe(true);
+  });
+
   it('ve chai: passa de manhã e à tarde, compra as garrafas da moça do chá e segue', () => {
     const sim = newSim();
     const clock = { now: T0 };

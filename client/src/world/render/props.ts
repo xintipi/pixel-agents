@@ -653,11 +653,11 @@ function trashCartSprite(): PropSprite {
 }
 
 /**
- * The scrap buyer's old bicycle (xe đạp ve chai), side view facing east: a dark green step-through frame, a bale of
- * flattened cardboard and a big woven sack roped onto the rear rack, a mesh bag of bottles hanging off the handlebar and
- * the little loudspeaker strapped to it.
+ * The street sellers' old bicycle, side view facing east, the little loudspeaker strapped to the handlebar. 'scrap'
+ * (xe đạp ve chai): dark green step-through frame, a bale of flattened cardboard and a big woven sack roped onto the rear
+ * rack, a mesh bag of bottles hanging off the handlebar. 'bun' (bánh bao): navy frame, the foam steamer box on the rack.
  */
-function scrapBikeSprite(): PropSprite {
+function streetBikeSprite(load: 'scrap' | 'bun' = 'scrap'): PropSprite {
   const o = '#22303a';
   const [c, ctx] = makeCanvas(46, 36);
   const px = (color: string, x: number, y: number, w = 1, h = 1) => {
@@ -668,8 +668,8 @@ function scrapBikeSprite(): PropSprite {
     const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
     for (let i = 0; i <= n; i++) px(color, Math.round(x0 + ((x1 - x0) * i) / n), Math.round(y0 + ((y1 - y0) * i) / n));
   };
-  const frame = '#2f6a4e';
-  const frameLit = '#5fae84';
+  const frame = load === 'bun' ? '#2d4f8a' : '#2f6a4e';
+  const frameLit = load === 'bun' ? '#5f86c8' : '#5fae84';
   const chrome = '#c9d0db';
   shadowEllipse(ctx, 23, 33, 19, 2, 0.28);
   // wheels: black tire, chrome rim, thin spokes, hub
@@ -710,33 +710,50 @@ function scrapBikeSprite(): PropSprite {
   px(chrome, 2, 17, 15, 1);
   line('#8a95a3', 4, 18, 11, 26);
   line('#8a95a3', 15, 18, 13, 26);
-  // the load: a bale of flattened cardboard...
-  px(o, 1, 11, 17, 7);
-  px('#c8955a', 2, 12, 15, 5);
-  px('#e0b47c', 2, 12, 15, 1);
-  px('#a4733c', 2, 14, 15, 1);
-  px('#a4733c', 2, 16, 15, 1);
-  // ...and a big bulging woven sack on top, tied at the neck, blue stripes
-  const sack: [number, number, number][] = [
-    [1, 6, 12], [2, 4, 14], [3, 3, 15], [4, 2, 16], [5, 2, 16], [6, 2, 16], [7, 2, 16], [8, 2, 16], [9, 3, 15], [10, 3, 15],
-  ];
-  for (const [y, x0, x1] of sack) px(o, x0 - 1, y, x1 - x0 + 3);
-  px(o, 6, 0, 7, 1);
-  for (const [y, x0, x1] of sack) {
-    for (let x = x0; x <= x1; x++) {
-      const t = (x - x0) / (x1 - x0);
-      px(t < 0.25 ? '#ffffff' : t > 0.8 ? '#c4beb0' : '#ebe6da', x, y);
+  if (load === 'bun') {
+    // the steamer: a white foam box with a lid, a red band, a wisp of steam escaping at the lid
+    px(o, 1, 4, 17, 14);
+    px('#f4f2ec', 2, 5, 15, 12);
+    px('#ffffff', 2, 5, 4, 11);
+    px('#d8d4ca', 14, 6, 3, 11);
+    px(o, 0, 3, 19, 2);
+    px('#e8e4da', 1, 3, 17, 1);
+    px('#d9342b', 2, 10, 15, 3);
+    px('#f2c94c', 4, 11, 2, 1);
+    px('#f2c94c', 8, 11, 3, 1);
+    px('#f2c94c', 13, 11, 2, 1);
+    px('#e6edf3', 8, 1, 1, 2);
+    px('#e6edf3', 9, 0, 1, 1);
+    px('#e6edf3', 12, 1, 1, 2);
+  } else {
+    // the load: a bale of flattened cardboard...
+    px(o, 1, 11, 17, 7);
+    px('#c8955a', 2, 12, 15, 5);
+    px('#e0b47c', 2, 12, 15, 1);
+    px('#a4733c', 2, 14, 15, 1);
+    px('#a4733c', 2, 16, 15, 1);
+    // ...and a big bulging woven sack on top, tied at the neck, blue stripes
+    const sack: [number, number, number][] = [
+      [1, 6, 12], [2, 4, 14], [3, 3, 15], [4, 2, 16], [5, 2, 16], [6, 2, 16], [7, 2, 16], [8, 2, 16], [9, 3, 15], [10, 3, 15],
+    ];
+    for (const [y, x0, x1] of sack) px(o, x0 - 1, y, x1 - x0 + 3);
+    px(o, 6, 0, 7, 1);
+    for (const [y, x0, x1] of sack) {
+      for (let x = x0; x <= x1; x++) {
+        const t = (x - x0) / (x1 - x0);
+        px(t < 0.25 ? '#ffffff' : t > 0.8 ? '#c4beb0' : '#ebe6da', x, y);
+      }
     }
+    for (const [y, x0, x1] of sack) if (y % 3 === 0) px('#d4cebf', x0, y, x1 - x0 + 1);
+    px('#3d7ce0', 4, 4, 1, 7);
+    px('#3d7ce0', 13, 4, 1, 7);
+    px('#8a6a4a', 8, 0, 3, 2);
+    // red rubber straps around it all
+    px('#d9342b', 6, 2, 1, 16);
+    px('#d9342b', 12, 2, 1, 16);
+    px('#a82820', 6, 11, 1, 1);
+    px('#a82820', 12, 11, 1, 1);
   }
-  for (const [y, x0, x1] of sack) if (y % 3 === 0) px('#d4cebf', x0, y, x1 - x0 + 1);
-  px('#3d7ce0', 4, 4, 1, 7);
-  px('#3d7ce0', 13, 4, 1, 7);
-  px('#8a6a4a', 8, 0, 3, 2);
-  // red rubber straps around it all
-  px('#d9342b', 6, 2, 1, 16);
-  px('#d9342b', 12, 2, 1, 16);
-  px('#a82820', 6, 11, 1, 1);
-  px('#a82820', 12, 11, 1, 1);
   // the loudspeaker strapped to the handlebar: white horn, mouth forward, a black driver at the back
   px(o, 33, 5, 2, 4);
   px('#2a2e38', 33, 6, 2, 2);
@@ -747,6 +764,7 @@ function scrapBikeSprite(): PropSprite {
   px('#c9d0db', 36, 8, 3, 1);
   px('#8a95a3', 39, 5, 1, 4);
   px('#d9342b', 32, 9, 2, 1);
+  if (load === 'bun') return { canvas: c, ax: 23, ay: 34 };
   // a mesh bag of empty bottles hanging off the front of the handlebar
   px(o, 37, 11, 1, 2);
   px(o, 35, 13, 7, 8);
@@ -757,6 +775,56 @@ function scrapBikeSprite(): PropSprite {
   px('#d9342b', 40, 14, 1, 2);
   for (let y = 15; y < 20; y += 2) px('#e8f4f8', 36, y, 5, 1);
   return { canvas: c, ax: 23, ay: 34 };
+}
+
+/**
+ * The ward loudspeaker (loa phường): a tall gray concrete pole, cables coiled around it, a crossbar near the top with two
+ * horn speakers pointing up and down the street, and a little junction box.
+ */
+function loudspeakerSprite(): PropSprite {
+  const o = '#22303a';
+  const [c, ctx] = makeCanvas(32, 66);
+  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+  shadowEllipse(ctx, 16, 63, 6, 1.5, 0.28);
+  // the pole: tapering square concrete, lit on the left
+  px(o, 13, 6, 6, 58);
+  px('#a8a49a', 14, 6, 4, 57);
+  px('#c8c4ba', 14, 6, 1, 57);
+  px('#86827a', 17, 6, 1, 57);
+  px('#6e6a62', 12, 60, 8, 4);
+  px('#8a867c', 13, 60, 6, 1);
+  // coils of black cable wrapped around it, and a stray one hanging down
+  for (const y of [22, 23, 25, 36, 37]) px('#1a1d24', 13, y, 6, 1);
+  px('#1a1d24', 19, 25, 1, 9);
+  // junction box
+  px(o, 18, 40, 6, 8);
+  px('#8a95a3', 19, 41, 4, 6);
+  px('#c9d0db', 19, 41, 4, 1);
+  // crossbar with the two horns: gray, mouths out, the driver bell at the back
+  px(o, 6, 9, 20, 3);
+  px('#5a6070', 7, 10, 18, 1);
+  const horn = (x0: number, dir: 1 | -1) => {
+    // driver at the pole end, the flare opening toward the street
+    for (let i = 0; i < 9; i++) {
+      const x = x0 + i * dir;
+      const half = 1 + Math.floor(i / 2.2);
+      px(o, x, 6 - half, 1, half * 2 + 1);
+      if (half > 1) px(i > 6 ? '#e8ebf0' : '#c9d0db', x, 7 - half, 1, half * 2 - 1);
+    }
+    const mouth = x0 + 8 * dir;
+    px('#5a6070', mouth, 3, 1, 5);
+  };
+  horn(12, -1);
+  horn(19, 1);
+  px(o, 14, 2, 4, 8);
+  px('#5a6070', 15, 3, 2, 6);
+  // cap on top of the pole
+  px(o, 13, 0, 6, 3);
+  px('#86827a', 14, 1, 4, 1);
+  return { canvas: c, ax: 16, ay: 63 };
 }
 
 function banhmiCartSprite(): PropSprite {
@@ -895,7 +963,13 @@ export function propSprite(prop: ExteriorProp): PropSprite {
       s = trashCartSprite();
       break;
     case 'scrap_bike':
-      s = scrapBikeSprite();
+      s = streetBikeSprite();
+      break;
+    case 'bun_bike':
+      s = streetBikeSprite('bun');
+      break;
+    case 'loudspeaker':
+      s = loudspeakerSprite();
       break;
     default:
       // 'paving' and other kinds drawn by the renderer itself

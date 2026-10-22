@@ -70,7 +70,8 @@ export type HeldItem = 'none' | 'coffee' | 'water' | 'papers' | 'laptop' | 'book
   | 'bubbletea' // cup of milk tea with tapioca pearls, domed lid and straw (afternoon snack)
   | 'pizza' // slice of pizza (pizza party)
   | 'banhmi' // bánh mì: half a baguette with the filling showing (morning cart)
-  | 'xoi'; // pack of xôi (sticky rice) wrapped in banana leaf (morning cart)
+  | 'xoi' // pack of xôi (sticky rice) wrapped in banana leaf (morning cart)
+  | 'banhbao'; // bánh bao: a round white steamed bun, a wisp of steam (night seller)
 
 export type HairStyle =
   | 'short' | 'buzz' | 'spiky' | 'side_part' | 'curly' | 'afro' | 'bob' | 'long' | 'ponytail' | 'bun' | 'pigtails'

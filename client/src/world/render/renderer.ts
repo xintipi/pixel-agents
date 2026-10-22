@@ -34,6 +34,8 @@ import { SIESTA_DIM } from '../sim/siesta';
 import { repairShopProps } from '../sim/repair';
 import { trashCartProps } from '../sim/trash';
 import { scrapBikeProps } from '../sim/vechai';
+import { bunBikeProps } from '../sim/banhbao';
+import { loaProps } from '../sim/loa';
 import { FLOODED, PARKING, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
 import { countBadge, fallbackIcon } from './shell-sprites';
 import { decorateElevator, drawSeasonalLights, drawSeasonalWindow, seasonalCostume, seasonalFurniture } from './seasonal';
@@ -515,6 +517,9 @@ export class Renderer {
     for (const prop of repairShopProps(this.sim.repairUp)) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of trashCartProps(this.sim.trashCart())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of scrapBikeProps(this.sim.scrapBike())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
+    for (const prop of bunBikeProps(this.sim.bunBike())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
+    // the ward loudspeaker's pole (loa phường), always there
+    for (const prop of loaProps()) if (visible(prop.x - 16, prop.y - 64, 32, 68)) push(K.Prop, prop.y, prop, null, 1);
     // morning bánh mì cart: rides along with the vendor, parked east of the tea stall
     for (const prop of banhmiCartProps(this.sim.banhmiCart())) if (visible(prop.x - 24, prop.y - 36, 48, 40)) push(K.Prop, prop.y, prop, null, 1);
     for (const car of this.traffic.vehicles) if (visible(car.x - 32, car.y - 36, 64, 40)) push(K.Car, car.y, car, null, 1);
