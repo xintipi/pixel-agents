@@ -254,6 +254,50 @@ describe('simulação do escritório', () => {
     expect(sim.lotteryDraw(clock.now).buyers).toEqual([]);
   });
 
+  it('vá xe: o mecânico abre a banca, levanta para consertar a moto e vai embora no fim da tarde', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.hourOverride = 10;
+    sim.applySnapshot(snap([room('/a', 0)], [agent('ana', '/a', 'working')]), clock.now);
+    run(sim, clock, 60, () => sim.repairUp);
+    expect(sim.repairUp).toBe(true);
+    const mech = sim.extras.find((e) => e.id === 'npc:sua-xe')!;
+    run(sim, clock, 2);
+    expect(mech.pose).toBe('read');
+    sim.repairBusy = true;
+    run(sim, clock, 2);
+    expect(mech.pose).toBe('use');
+    sim.repairBusy = false;
+    run(sim, clock, 5);
+    expect(mech.pose).toBe('read');
+    sim.hourOverride = 19;
+    run(sim, clock, 120, () => !sim.extras.includes(mech));
+    expect(sim.extras.includes(mech)).toBe(false);
+    expect(sim.repairUp).toBe(false);
+  });
+
+  it('xe rác: às 19h passa uma vez, tocando o sino, e o carrinho vai junto', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.hourOverride = 18.9;
+    sim.applySnapshot(snap([room('/a', 0)], [agent('ana', '/a', 'working')]), clock.now);
+    run(sim, clock, 3);
+    expect(sim.trashCart()).toBeNull();
+    sim.hourOverride = 19.05;
+    run(sim, clock, 2);
+    const cart = sim.trashCart();
+    expect(cart).not.toBeNull();
+    expect(sim.sfx.some((e) => e.kind === 'trash_bell')).toBe(true);
+    run(sim, clock, 5);
+    expect(sim.trashCart()!.x).toBeGreaterThan(cart!.x);
+    run(sim, clock, 240, () => !sim.trashCart());
+    expect(sim.trashCart()).toBeNull();
+    // only once a day
+    run(sim, clock, 5);
+    expect(sim.trashCart()).toBeNull();
+    expect(sim.trashNow()).toBe(true);
+  });
+
   it('subagente entrega o resultado ao pai e vai embora', () => {
     const sim = newSim();
     const clock = { now: T0 };

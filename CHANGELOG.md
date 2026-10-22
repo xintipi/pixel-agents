@@ -12,6 +12,16 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Borracharia de calçada (tiệm vá xe).** Na calçada da frente, a leste do carrinho de bánh mì, das 7h às 18h30, o
+  mecânico monta a banca: cavalete com pneus pendurados, compressor vermelho, bacia d'água para achar o furo, banquinho
+  e um pneu em pé como placa. Ele passa o dia sentado mexendo no celular; de vez em quando uma moto fura o pneu, o
+  motoqueiro desce e empurra até a banca, espera ao lado enquanto o mecânico levanta para consertar e depois segue
+  viagem. No console:
+  `habblaud.world.debug.repairNow()`.
+- **Carrinho do lixo à noite.** Por volta das 19h, uma vez por dia, a gari de colete laranja e chapéu cônico passa
+  empurrando o carrinho verde pela beira da calçada tocando o sino ("keng keng", em **Configurações › Sons › Vida do
+  escritório**); para na barraquinha de trà đá, a vendedora traz o saco de lixo, e ela segue. No console:
+  `habblaud.world.debug.trashNow()`.
 - **Vendedora de bilhete de loteria (vé số dạo).** Das 8h às 17h30, a cada meia hora mais ou menos, uma senhora de
   chapéu de pano e blusa rosa passa pela calçada com o maço de bilhetes: para ao pé do caminho de pedra chamando
   ("Vé số đây!") e quem está à toa às vezes desce para comprar um; depois para na barraquinha de trà đá, onde os

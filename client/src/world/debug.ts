@@ -83,6 +83,10 @@ export interface WorldDebug {
   altarNow(): boolean;
   /** Sends whoever is idle at the desk to the bánh mì cart now (mornings, while it's parked). Returns how many went. */
   banhmiNow(): number;
+  /** Opens the repair stall now (for a few minutes, whatever the hour) and gives the next westbound bike a flat. */
+  repairNow(): void;
+  /** The evening garbage cart comes by now (if it isn't already out). Returns whether it came. */
+  trashNow(): boolean;
   /** The lottery seller starts a round now (if she isn't already out). Returns whether she came. */
   lotteryNow(): boolean;
   /** Reads the lottery draw now (normally 16:15): ticket holders check theirs. Returns who had one and who won. */
@@ -402,6 +406,13 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     banhmiNow: () => sim.banhmiNow(),
 
     lotteryNow: () => sim.lotteryNow(),
+
+    repairNow: () => {
+      sim.repairNow();
+      renderer.traffic.flatNow = true;
+    },
+
+    trashNow: () => sim.trashNow(),
 
     lotteryDraw: () => sim.lotteryDraw(sim.now),
 

@@ -144,6 +144,8 @@ export type SoundCueKind =
   | 'pizza'
   | 'yawn'
   | 'party'
+  // the street: the evening garbage cart's hand bell
+  | 'trash_bell'
   // weather outside: rain and wind are beds (the world keeps sending their level while they last), thunder and birds one-offs
   | 'rain'
   | 'wind'

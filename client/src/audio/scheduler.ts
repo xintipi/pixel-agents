@@ -38,6 +38,7 @@ export const CATEGORY_OF: Readonly<Record<SoundKind, SoundCategory>> = {
   pizza: 'life',
   yawn: 'life',
   party: 'life',
+  trash_bell: 'life',
   rain: 'weather',
   wind: 'weather',
   thunder: 'weather',
@@ -70,6 +71,7 @@ export const MIN_GAP_MS: Readonly<Record<SoundKind, number>> = {
   pizza: 2_000,
   yawn: 1_200,
   party: 2_500,
+  trash_bell: 1_500,
   rain: 0,
   wind: 0,
   thunder: 6_000,
@@ -102,6 +104,7 @@ const CHANNEL: Readonly<Record<SoundKind, string>> = {
   pizza: 'pizza',
   yawn: 'yawn',
   party: 'party',
+  trash_bell: 'trash',
   rain: 'rain',
   wind: 'wind',
   thunder: 'thunder',
@@ -120,7 +123,7 @@ export interface SoundSettings {
   keys: boolean;
   elevator: boolean;
   social: boolean;
-  /** Pets, robot vacuum, bathroom, coffee machine, pizza, yawns and parties. */
+  /** Pets, robot vacuum, bathroom, coffee machine, pizza, yawns, parties and the garbage cart's bell. */
   life: boolean;
   /** Rain, wind, thunder and birds outside, and the horns on the street. */
   weather: boolean;

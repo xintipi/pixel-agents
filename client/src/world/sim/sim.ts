@@ -41,6 +41,8 @@ import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, s
 import { SpotRegistry } from './spots';
 import type { Step } from './steps';
 import { PARKING, floodLine } from './traffic';
+import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen } from './repair';
+import { trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './trash';
 import { DRAW_H, ROUND_GAP_MIN, buyerLine, buyerSpot, loseLine, lotteryOpen, roundLegs, sellerCall, sellerThanks, winLine, wins } from './lottery';
 import {
   LANE_Y,
@@ -113,6 +115,10 @@ const TEA_SELLER_FROM_X = -19 * TILE;
 /** Id of the bánh mì vendor (extra). He pushes the cart in from the west and off to the east. */
 const BANHMI_VENDOR_ID = 'npc:banh-mi';
 const LOTTERY_SELLER_ID = 'npc:ve-so';
+const MECHANIC_ID = 'npc:sua-xe';
+const TRASH_ID = 'npc:rac';
+/** The garbage cart's bell rings every this many ms while she's out. */
+const TRASH_BELL_MS = 2_600;
 /** At most this many from the office come down to buy when she calls at the path. */
 const LOTTERY_MAX_BUYERS = 2;
 /** Once awake, doesn't nap for this long. */
@@ -224,6 +230,13 @@ export class Sim {
   private readonly lotteryBuyers = new Set<string>();
   private lotteryDrawnOn = '';
   private nextLotteryAt = 0;
+  /** The repair stall is set up (the mechanic is there) / a bike is being fixed (the renderer's traffic says). */
+  repairUp = false;
+  repairBusy = false;
+  /** debug.repairNow keeps the stall open until then, whatever the hour. */
+  private repairForcedUntil = 0;
+  private trashDoneOn = '';
+  private nextTrashBellAt = 0;
   /** Thần Tài altar (sim/altar.ts): incense lit until; last prayer for a waiting agent; day of the morning incense. */
   altarLitUntil = 0;
   private altarPrayedAt = 0;
@@ -1129,6 +1142,8 @@ export class Sim {
       this.updateAltar(now);
       this.updateBanhMi(now);
       this.updateLottery(now);
+      this.updateRepair(now);
+      this.updateTrash(now);
     }
   }
 
@@ -2797,6 +2812,169 @@ export class Sim {
     return !!this.spawnLotterySeller(this.now);
   }
 
+  /** The repair stall is open now (by the hour, or kept open by debug). */
+  private repairStays(): boolean {
+    return !this.visit && (repairOpen(this.hourOf(this.now)) || this.now < this.repairForcedUntil);
+  }
+
+  /** The mechanic walks in to open the stall when it's time. Once a second. */
+  private updateRepair(now: number): void {
+    if (this.repairStays() && !this.extras.some((e) => e.id === MECHANIC_ID)) this.spawnMechanic(now);
+  }
+
+  /** The mechanic: work shirt, cap and toolbox; in along the far sidewalk, on his stool until closing, out east. */
+  private spawnMechanic(now: number): Character | null {
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(4407, { look: 'm', sub: false });
+      appearance = { ...base, top: '#5a6b7a', topAccent: '#3f4c58', topStyle: 'shirt_tie' as const, bottom: '#3a3f4f', accessory: 'cap' as const, accessoryColor: '#3a4a5c', lanyard: null };
+    } catch {
+      return null;
+    }
+    const ch = new Character(this.npcInfo(MECHANIC_ID, tr('Bike mechanic'), 'm', 4407, now), appearance);
+    const seat = MECHANIC_SEAT;
+    const pts = [TEA_SELLER_FROM_X, MECHANIC_WALK_Y, seat.x, MECHANIC_WALK_Y, seat.x, seat.y];
+    ch.x = pts[0];
+    ch.y = pts[1];
+    ch.dir = 'right';
+    ch.queue.push(
+      { t: 'route', pts, held: 'box' },
+      {
+        t: 'do',
+        fn: () => {
+          this.repairUp = true;
+          ch.seated = true;
+          ch.sortY = seat.y + 1;
+          this.mechanicCycle(ch);
+        },
+      },
+    );
+    this.extras.push(ch);
+    return ch;
+  }
+
+  /** On the stool with his phone until a bike comes in; up to fix it (hands on it) until it's done; again. At closing, off. */
+  private mechanicCycle(ch: Character): void {
+    ch.queue.push(
+      { t: 'until', cond: () => this.repairBusy || !this.repairStays(), minMs: 0, maxMs: Number.MAX_SAFE_INTEGER, pose: 'read', held: 'phone', dir: 'down' },
+      {
+        t: 'do',
+        fn: () => {
+          if (!this.repairStays()) {
+            this.repairUp = false;
+            ch.seated = false;
+            ch.sortY = null;
+            ch.queue.push({ t: 'route', pts: [ch.x, MECHANIC_WALK_Y, (this.building.cols * COL_W + 19) * TILE, MECHANIC_WALK_Y], held: 'box' }, { t: 'remove' });
+            return;
+          }
+          this.social.say(ch, mechanicLine(ch.rng), this.now);
+          ch.seated = false;
+          ch.queue.push(
+            { t: 'until', cond: () => !this.repairBusy, minMs: 3_000, maxMs: 90_000, pose: 'use', dir: 'right' },
+            {
+              t: 'do',
+              fn: () => {
+                this.social.say(ch, mechanicDone(ch.rng), this.now);
+                ch.seated = true;
+                this.mechanicCycle(ch);
+              },
+            },
+          );
+        },
+      },
+    );
+  }
+
+  /** Debug: opens the repair stall now (for a few minutes, whatever the hour). */
+  repairNow(): void {
+    this.repairForcedUntil = this.now + 5 * 60_000;
+    if (!this.extras.some((e) => e.id === MECHANIC_ID)) this.spawnMechanic(this.now);
+  }
+
+  /** The garbage cart comes by once a day around 19:00, the bell ringing all along. Once a second. */
+  private updateTrash(now: number): void {
+    const worker = this.extras.find((e) => e.id === TRASH_ID);
+    if (worker && now >= this.nextTrashBellAt) {
+      this.nextTrashBellAt = now + TRASH_BELL_MS;
+      const cart = trashCartAt(worker);
+      this.sound('trash_bell', cart.x, cart.y);
+    }
+    const today = dayKey(now);
+    if (worker || this.visit || this.trashDoneOn === today || !trashTime(this.hourOf(now))) return;
+    this.trashDoneOn = today;
+    this.spawnTrash(now);
+  }
+
+  /** The sweeper: orange vest, conical hat; pushes the cart along the curb, stops by the tea stall, pushes on east. */
+  private spawnTrash(now: number): Character | null {
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(3301, { look: 'f', sub: false });
+      appearance = { ...base, top: '#f08a3c', topAccent: '#e8f06a', bottom: '#3a4a5c', lanyard: null };
+    } catch {
+      return null;
+    }
+    const ch = new Character(this.npcInfo(TRASH_ID, tr('Garbage collector'), 'f', 3301, now), appearance);
+    ch.costume = 'nonla';
+    const route = trashRoute(TEA_SELLER_FROM_X, (this.building.cols * COL_W + 19) * TILE);
+    ch.x = route.in[0];
+    ch.y = route.in[1];
+    ch.dir = 'right';
+    const rng = ch.rng;
+    ch.queue.push(
+      { t: 'route', pts: route.in },
+      {
+        t: 'do',
+        fn: () => {
+          this.social.say(ch, trashCall(rng), this.now);
+          const seller = this.extras.find((e) => e.id === TEA_SELLER_ID);
+          if (seller && this.teaUp) this.social.say(seller, trashReply(rng), this.now);
+        },
+      },
+      { t: 'act', pose: 'stand', dir: 'right', ms: 7_000 },
+      { t: 'route', pts: route.out },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+    this.nextTrashBellAt = now;
+    return ch;
+  }
+
+  /** Where the garbage cart is drawn (bottom center, px): ahead of her while she's out, null otherwise. */
+  trashCart(): { x: number; y: number } | null {
+    const worker = this.extras.find((e) => e.id === TRASH_ID && !e.gone);
+    return worker ? trashCartAt(worker) : null;
+  }
+
+  /** Debug: the garbage cart comes by now (if it isn't already out). Returns whether it came. */
+  trashNow(): boolean {
+    if (this.visit || this.extras.some((e) => e.id === TRASH_ID)) return false;
+    return !!this.spawnTrash(this.now);
+  }
+
+  /** A street character's info (not an agent: no session, never in the panels). */
+  private npcInfo(id: string, name: string, look: 'f' | 'm', seed: number, now: number): AgentInfo {
+    return {
+      id,
+      kind: 'main',
+      provider: 'claude',
+      roomId: RECEPTION_ID,
+      name,
+      look,
+      role: name,
+      sessionId: id,
+      account: '',
+      status: 'working',
+      recent: [],
+      tasks: [],
+      startedAt: now,
+      lastEventAt: now,
+      statusSince: now,
+      stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
+      seed,
+    };
+  }
+
   /** Goes back to the desk at the end of a stroll. */
   pushHome(ch: Character, held: 'none' | 'coffee' | 'water'): void {
     const home = this.spots.get(ch.homeSpot);
@@ -3059,6 +3237,7 @@ export class Sim {
     this.banhmiUp = false;
     this.banhmi.clear();
     this.lotteryBuyers.clear();
+    this.repairUp = false;
     for (const room of this.rooms.values()) {
       if (room.phase === 'building') room.setPhase('ready', now - 10_000);
       if (room.phase === 'dismantling') room.setPhase('gone', now);

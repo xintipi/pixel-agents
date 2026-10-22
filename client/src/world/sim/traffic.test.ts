@@ -1,6 +1,7 @@
 // Street traffic: rush hour by the clock, queues that never overlap, the cap, bikes climbing the far sidewalk, horns.
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../../../../shared/hash';
+import { REPAIR_SPOT } from './repair';
 import { MAX_VEHICLES, Traffic, rushLevel, type StreetDay, type TrafficEnv, type Vehicle } from './traffic';
 
 const ENV: TrafficEnv = {
@@ -167,6 +168,31 @@ describe('street traffic', () => {
     t.depart('ana');
     run(t, 90, now);
     expect(t.vehicles.includes(bike)).toBe(false);
+  });
+
+  it('an eastbound bike gets a flat now and then: pushed to the repair stall, fixed there, ridden off', () => {
+    // the real street (exterior.ts) below the stall: the eastbound lane right under the near sidewalk
+    const env: TrafficEnv = { x0: -360, x1: 1400, lanes: [{ y: REPAIR_SPOT.y + 31, dir: 1 }, { y: REPAIR_SPOT.y + 71, dir: -1 }], sidewalkY: REPAIR_SPOT.y + 82 };
+    const t = new Traffic(mulberry32(10));
+    let now = 0;
+    const step = (s: number, hour = 10) => {
+      for (let i = 0; i < s * 30; i++) t.step((now += 33), 1 / 30, env, hour, 3);
+    };
+    for (let i = 0; i < 240 && !t.vehicles.some((v) => v.repair); i++) step(1);
+    const bike = t.vehicles.find((v) => v.repair);
+    expect(bike).toBeDefined();
+    for (let i = 0; i < 120 && bike!.phase !== 'repair'; i++) step(1);
+    expect(bike).toMatchObject({ phase: 'repair', x: REPAIR_SPOT.x, y: REPAIR_SPOT.y, pushing: true, speed: 0 });
+    expect(t.repairing).toBe(true);
+    step(60);
+    expect(t.repairing).toBe(false);
+    expect(bike!.pushing).toBe(false);
+    step(60);
+    expect(t.vehicles.includes(bike!)).toBe(false);
+    // closed after 18:30: no flats
+    const night = new Traffic(mulberry32(10));
+    for (let i = 0; i < 400 * 30; i++) night.step((now += 33), 1 / 30, env, 21, 3);
+    expect(night.vehicles.some((v) => v.repair)).toBe(false);
   });
 
   it('honks in the jam, and drops horns nobody listened to', () => {

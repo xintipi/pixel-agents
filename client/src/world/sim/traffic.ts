@@ -5,10 +5,12 @@
 // once the rain or the rush is over. Some bikes carry things on the rack (a water jug, foam boxes, a potted plant;
 // flowers on the flower holidays, peach branches before Tết), and on the first days of Tết the street is empty.
 // Agents who come to work by motorbike ride in from the west, park on the near sidewalk (west of the stone path) and
-// ride off again when their session ends: their bikes are owned vehicles (`owner`) the sim asks for.
+// ride off again when their session ends: their bikes are owned vehicles (`owner`) the sim asks for. Now and then a
+// eastbound bike gets a flat: the rider pushes it up to the repair stall on the near sidewalk, waits, and rides on.
 // Pure (no DOM): the renderer steps and draws it, the sound cues drain the horns.
 import { tr } from '../../../../shared/i18n';
 import { TILE } from '../constants';
+import { REPAIR_SPOT, repairOpen } from './repair';
 
 export type VehicleKind = 'car' | 'bike';
 /** What a bike carries on its rear rack. */
@@ -47,9 +49,12 @@ export interface Vehicle {
   parked?: boolean;
   /** An agent's own bike (character id): riding in to park, parked while they work, riding off. */
   owner?: string;
-  phase?: 'arrive' | 'parked' | 'leave';
-  /** Where an owned bike parks (bottom center, px). */
+  phase?: 'arrive' | 'parked' | 'leave' | 'repair';
+  /** Where an owned bike parks, or where a bike with a flat gets fixed (bottom center, px). */
   park?: { x: number; y: number };
+  /** A flat tire: pushed to the repair stall, fixed there until `until` (ms), then rides on. */
+  repair?: boolean;
+  until?: number;
 }
 
 /**
@@ -133,6 +138,15 @@ export class Traffic {
   private day: StreetDay = {};
   /** Owners whose bike just parked (the renderer passes them on to the sim). */
   readonly parked: string[] = [];
+  /** When the next flat tire happens (ms). */
+  nextFlatAt = 0;
+  /** debug.repairNow: the next bike that can gets a flat right away, whatever the hour. */
+  flatNow = false;
+
+  /** A bike is at the repair stall being fixed. */
+  get repairing(): boolean {
+    return this.vehicles.some((v) => v.phase === 'repair');
+  }
 
   /** An agent rides in from the west on the eastbound lane to park at `park`. */
   arrive(owner: string, park: { x: number; y: number }, env: TrafficEnv): void {
@@ -163,6 +177,7 @@ export class Traffic {
     else if (raining && this.level > 0.5) this.flood = Math.min(1, this.flood + dt / FLOOD_RISE_S);
     else this.flood = Math.max(0, this.flood - dt / FLOOD_DRAIN_S);
     for (const lane of env.lanes) this.spawn(now, lane, env);
+    this.flat(now, hour);
     this.move(now, dt, env);
     this.vehicles = this.vehicles.filter((v) => v.x >= env.x0 - 20 && v.x <= env.x1 + 20);
     while (this.horns.length && (now - this.horns[0].at > HORN_STALE_MS || this.horns.length > MAX_HORNS)) this.horns.shift();
@@ -192,6 +207,24 @@ export class Traffic {
     this.nextSpawn.set(lane.y, now + gap());
   }
 
+  /**
+   * Every few minutes while the stall is open, one eastbound bike coming up to it gets a flat: the rider gets off and
+   * pushes it there. One at a time.
+   */
+  private flat(now: number, hour: number): void {
+    if (!this.nextFlatAt) this.nextFlatAt = now + (30 + this.rng() * 60) * 1000;
+    if (!this.flatNow && (now < this.nextFlatAt || !repairOpen(hour))) return;
+    if (this.vehicles.some((v) => v.repair && v.phase)) return;
+    const v = this.vehicles.find((o) => o.kind === 'bike' && o.dir > 0 && !o.owner && !o.phase && !o.pushing && !o.cargo && o.riders === 1 && REPAIR_SPOT.x - o.x > 50 && REPAIR_SPOT.x - o.x < 220);
+    if (!v) return;
+    v.phase = 'arrive';
+    v.park = REPAIR_SPOT;
+    v.repair = true;
+    v.pushing = true;
+    this.flatNow = false;
+    this.nextFlatAt = now + (150 + this.rng() * 150) * 1000;
+  }
+
   /** What a lone rider carries, if anything: the season's load first, else now and then something everyday. */
   private cargo(): Cargo | undefined {
     const r = this.rng();
@@ -208,14 +241,21 @@ export class Traffic {
     const wade = 1 - 0.55 * this.flood;
     for (const v of this.vehicles) {
       if (v.phase === 'parked') continue;
+      if (v.phase === 'repair') {
+        if (now < (v.until ?? 0)) continue;
+        // fixed: back on the bike and into the lane
+        v.pushing = false;
+        v.phase = 'leave';
+        v.ty = v.laneY;
+      }
       if (v.kind === 'bike' && !v.owner && !v.pushing && v.riders === 1 && this.flood > 0.6 && !onSidewalk(v) && this.rng() < 0.012 * dt) v.pushing = true;
-      if (v.pushing && this.flood < 0.2) v.pushing = false;
+      if (v.pushing && !v.repair && this.flood < 0.2) v.pushing = false;
       const lead = this.leader(v, v.y);
       const gap = lead ? lead.gap : Infinity;
       const want = v.pushing ? PUSH_SPEED : (onSidewalk(v) ? v.want * 0.7 : v.want) * (onSidewalk(v) ? 1 : wade);
       let target = Math.min(want, Math.max(0, gap - MIN_GAP) * GAP_GAIN);
       // riding in to park: up onto the sidewalk near the spot, braking to stop right at it
-      const toPark = v.phase === 'arrive' && v.park ? v.park.x - v.x : Infinity;
+      const toPark = v.phase === 'arrive' && v.park ? (v.park.x - v.x) * v.dir : Infinity;
       if (toPark < 70) {
         v.ty = v.park!.y;
         target = Math.min(target, Math.max(0, toPark) * 1.6 + (toPark > 1 ? 6 : 0));
@@ -229,24 +269,29 @@ export class Traffic {
       if (gap - step < 1) step = Math.max(0, gap - 1);
       v.x += v.dir * step;
       v.stuck = v.speed < want * 0.35 ? v.stuck + dt : 0;
-      if (v.owner) this.ride(v, dt);
+      if (v.owner || v.phase) this.ride(v, dt, now);
       else if (v.kind === 'bike' && !v.pushing) this.steer(v, dt, env);
-      if (v.stuck > 1 && !v.owner && this.rng() < 0.12 * dt) this.honk(v, now);
+      if (v.stuck > 1 && !v.owner && !v.phase && this.rng() < 0.12 * dt) this.honk(v, now);
       else if (v.kind === 'bike' && l > 0.5 && this.rng() < 0.015 * dt) this.honk(v, now);
     }
   }
 
   /** An owned bike: drifts towards its spot or back to the road (yielding to the traffic there), parks when it's there. */
-  private ride(v: Vehicle, dt: number): void {
+  private ride(v: Vehicle, dt: number, now: number): void {
     if (v.y !== v.ty) {
       const y = v.y + Math.sign(v.ty - v.y) * Math.min(Math.abs(v.ty - v.y), DRIFT * 1.6 * dt);
       if (v.phase !== 'leave' || this.clear(v, y)) v.y = y;
     }
-    if (v.phase === 'arrive' && v.park && v.y === v.park.y && v.park.x - v.x <= 1) {
+    if (v.phase === 'arrive' && v.park && v.y === v.park.y && (v.park.x - v.x) * v.dir <= 1) {
       v.x = v.park.x;
       v.speed = 0;
-      v.phase = 'parked';
-      if (v.owner) this.parked.push(v.owner);
+      if (v.repair) {
+        v.phase = 'repair';
+        v.until = now + (35 + this.rng() * 20) * 1000;
+      } else {
+        v.phase = 'parked';
+        if (v.owner) this.parked.push(v.owner);
+      }
     }
     if (v.phase === 'leave' && v.y === v.ty) v.phase = undefined;
   }

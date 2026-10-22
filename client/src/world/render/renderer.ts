@@ -31,6 +31,8 @@ import { drawWeather, drawWeatherWindow, weatherFor, type Weather } from './weat
 import { reducedMotion } from './github-fx';
 import type { Pet } from '../sim/pets';
 import { SIESTA_DIM } from '../sim/siesta';
+import { repairShopProps } from '../sim/repair';
+import { trashCartProps } from '../sim/trash';
 import { FLOODED, PARKING, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
 import { countBadge, fallbackIcon } from './shell-sprites';
 import { decorateElevator, drawSeasonalLights, drawSeasonalWindow, seasonalCostume, seasonalFurniture } from './seasonal';
@@ -508,6 +510,9 @@ export class Renderer {
     }
     // iced tea stall on the sidewalk: set up while the seller is there, stools stacked otherwise
     for (const prop of teaStallProps(this.sim.teaUp)) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
+    // the repair stall on the far sidewalk while it's set up, and the evening garbage cart going by
+    for (const prop of repairShopProps(this.sim.repairUp)) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
+    for (const prop of trashCartProps(this.sim.trashCart())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     // morning bánh mì cart: rides along with the vendor, parked east of the tea stall
     for (const prop of banhmiCartProps(this.sim.banhmiCart())) if (visible(prop.x - 24, prop.y - 36, 48, 40)) push(K.Prop, prop.y, prop, null, 1);
     for (const car of this.traffic.vehicles) if (visible(car.x - 32, car.y - 36, 64, 40)) push(K.Car, car.y, car, null, 1);
@@ -1363,7 +1368,8 @@ export class Renderer {
     const walker = riders[riders.length - 1];
     if (car.pushing && walker) {
       this.safe(() => {
-        const sp = this.charSprite({ appearance: walker, dir, pose: 'walk', frame: 0 }, this.clock() * 0.6);
+        // waiting at the repair stall: standing by the bike
+        const sp = this.charSprite({ appearance: walker, dir, pose: car.speed > 1 ? 'walk' : 'stand', frame: 0 }, this.clock() * 0.6);
         this.ctx.drawImage(sp.canvas, Math.round(car.x + car.dir * 5 - sp.ax), Math.round(car.y + 3 - sp.ay));
       });
       if (rain) this.drawPoncho(car, car.x + car.dir * 5, car.y + 3 - PONCHO_STANDING, false);
@@ -1457,6 +1463,7 @@ export class Renderer {
     // last frame's weather: this frame's is worked out further down
     this.traffic.step(now, dt, env, hour, d.getDay(), this.weather === 'rain', this.streetDay());
     this.sim.flooded = this.traffic.flood > FLOODED;
+    this.sim.repairBusy = this.traffic.repairing;
     for (const id of this.traffic.parked) this.sim.bikeParked.add(id);
     this.traffic.parked.length = 0;
   }

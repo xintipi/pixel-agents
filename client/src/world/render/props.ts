@@ -492,6 +492,166 @@ function drawLoaf(ctx: CanvasRenderingContext2D, x: number, y: number): void {
  * Bánh mì cart: blue tin cabinet with the red "BÁNH MÌ" sign, glass case with the baguettes and a pot of xôi, striped
  * awning on two posts, two wheels and the push handle on the west end.
  */
+/** A tire seen from the side: black rubber ring, a lighter tread line, hollow middle. */
+function tire(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
+  for (let y = -r; y <= r; y++)
+    for (let x = -r; x <= r; x++) {
+      const d = Math.hypot(x, y);
+      if (d > r + 0.3 || d < r - 2.6) continue;
+      ctx.fillStyle = d > r - 0.7 ? '#14171e' : d > r - 1.7 ? '#2a2e38' : '#3d4350';
+      ctx.fillRect(cx + x, cy + y, 1, 1);
+    }
+}
+
+/** The repair stall's things: tire rack, the tire sign, the compressor, the stool, the water basin. */
+function repairSprite(kind: 'repair_rack' | 'repair_sign' | 'repair_compressor' | 'repair_stool' | 'repair_basin'): PropSprite {
+  const o = '#2e3648';
+  const px = (ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w = 1, h = 1) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+  if (kind === 'repair_rack') {
+    // a rough wooden frame with old tires hanging from the top bar and inner tubes draped over it
+    const [c, ctx] = makeCanvas(30, 30);
+    shadowEllipse(ctx, 15, 28, 13, 2, 0.22);
+    px(ctx, '#6b4a32', 2, 3, 2, 26);
+    px(ctx, '#6b4a32', 26, 3, 2, 26);
+    px(ctx, '#8a6444', 1, 2, 28, 2);
+    tire(ctx, 9, 12, 6);
+    tire(ctx, 21, 13, 6);
+    px(ctx, '#c4382f', 14, 4, 2, 14);
+    px(ctx, '#9a2b24', 15, 6, 1, 12);
+    return { canvas: c, ax: 15, ay: 28 };
+  }
+  if (kind === 'repair_sign') {
+    // the universal sign: a tire propped up on a little stand, a red stripe painted on it
+    const [c, ctx] = makeCanvas(18, 18);
+    shadowEllipse(ctx, 9, 16, 7, 1, 0.22);
+    px(ctx, '#5a3a2a', 4, 13, 10, 3);
+    tire(ctx, 9, 8, 7);
+    px(ctx, '#e04a3a', 3, 7, 2, 3);
+    px(ctx, '#e04a3a', 13, 7, 2, 3);
+    return { canvas: c, ax: 9, ay: 16 };
+  }
+  if (kind === 'repair_compressor') {
+    // a red air tank on two wheels, the motor on top and the coiled yellow hose
+    const [c, ctx] = makeCanvas(20, 16);
+    shadowEllipse(ctx, 10, 14, 9, 2, 0.24);
+    px(ctx, o, 2, 6, 16, 7);
+    px(ctx, '#d0352c', 3, 7, 14, 5);
+    px(ctx, '#f06a5f', 3, 7, 14, 1);
+    px(ctx, '#8f201d', 3, 11, 14, 1);
+    px(ctx, o, 5, 2, 8, 5);
+    px(ctx, '#6b7385', 6, 3, 6, 3);
+    px(ctx, '#b8bfcc', 6, 3, 2, 1);
+    px(ctx, o, 3, 12, 3, 3);
+    px(ctx, o, 14, 12, 3, 3);
+    px(ctx, '#f2c94c', 16, 5, 3, 1);
+    px(ctx, '#f2c94c', 18, 6, 1, 6);
+    px(ctx, '#f2c94c', 16, 12, 3, 1);
+    return { canvas: c, ax: 10, ay: 14 };
+  }
+  if (kind === 'repair_stool') {
+    // the low blue plastic stool
+    const [c, ctx] = makeCanvas(12, 8);
+    shadowEllipse(ctx, 6, 7, 5, 1, 0.2);
+    px(ctx, o, 1, 0, 10, 3);
+    px(ctx, '#3d7ce0', 2, 1, 8, 1);
+    px(ctx, '#2a589f', 2, 3, 1, 4);
+    px(ctx, '#2a589f', 9, 3, 1, 4);
+    return { canvas: c, ax: 6, ay: 7 };
+  }
+  // a big blue plastic basin of water (to find the hole by the bubbles), an inner tube soaking in it
+  const [c, ctx] = makeCanvas(18, 9);
+  shadowEllipse(ctx, 9, 7, 8, 1, 0.2);
+  px(ctx, o, 1, 1, 16, 7);
+  px(ctx, '#3d7ce0', 2, 2, 14, 5);
+  px(ctx, '#7fb0f0', 3, 2, 12, 2);
+  px(ctx, '#2a2e38', 5, 3, 8, 1);
+  px(ctx, '#ffffff', 7, 2, 1, 1);
+  px(ctx, '#ffffff', 11, 3, 1, 1);
+  return { canvas: c, ax: 9, ay: 7 };
+}
+
+/**
+ * The evening garbage cart (xe đẩy rác): a flared sheet-metal bin painted green, riveted bands and a rolled rim, heaped
+ * with trash bags; a bamboo broom strapped to its side, the long push handle at its west end with the brass bell, two
+ * big spoked wheels.
+ */
+function trashCartSprite(): PropSprite {
+  const o = '#22303a';
+  const [c, ctx] = makeCanvas(44, 36);
+  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+  shadowEllipse(ctx, 24, 33, 18, 2, 0.28);
+  // push handle: a long bar from the bin's west side, the rubber grip, and the brass bell hanging under it
+  px(o, 1, 11, 11, 3);
+  px('#8a95a3', 2, 12, 10, 1);
+  px('#2a2e38', 1, 11, 3, 3);
+  px(o, 4, 14, 1, 2);
+  px(o, 2, 16, 5, 4);
+  px('#d9a43a', 3, 16, 3, 3);
+  px('#f6d27a', 3, 16, 1, 1);
+  px('#a77b26', 3, 19, 3, 1);
+  // the trash heaped over the rim: black, white and blue bags, a cardboard flap
+  const bag = (x: number, y: number, w: number, h: number, body: string, light: string) => {
+    px(o, x, y + 1, w, h - 1);
+    px(o, x + 1, y, w - 2, 1);
+    px(body, x + 1, y + 1, w - 2, h - 2);
+    px(light, x + 1, y + 1, Math.max(1, Math.floor(w / 3)), 1);
+  };
+  bag(12, 3, 9, 7, '#2a2e38', '#4a5060');
+  bag(19, 1, 9, 8, '#e8e4da', '#ffffff');
+  bag(27, 4, 8, 6, '#3d7ce0', '#7fb0f0');
+  px(o, 33, 2, 6, 6);
+  px('#c8955a', 34, 3, 4, 4);
+  px('#a4733c', 34, 6, 4, 1);
+  bag(15, 6, 7, 5, '#4c9a5a', '#7cc47a');
+  // the bin: wider at the top (flared), lit from the left; rolled rim on top
+  for (let y = 9; y <= 27; y++) {
+    const inset = Math.round((y - 9) * 0.28);
+    const x0 = 10 + inset;
+    const x1 = 39 - inset;
+    px(o, x0 - 1, y, x1 - x0 + 3);
+    for (let x = x0; x <= x1; x++) {
+      const t = (x - x0) / (x1 - x0);
+      px(t < 0.2 ? '#4c9a5a' : t > 0.82 ? '#245232' : '#357a45', x, y);
+    }
+  }
+  px(o, 8, 8, 34, 3);
+  px('#7cc47a', 9, 8, 32, 1);
+  px('#2a5c34', 9, 10, 32, 1);
+  // riveted bands and a painted sign panel
+  for (const y of [14, 23]) {
+    const inset = Math.round((y - 9) * 0.28);
+    px('#245232', 10 + inset, y, 30 - inset * 2, 1);
+    for (let x = 12 + inset; x < 39 - inset; x += 5) px('#9fd0a8', x, y - 1, 1, 1);
+  }
+  px('#f2c94c', 18, 16, 14, 5);
+  px('#c8a030', 18, 20, 14, 1);
+  px('#2e3648', 20, 18, 10, 1);
+  // bamboo broom strapped along the side, its bristles fanned at the back end
+  px('#c8a46a', 12, 25, 26, 1);
+  px('#9a7a44', 12, 26, 26, 1);
+  px('#d9342b', 20, 24, 1, 3);
+  px('#d9342b', 31, 24, 1, 3);
+  for (let i = 0; i < 6; i++) px(i % 2 ? '#b08a50' : '#d6b878', 37 + Math.floor(i / 2), 23 + i, 4, 1);
+  // axle and the two big wheels: rubber tire, spokes, hub
+  px(o, 13, 28, 24, 2);
+  for (const wx of [15, 33]) {
+    for (let y = -4; y <= 4; y++)
+      for (let x = -4; x <= 4; x++) {
+        const d = Math.hypot(x, y);
+        if (d > 4.4) continue;
+        px(d > 3.2 ? '#14171e' : (x === 0 || y === 0 || x === y || x === -y) ? '#9aa3b5' : '#4a5060', wx + x, 30 + y);
+      }
+    px('#d6dbe4', wx, 30, 1, 1);
+  }
+  return { canvas: c, ax: 24, ay: 34 };
+}
+
 function banhmiCartSprite(): PropSprite {
   const [c, ctx] = makeCanvas(42, 36);
   shadowEllipse(ctx, 21, 33, 18, 2, 0.24);
@@ -616,6 +776,16 @@ export function propSprite(prop: ExteriorProp): PropSprite {
       break;
     case 'banhmi_cart':
       s = banhmiCartSprite();
+      break;
+    case 'repair_rack':
+    case 'repair_sign':
+    case 'repair_compressor':
+    case 'repair_stool':
+    case 'repair_basin':
+      s = repairSprite(prop.kind);
+      break;
+    case 'trash_cart':
+      s = trashCartSprite();
       break;
     default:
       // 'paving' and other kinds drawn by the renderer itself

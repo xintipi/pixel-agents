@@ -172,6 +172,14 @@ export function playVoice(ac: AudioContext, dest: AudioNode, kind: SoundKind, t:
         tone(ac, out, 'sine', f, t + i * (0.09 + o.rng() * 0.06), 0.05 * g, 0.004, 0.06, f * 1.35);
       }
       return;
+    case 'trash_bell':
+      // the garbage cart's hand bell: two bright metallic "keng"s, a few inharmonic partials ringing out
+      for (const at of [0, 0.22]) {
+        tone(ac, out, 'triangle', 1180, t + at, 0.07 * g, 0.002, 0.45);
+        tone(ac, out, 'sine', 2950, t + at, 0.03 * g, 0.002, 0.3);
+        tone(ac, out, 'sine', 4310, t + at, 0.015 * g, 0.002, 0.18);
+      }
+      return;
     case 'horn_bike': {
       // scooter horn: two quick buzzy "tin tin" beeps, a pair of detuned notes through a low-pass
       const lp = ac.createBiquadFilter();

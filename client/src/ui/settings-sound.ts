@@ -10,7 +10,7 @@ const CATEGORY_UI: Readonly<Record<SoundCategory, { label: string; hint: string;
   keys: { label: tr('Keyboard'), hint: tr('Soft typing from whoever is working in the rooms in view.'), sample: 'keys' },
   elevator: { label: tr('Elevator'), hint: tr('"Ding" when someone arrives or leaves.'), sample: 'elevator' },
   social: { label: tr('Hangouts'), hint: tr('Ping-pong and arcade games in the lounge.'), sample: 'pingpong' },
-  life: { label: tr('Office life'), hint: tr('The dog and the cat, the robot vacuum, the bathroom, the coffee machine, the pizza doorbell, yawns and parties.'), sample: 'meow' },
+  life: { label: tr('Office life'), hint: tr("The dog and the cat, the robot vacuum, the bathroom, the coffee machine, the pizza doorbell, yawns, parties and the garbage cart's bell."), sample: 'meow' },
   weather: { label: tr('Weather'), hint: tr('Rain, wind, distant thunder, birds and the horns of the traffic outside, louder the more of the outside is in view.'), sample: 'bird' },
 };
 
