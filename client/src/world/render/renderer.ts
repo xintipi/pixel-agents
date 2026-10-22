@@ -1,8 +1,8 @@
 // Per-frame world drawing: outdoor layer -> floors -> walls/wall items -> entities
 // sorted by depth -> light/darkness -> icons. The screen-space pass (crisp
 // text) lives in overlay.ts.
-import { TILE, type ArtModule, type CharacterFrameRequest, type IconName, type ScreenMode, type Sprite } from '../../art/api';
-import type { SeasonalTheme, WorldOptions } from '../api';
+import { TILE, type Appearance, type ArtModule, type CharacterFrameRequest, type IconName, type ScreenMode, type Sprite } from '../../art/api';
+import { tetDay, type SeasonalTheme, type WorldOptions } from '../api';
 import type { WorldAssets } from '../assets';
 import type { Camera } from '../camera';
 import { BUILDING_H, COL_W, CORE_COLS, CORRIDOR_Y } from '../constants';
@@ -21,7 +21,7 @@ import { daylightModeOf, parseHourParam } from './daylight';
 import { RoomFxRenderer } from './github-fx';
 import { Lighting } from './lighting';
 import { Particles } from './particles';
-import { carSprite, propSprite, shadowSprite } from './props';
+import { BIKE_RACK, BIKE_SEATS, carSprite, cargoSprite, motorbikeSprites, propSprite, shadowSprite } from './props';
 import { petSprite, workTreeSprite } from './pets';
 import { drawDisco } from './disco';
 import { dockSprite, drawCountdown, drawFireworks, pizzaBoxSprite, robotSprite } from './fun';
@@ -31,6 +31,7 @@ import { drawWeather, drawWeatherWindow, weatherFor, type Weather } from './weat
 import { reducedMotion } from './github-fx';
 import type { Pet } from '../sim/pets';
 import { SIESTA_DIM } from '../sim/siesta';
+import { FLOODED, Traffic, type StreetDay, type Vehicle } from '../sim/traffic';
 import { countBadge, fallbackIcon } from './shell-sprites';
 import { decorateElevator, drawSeasonalLights, drawSeasonalWindow, seasonalCostume, seasonalFurniture } from './seasonal';
 import { buildAreaVis, furnitureSprites, opaqueBounds, paintShell, toWallVis, WALL_MARGIN, wallItemOrigin, wallSprites, type AreaVis, type FurnVis, type WallVis } from './scene';
@@ -49,18 +50,11 @@ const enum K {
 interface Ent {
   k: K;
   y: number;
-  ref: FurnVis | Character | ExteriorProp | Car | Pet | null;
+  ref: FurnVis | Character | ExteriorProp | Vehicle | Pet | null;
   area: AreaVis | null;
   scale: number;
 }
 
-interface Car {
-  x: number;
-  y: number;
-  dir: 1 | -1;
-  speed: number;
-  variant: number;
-}
 
 /** Head position (world px) of each character drawn this frame. */
 export interface HeadInfo {
@@ -85,6 +79,23 @@ const POPCORN_DX: Readonly<Record<string, number>> = { down: 0, up: -9, left: -5
 const POPCORN_DY: Readonly<Record<string, number>> = { down: 11, up: 8, left: 9, right: 9 };
 /** Web next to a neighbor: at most this many px outside the body. */
 const WEB_MAX_OUT = 9;
+const NO_VEHICLES: readonly Vehicle[] = [];
+/** Motorbike helmets (the art's cap, recolored). */
+const HELMETS = ['#e8454a', '#f2c94c', '#3d7ce0', '#f4f4f0', '#e98ad0', '#4cbf7a', '#2e3648', '#f08a3c'];
+/** Raincoat plastics: the colors you see on any rainy street. */
+const PONCHOS: readonly [string, string, string][] = [
+  ['#3d7ce0', '#2a589f', '#8fbdf2'],
+  ['#e8454a', '#a83136', '#f59a9d'],
+  ['#f2c94c', '#b8922a', '#fae49a'],
+  ['#4cbf7a', '#348a56', '#9ae0b6'],
+  ['#e98ad0', '#b05e9a', '#f6c4e9'],
+  ['#9b6bd1', '#6f4b9b', '#c8aaec'],
+  ['#5bc8d6', '#3a929e', '#a8e6ee'],
+];
+/** A standing character's neck, this far above the feet (px): where the poncho of someone walking starts. */
+const PONCHO_STANDING = 19;
+/** A seated character's anchor sits this far above where the bike's wheels touch the ground (px). */
+const RIDER_LIFT = 9;
 /** Tone of the outdoor area edges (vignette) and of the lawn beyond it. */
 const VIGNETTE_ALPHA = 0.2;
 const VIGNETTE_EDGE = `rgba(18,40,26,${VIGNETTE_ALPHA})`;
@@ -105,8 +116,12 @@ export class Renderer {
   private layoutVersion = -1;
   private assetsVersion = 0;
   private builtAssetsVersion = 0;
-  cars: Car[] = [];
-  private nextCarAt = 0;
+  /** Street traffic: cars, and the motorbikes of rush hour. */
+  readonly traffic = new Traffic();
+  /** Motorbike riders' looks, by vehicle variant. */
+  private riders = new Map<number, Appearance[]>();
+  private xeOmFor: ExteriorLayout | null = null;
+  private xeOmList: Vehicle[] = [];
   private ents: Ent[] = [];
   private pool: Ent[] = [];
   private date = new Date();
@@ -343,7 +358,6 @@ export class Renderer {
     const { ctx, camera } = this;
     this.date.setTime(this.clock());
     this.dt = dt;
-    this.updateCars(now, dt);
     const W = this.canvas.width;
     const H = this.canvas.height;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -383,6 +397,8 @@ export class Renderer {
       const min = Math.round(this.hourOverride * 60);
       this.date.setHours(Math.floor(min / 60) % 24, min % 60);
     }
+    this.updateCars(now, dt);
+    if (this.traffic.flood > 0.02) this.drawFlood(now, vx0, vy0, vx1, vy1);
     const hour = this.lighting.update(now, daylightModeOf(opts), this.hourOverride, this.date);
     this.weather = this.weatherOverride ?? weatherFor(this.date);
     this.hourNow = hour;
@@ -490,7 +506,8 @@ export class Renderer {
     for (const prop of teaStallProps(this.sim.teaUp)) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     // morning bánh mì cart: rides along with the vendor, parked east of the tea stall
     for (const prop of banhmiCartProps(this.sim.banhmiCart())) if (visible(prop.x - 24, prop.y - 36, 48, 40)) push(K.Prop, prop.y, prop, null, 1);
-    for (const car of this.cars) if (visible(car.x - 24, car.y - 24, 48, 28)) push(K.Car, car.y, car, null, 1);
+    for (const car of this.traffic.vehicles) if (visible(car.x - 32, car.y - 36, 64, 40)) push(K.Car, car.y, car, null, 1);
+    for (const car of this.xeOm()) if (visible(car.x - 24, car.y - 28, 48, 32)) push(K.Car, car.y, car, null, 1);
     this.petBoxes.clear();
     for (const pet of this.sim.pets.pets) if (visible(pet.x - 16, pet.y - 20, 32, 24)) push(K.Pet, pet.depth(), pet, null, 1);
     const robot = this.sim.pets.robot;
@@ -516,7 +533,7 @@ export class Renderer {
           this.drawProp(e.ref as ExteriorProp, e.scale);
           break;
         case K.Car:
-          this.drawCar(e.ref as Car);
+          this.drawCar(e.ref as Vehicle);
           break;
         case K.Pet:
           this.drawPet(e.ref as Pet, now);
@@ -1298,22 +1315,189 @@ export class Renderer {
     return c;
   }
 
-  private drawCar(car: Car): void {
-    const s = carSprite(car.variant, car.dir < 0);
-    this.ctx.drawImage(s.canvas, Math.round(car.x - s.ax), Math.round(car.y - s.ay));
+  /** Vehicles on the street, for the headlights (LightScene). */
+  get cars(): readonly Vehicle[] {
+    return this.traffic.vehicles;
   }
 
+  private drawCar(car: Vehicle): void {
+    if (car.kind === 'car') {
+      const s = carSprite(car.variant, car.dir < 0);
+      this.ctx.drawImage(s.canvas, Math.round(car.x - s.ax), Math.round(car.y - s.ay));
+      this.wetWheels(car, 29);
+      return;
+    }
+    // motorbike: the bike, the riders (office characters seated sideways, helmets on; the rider's arms reach for the
+    // handlebar) and the bike's front over their legs
+    const { back, front } = motorbikeSprites(car.variant, car.dir < 0);
+    const x = Math.round(car.x - back.ax);
+    const y = Math.round(car.y - back.ay);
+    this.ctx.drawImage(back.canvas, x, y);
+    const riders = this.bikeRiders(car);
+    const dir = car.dir > 0 ? 'right' : 'left';
+    const rain = this.weather === 'rain';
+    if (car.cargo) {
+      const c = cargoSprite(car.cargo, car.dir < 0, car.variant);
+      this.ctx.drawImage(c.canvas, Math.round(car.x + car.dir * BIKE_RACK.dx - c.ax), Math.round(car.y + BIKE_RACK.dy - c.ay));
+    }
+    if (!car.pushing) {
+      riders.forEach((appearance, i) => {
+        const rider = i === riders.length - 1;
+        const dx = rider ? BIKE_SEATS.rider : BIKE_SEATS.passenger;
+        this.safe(() => {
+          // a waiting xe ôm driver scrolls the phone; riding, the arms reach for the handlebar
+          const sp = car.parked
+            ? this.charSprite({ appearance, dir, pose: 'read', held: 'phone', seated: true, frame: 0 }, this.clock())
+            : this.art.characterSprite({ appearance, dir, pose: rider ? 'type' : 'sit', frame: 0 });
+          this.ctx.drawImage(sp.canvas, Math.round(car.x + car.dir * dx - sp.ax), Math.round(car.y - RIDER_LIFT - sp.ay));
+        });
+      });
+      if (rain) this.drawPoncho(car, car.x + car.dir * BIKE_SEATS.rider, car.y - RIDER_LIFT - 13, riders.length > 1);
+    }
+    this.ctx.drawImage(front.canvas, x, y);
+    // stalled in the flood: the rider walks beside the bike, pushing it by the handlebar
+    const walker = riders[riders.length - 1];
+    if (car.pushing && walker) {
+      this.safe(() => {
+        const sp = this.charSprite({ appearance: walker, dir, pose: 'walk', frame: 0 }, this.clock() * 0.6);
+        this.ctx.drawImage(sp.canvas, Math.round(car.x + car.dir * 5 - sp.ax), Math.round(car.y + 3 - sp.ay));
+      });
+      if (rain) this.drawPoncho(car, car.x + car.dir * 5, car.y + 3 - PONCHO_STANDING, false);
+    }
+    this.wetWheels(car, 13);
+  }
+
+  /**
+   * "Áo mưa cánh dơi": a big plastic poncho over the rider (and the passenger), from the shoulders down past the seat,
+   * its back edge flapping in the wind of the ride.
+   */
+  private drawPoncho(car: Vehicle, rx: number, neckY: number, two: boolean): void {
+    const { ctx } = this;
+    const [color, dark, light] = PONCHOS[car.variant % PONCHOS.length];
+    const top = Math.round(neckY);
+    const flap = Math.sin(this.clock() / 90 + car.variant) * 1.5 * Math.min(1, car.speed / 20);
+    ctx.globalAlpha = 0.88;
+    for (let r = 0; r < 12; r++) {
+      const front = 3 + Math.min(r, 3);
+      const back = (two ? 13 : 6) + r * 0.45 + (r > 6 ? flap * (r - 6) * 0.3 : 0);
+      const a = Math.round(rx + car.dir * front);
+      const b = Math.round(rx - car.dir * back);
+      ctx.fillStyle = r === 0 || r === 11 ? dark : color;
+      ctx.fillRect(Math.min(a, b), top + r, Math.abs(a - b) + 1, 1);
+    }
+    // a lighter crease down the back and a sheen on the shoulder
+    ctx.fillStyle = light;
+    ctx.fillRect(Math.round(rx - car.dir * 3), top + 2, 1, 8);
+    ctx.fillRect(Math.round(rx + car.dir * 1), top + 1, 2, 1);
+    ctx.globalAlpha = 1;
+  }
+
+  /** Wheels on a wet street: spray behind them in the rain, and through a flood the water up to the axles with a wake. */
+  private wetWheels(car: Vehicle, half: number): void {
+    const f = this.traffic.flood;
+    const rain = this.weather === 'rain';
+    if (!rain && f < 0.05) return;
+    if (car.y > this.exterior.streetY + this.exterior.streetH + 2) return;
+    const moving = car.speed > 8;
+    if (moving && Math.random() < this.dt * (rain ? 5 : 0) + this.dt * f * 14) this.particles.splash(car.x - car.dir * (half - 4), car.y - 1, car.dir, 0.6 + f);
+    if (f < 0.05) return;
+    const { ctx } = this;
+    const depth = Math.round(1 + f * 6);
+    ctx.fillStyle = `rgba(112,102,80,${(0.75 * Math.min(1, f * 1.6)).toFixed(3)})`;
+    ctx.fillRect(Math.round(car.x - half - 1), Math.round(car.y - depth), half * 2 + 2, depth + 2);
+    if (!moving) return;
+    // the wake: a V of ripples trailing behind
+    ctx.fillStyle = `rgba(214,228,236,${(0.55 * f).toFixed(3)})`;
+    const rear = car.x - car.dir * half;
+    for (let i = 1; i <= 3; i++) {
+      ctx.fillRect(Math.round(rear - car.dir * i * 4), Math.round(car.y - depth - i), 2, 1);
+      ctx.fillRect(Math.round(rear - car.dir * i * 4), Math.round(car.y + i), 2, 1);
+    }
+  }
+
+  /** Who rides a bike (passenger last, drawn first so the rider is in front): stable per vehicle, a helmet for each. */
+  private bikeRiders(car: Vehicle): Appearance[] {
+    let list = this.riders.get(car.variant);
+    if (list) return list;
+    if (this.riders.size > 200) this.riders.clear();
+    list = [];
+    try {
+      for (let i = 0; i < car.riders; i++) {
+        const seed = car.variant * 7 + i * 1013;
+        const base = this.art.appearanceFromSeed(seed, { look: seed % 2 ? 'f' : 'm', sub: false });
+        // xe ôm: the ride-hailing green jacket and helmet
+        if (car.parked) list.unshift({ ...base, top: '#1fa34a', topAccent: '#15803a', topStyle: 'jacket', accessory: 'cap', accessoryColor: '#1fa34a', lanyard: null });
+        else list.unshift({ ...base, accessory: 'cap', accessoryColor: HELMETS[seed % HELMETS.length], lanyard: null });
+      }
+    } catch {
+      list = [];
+    }
+    this.riders.set(car.variant, list);
+    return list;
+  }
+
+  /** Steps the traffic on the clock (forced hour and timelapse included), not on the sky's hour: a pinned day still has rush hour. */
   private updateCars(now: number, dt: number): void {
     const b = this.exterior.bounds;
-    const x0 = b.x * TILE - 40;
-    const x1 = (b.x + b.w) * TILE + 40;
-    if (now >= this.nextCarAt) {
-      this.nextCarAt = now + 4000 + Math.random() * 9000;
-      const lane = this.exterior.lanes[Math.floor(Math.random() * this.exterior.lanes.length)];
-      if (lane) this.cars.push({ x: lane.dir > 0 ? x0 : x1, y: lane.y, dir: lane.dir, speed: 38 + Math.random() * 30, variant: Math.floor(Math.random() * 6) });
+    const ext = this.exterior;
+    const d = this.date;
+    const hour = d.getHours() + d.getMinutes() / 60;
+    // last frame's weather: this frame's is worked out further down
+    this.traffic.step(now, dt, { x0: b.x * TILE - 40, x1: (b.x + b.w) * TILE + 40, lanes: ext.lanes, sidewalkY: ext.streetY + ext.streetH }, hour, d.getDay(), this.weather === 'rain', this.streetDay());
+    this.sim.flooded = this.traffic.flood > FLOODED;
+  }
+
+  /** The office's holiday theme as the street sees it: peach branches and an empty Tết, flowers on the flower days. */
+  private streetDay(): StreetDay {
+    if (this.theme === 'valentine' || this.theme === 'women') return { flowers: true };
+    if (this.theme !== 'tet') return {};
+    const d = this.date;
+    const tet = tetDay(d.getFullYear());
+    if (!tet) return {};
+    const diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - tet.getTime()) / 86_400_000);
+    return diff < 0 ? { tet: 'before' } : diff <= 2 ? { tet: 'holiday' } : {};
+  }
+
+  /**
+   * Xe ôm drivers in green jackets waiting on the far sidewalk, west of the entrance, from early morning to late night
+   * (two or three, depending on the hour), seated on their bikes looking at their phones.
+   */
+  private xeOm(): readonly Vehicle[] {
+    const h = this.date.getHours() + this.date.getMinutes() / 60;
+    if (h < 6.5 || h >= 23) return NO_VEHICLES;
+    const ext = this.exterior;
+    if (this.xeOmFor !== ext) {
+      this.xeOmFor = ext;
+      const y = ext.streetY + ext.streetH + 28;
+      this.xeOmList = [-8.2, -5.8, -3.4].map((tx, i): Vehicle => ({ kind: 'bike', x: tx * TILE, y, dir: 1, speed: 0, want: 0, laneY: y, ty: y, variant: 7001 + i * 3, riders: 1, stuck: 0, sidewalk: 0, parked: true }));
     }
-    for (const c of this.cars) c.x += c.dir * c.speed * Math.min(dt, 0.1);
-    if (this.cars.length) this.cars = this.cars.filter((c) => c.x >= x0 - 10 && c.x <= x1 + 10);
+    return this.xeOmList.slice(0, 2 + (this.date.getHours() % 2));
+  }
+
+  /** Muddy water over the street (spilling onto the curbs when deep), with ripples drifting on it. */
+  private drawFlood(now: number, vx0: number, vy0: number, vx1: number, vy1: number): void {
+    const { ctx } = this;
+    const ext = this.exterior;
+    const f = this.traffic.flood;
+    const spill = f > 0.6 ? Math.round((f - 0.6) * 15) : 0;
+    const x0 = Math.max(vx0, ext.bounds.x * TILE);
+    const x1 = Math.min(vx1, (ext.bounds.x + ext.bounds.w) * TILE);
+    const y0 = Math.max(vy0, ext.streetY - spill);
+    const y1 = Math.min(vy1, ext.streetY + ext.streetH + spill);
+    if (x1 <= x0 || y1 <= y0) return;
+    ctx.fillStyle = `rgba(112,102,80,${(0.62 * f).toFixed(3)})`;
+    ctx.fillRect(Math.floor(x0), Math.floor(y0), Math.ceil(x1 - x0), Math.ceil(y1 - y0));
+    // ripples: short light dashes on a loose grid, sliding back and forth
+    ctx.fillStyle = `rgba(214,228,236,${(0.4 * f).toFixed(3)})`;
+    const t = now / 1000;
+    for (let gy = Math.floor(y0 / 7) * 7; gy < y1; gy += 7) {
+      for (let gx = Math.floor(x0 / 22) * 22; gx < x1; gx += 22) {
+        const h = ((gx * 73856093) ^ (gy * 19349663)) >>> 0;
+        if (h % 3 === 0) continue;
+        const x = gx + (h % 17) + Math.sin(t * 0.8 + (h % 7)) * 2;
+        ctx.fillRect(Math.round(x), gy + (h % 5), 2 + (h % 3), 1);
+      }
+    }
   }
 
   private drawPingPong(now: number): void {

@@ -1,7 +1,7 @@
 // Ambient sounds suggested by the world: keyboard of whoever is working in view, "ding" when an elevator
 // door opens (someone arrives or leaves), the circles (ping-pong paddle hits, arcade), the office life the sim
 // points out (pets, bathroom, coffee machine, pizza, yawns, the robot vacuum), room parties and the weather outside
-// (rain and wind beds, distant thunder, birds by day). Only observes the simulation and the camera; whoever decides
+// (rain and wind beds, distant thunder, birds by day) and the horns of the traffic on the street. Only observes the simulation and the camera; whoever decides
 // whether to play (preference, volume, hidden tab) is the UI.
 import type { SoundCue } from './api';
 import type { Camera } from './camera';
@@ -12,6 +12,7 @@ import { TILE } from '../art/api';
 import { FIREWORK_RISE, FIREWORK_TUBES, fireworkBurst } from './fireworks';
 import { rectPx, slotRect } from './layout/geometry';
 import type { Weather } from './render/weather';
+import type { Horn } from './sim/traffic';
 
 /** Re-evaluates who is typing every this many ms. */
 const KEYS_TICK_MS = 160;
@@ -23,6 +24,8 @@ const BED_TICK_MS = 400;
 const SFX_STALE_MS = 1_500;
 /** How loud each office-life sound is next to the others (1 = as loud as the elevator). */
 const SFX_GAIN: Partial<Record<SoundCue['kind'], number>> = { door: 0.7, flush: 0.8, tap: 0.7, coffee: 0.8, yawn: 0.8, bark: 0.9, meow: 0.9, robot_start: 0.8, robot_dock: 0.8 };
+/** At most one horn this often (ms): a rush-hour jam honks a lot, and it shouldn't drown the rest (global cap). */
+const HORN_GAP_MS = 650;
 /** Heard even off screen (quieter): the doorbell of the pizza delivery. */
 const SFX_OFFSCREEN: ReadonlySet<SoundCue['kind']> = new Set(['pizza']);
 
@@ -44,10 +47,11 @@ export class SoundCues {
   private bedsAt = 0;
   private nextThunderAt = 0;
   private nextBirdAt = 0;
+  private hornAt = 0;
   /** Parties already heard, by room (the key of the effect). */
   private parties = new Map<string, number>();
-  /** Weather outside and the night factor (from the renderer); without it, no weather sounds. */
-  env: (() => { weather: Weather; night: number }) | null = null;
+  /** Weather outside, the night factor and the street's horns (from the renderer); without it, no weather sounds. */
+  env: (() => { weather: Weather; night: number; horns?: Horn[] }) | null = null;
 
   constructor(
     private readonly sim: Sim,
@@ -68,6 +72,18 @@ export class SoundCues {
     this.officeLife(view, near, emit);
     this.roomParties(view, near, emit);
     this.beds(now, view, near, emit);
+    this.horns(now, view, near, emit);
+  }
+
+  /** The traffic's horns: only those in view, at most one every HORN_GAP_MS; the queue is emptied either way. */
+  private horns(now: number, view: ViewRect, near: number, emit: (cue: SoundCue) => void): void {
+    const list = this.env?.().horns;
+    if (!list?.length) return;
+    const h = now - this.hornAt >= HORN_GAP_MS ? list.find((e) => this.inView(e.x, e.y, view, 24)) : undefined;
+    list.length = 0;
+    if (!h) return;
+    this.hornAt = now;
+    emit({ kind: h.kind === 'car' ? 'horn_car' : 'horn_bike', gain: near * (0.6 + this.rng() * 0.4), pan: this.pan(h.x, view) });
   }
 
   /** What the sim pointed out at a spot (coffee machine, stall, pets, robot beeps...): only what is in view. */

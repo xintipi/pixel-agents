@@ -42,6 +42,8 @@ export const CATEGORY_OF: Readonly<Record<SoundKind, SoundCategory>> = {
   wind: 'weather',
   thunder: 'weather',
   bird: 'weather',
+  horn_bike: 'weather',
+  horn_car: 'weather',
 };
 
 /** Minimum interval (ms) between two sounds on the same channel. */
@@ -72,6 +74,8 @@ export const MIN_GAP_MS: Readonly<Record<SoundKind, number>> = {
   wind: 0,
   thunder: 6_000,
   bird: 700,
+  horn_bike: 450,
+  horn_car: 450,
 };
 
 /** The bell and the pop share the same channel (one doesn't trample the other). */
@@ -102,6 +106,8 @@ const CHANNEL: Readonly<Record<SoundKind, string>> = {
   wind: 'wind',
   thunder: 'thunder',
   bird: 'bird',
+  horn_bike: 'horn',
+  horn_car: 'horn',
 };
 
 /** Global cap: at most this many sounds per second (the alert bell always gets through). */
@@ -116,7 +122,7 @@ export interface SoundSettings {
   social: boolean;
   /** Pets, robot vacuum, bathroom, coffee machine, pizza, yawns and parties. */
   life: boolean;
-  /** Rain, wind, thunder and birds outside. */
+  /** Rain, wind, thunder and birds outside, and the horns on the street. */
   weather: boolean;
 }
 

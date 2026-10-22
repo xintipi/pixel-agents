@@ -58,6 +58,16 @@ export interface WorldDebug {
   pizzaParty(): boolean;
   /** Forces the after-lunch siesta on/off (idle agents nap, lights dim); null goes back to the clock (12:30–13:30). */
   siestaNow(on: boolean | null): void;
+  /**
+   * Forces rush hour on the street (motorbikes, jams, horns) on/off; null goes back to the clock (7:00–8:30, 17:00–18:45).
+   * Returns the vehicles on the street right now, by kind.
+   */
+  rushNow(on: boolean | null): { car: number; bike: number };
+  /**
+   * Floods the street now (true; up to three idle ones go out to look at it) or dries it (false); null goes back to the
+   * weather (rain at rush hour fills it up over ~10 minutes, it drains over ~20). Returns how deep the water is (0–1).
+   */
+  floodNow(on: boolean | null): number;
   setHour(hour: number | null): void;
   /** Centers the camera on a point (tiles) with optional zoom, without animation. */
   lookAt(tx: number, ty: number, zoom?: number): void;
@@ -365,6 +375,22 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     teaNow: () => sim.teaNow(),
     siestaNow: (on) => {
       sim.siestaOverride = on;
+    },
+
+    rushNow: (on) => {
+      renderer.traffic.forced = on;
+      const count = { car: 0, bike: 0 };
+      for (const v of renderer.traffic.vehicles) count[v.kind]++;
+      return count;
+    },
+
+    floodNow: (on) => {
+      renderer.traffic.floodForced = on;
+      if (on) {
+        sim.flooded = true;
+        sim.floodWatchNow();
+      }
+      return renderer.traffic.flood;
     },
 
     altarNow: () => sim.altarNow(),

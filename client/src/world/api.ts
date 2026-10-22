@@ -148,7 +148,10 @@ export type SoundCueKind =
   | 'rain'
   | 'wind'
   | 'thunder'
-  | 'bird';
+  | 'bird'
+  // the street: a motorbike's "tin tin" and a car's longer horn
+  | 'horn_bike'
+  | 'horn_car';
 
 export interface SoundCue {
   kind: SoundCueKind;

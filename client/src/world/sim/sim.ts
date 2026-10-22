@@ -40,7 +40,9 @@ import { RoomState } from './room-state';
 import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, spinDir, spinPhase, yawnPhase } from './shell';
 import { SpotRegistry } from './spots';
 import type { Step } from './steps';
+import { floodLine } from './traffic';
 import {
+  LANE_Y,
   TEA_DOOR,
   TEA_SEATS,
   TEA_SELLER_SEAT,
@@ -198,6 +200,8 @@ export class Sim {
   readonly tea = new TeaStall();
   /** The stall is set up (the seller is there): the renderer shows the stools out or stacked. */
   teaUp = false;
+  /** The street is flooded (rain at rush hour; the renderer's traffic says): no tea or bánh mì, people go and look. */
+  flooded = false;
   /** Thần Tài altar (sim/altar.ts): incense lit until; last prayer for a waiting agent; day of the morning incense. */
   altarLitUntil = 0;
   private altarPrayedAt = 0;
@@ -2093,8 +2097,9 @@ export class Sim {
       stretch: true,
       mirror: !!this.social.plan('mirror', 1, ch),
       phone: !!this.randomFree(PHONE_SEATS, ch),
-      tea: this.teaUp && this.tea.hasFree(),
-      banhmi: this.banhmiUp && this.banhmi.hasFree(),
+      tea: !this.flooded && this.teaUp && this.tea.hasFree(),
+      banhmi: !this.flooded && this.banhmiUp && this.banhmi.hasFree(),
+      flood: this.flooded && !this.visit,
     };
     const what = pickIdleActivity(rng, avail, soloWeights(persona));
     if (!what) return false;
@@ -2220,6 +2225,8 @@ export class Sim {
         return this.planTea(ch);
       case 'banhmi':
         return this.planBanhMi(ch);
+      case 'flood':
+        return this.planFloodWatch(ch);
       case 'stretch': {
         const home = ch.homeSpot;
         if (!home) return false;
@@ -2277,6 +2284,38 @@ export class Sim {
     ch.queue.push(...steps);
     this.pushHome(ch, 'none');
     return true;
+  }
+
+  /** Flooded street: out the same way as for the tea, a look at the water from the curb, a sigh, a facepalm, back in. */
+  private planFloodWatch(ch: Character): boolean {
+    const rng = ch.rng;
+    const spot = { x: Math.round(between(rng, 0, 5 * TILE)), y: LANE_Y + 4 };
+    const steps: Step[] = [];
+    this.pushLeave(ch, steps);
+    steps.push(
+      { t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty },
+      { t: 'route', pts: routeToSeat(spot), trail: 'out' },
+      { t: 'act', pose: 'stand', dir: 'down', ms: between(rng, 4000, 7000) },
+      { t: 'do', fn: () => this.social.say(ch, floodLine(rng), this.now) },
+      { t: 'act', pose: 'facepalm', dir: 'down', ms: between(rng, 2500, 3500) },
+      { t: 'act', pose: 'stand', dir: 'down', ms: between(rng, 2000, 4000) },
+      { t: 'do', fn: () => ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), trail: 'back' }) },
+    );
+    ch.queue.push(...steps);
+    this.pushHome(ch, 'none');
+    return true;
+  }
+
+  /** Debug: up to three of the idle ones go out to look at the flooded street now. Returns how many went. */
+  floodWatchNow(): number {
+    let n = 0;
+    for (const c of this.chars.values()) {
+      if (n >= 3) break;
+      if (c.leaving || c.mode !== 'idle' || c.outdoors || c.gathering || c.inside || (c.step && !this.interruptible(c.step))) continue;
+      this.clearPlan(c);
+      if (this.planFloodWatch(c)) n++;
+    }
+    return n;
   }
 
   /** Debug: whoever is idle (and not already outside or in a circle) goes for iced tea now. Returns how many went. */

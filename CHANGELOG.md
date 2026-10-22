@@ -12,6 +12,23 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Hora do rush na rua.** Das 7h às 8h30 e das 17h às 18h45 (mais leve no fim de semana) a rua em frente ao prédio
+  enche de motos: scooters coloridas com gente do escritório de capacete, às vezes com garupa, andando em bando, freando
+  do nada e parando em engarrafamentos que andam e param. As motos se espremem ao lado dos carros, buzinam quando ficam
+  presas ("tin tin"; os carros, uma buzina mais longa) e, na mão para o oeste, algumas sobem na calçada do outro lado
+  para furar a fila. No resto do dia passam poucos carros e motos. À noite as motos têm farol e lanterna. As buzinas
+  entram na categoria **Tempo** em **Configurações › Sons**. No console: `habblaud.world.debug.rushNow(true)`.
+- **Chuva na rua e alagamento.** Com chuva, quem anda de moto veste a capa de chuva colorida ("áo mưa cánh dơi", que
+  cobre também a garupa e balança com o vento) e as rodas levantam respingos. Se chove na hora do rush, a rua alaga: a
+  água barrenta sobe em uns 10 minutos até a calçada, todo mundo anda devagar com a água pelos eixos deixando um rastro,
+  e de vez em quando uma moto morre e o motoqueiro desce para empurrá-la. Com a rua alagada ninguém vai ao trà đá nem
+  ao bánh mì: quem está à toa sai até a beira da calçada para ver a água, solta um comentário e põe a mão na cabeça. Depois
+  da chuva ou do rush, a água baixa em uns 20 minutos. No console: `habblaud.world.debug.floodNow(true)`.
+- **Mais vida na rua.** Algumas motos levam coisas no bagageiro: um galão de água de 20 L, caixas de isopor amarradas
+  com barbante vermelho, um vaso de planta. Com o tema de festa do Dia da Mulher ou do Valentine aparecem motos com
+  buquês de flores; com o tema do Tết, nos dias antes da virada passam motos com galhos de pessegueiro em flor, e nos
+  três primeiros dias a rua fica quase vazia (todo mundo foi para a terra natal). Do outro lado da rua, das 6h30 às 23h,
+  dois ou três mototaxistas de jaqueta e capacete verdes esperam sentados na moto, mexendo no celular.
 - **Sons da vida do escritório e do tempo lá fora.** Duas categorias novas em **Configurações › Sons**, sintetizadas
   no navegador como as outras: **Vida do escritório** (o corgi late quando ganha carinho, vai comemorar ou corre atrás
   do gato; o gato mia; o robô aspirador bipa ao sair e ao voltar para a base e zumbe enquanto limpa; porta e descarga

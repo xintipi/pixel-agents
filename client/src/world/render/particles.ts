@@ -1,5 +1,6 @@
 // Pixel art particles (world px): popcorn jumping from the bucket, celebration confetti, rain
-// from the little cloud when a shell fails, flying coins (bet paid) and sparkles (mirror).
+// from the little cloud when a shell fails, flying coins (bet paid), sparkles (mirror) and the spray the wheels throw
+// up on a wet street.
 // Fixed pool in typed arrays: nothing is allocated per frame.
 
 /** Particle kinds. */
@@ -9,6 +10,7 @@ const enum PK {
   Rain,
   Coin,
   Sparkle,
+  Splash,
 }
 
 /** Confetti colors (saturated, legible over the light floor and the carpet). */
@@ -20,11 +22,12 @@ const COIN_BODY = '#ffcf3a';
 const COIN_EDGE = '#c98a12';
 const COIN_SHINE = '#fff6c2';
 const SPARKLE_COLORS: readonly string[] = ['#ffffff', '#fff3a6', '#ffd1f0', '#bfe9ff'];
+const SPLASH_COLOR = '#d6e8f0';
 
 /** Gravity per kind (px/s²). */
-const GRAVITY: Readonly<Record<PK, number>> = { [PK.Popcorn]: 260, [PK.Confetti]: 150, [PK.Rain]: 0, [PK.Coin]: 240, [PK.Sparkle]: -14 };
+const GRAVITY: Readonly<Record<PK, number>> = { [PK.Popcorn]: 260, [PK.Confetti]: 150, [PK.Rain]: 0, [PK.Coin]: 240, [PK.Sparkle]: -14, [PK.Splash]: 240 };
 /** Horizontal drag per kind (fraction lost per second): confetti glides, popcorn doesn't. */
-const DRAG: Readonly<Record<PK, number>> = { [PK.Popcorn]: 0, [PK.Confetti]: 2.2, [PK.Rain]: 0, [PK.Coin]: 0, [PK.Sparkle]: 3 };
+const DRAG: Readonly<Record<PK, number>> = { [PK.Popcorn]: 0, [PK.Confetti]: 2.2, [PK.Rain]: 0, [PK.Coin]: 0, [PK.Sparkle]: 3, [PK.Splash]: 1.5 };
 
 export class Particles {
   readonly cap: number;
@@ -122,6 +125,14 @@ export class Particles {
     }
   }
 
+  /** A wheel throws up spray at (x, y) going `dir` (1 = east): a couple of drops arcing back and to the sides. */
+  splash(x: number, y: number, dir: number, strength = 1): void {
+    for (let i = 0; i < 2; i++) {
+      const vy = -(22 + Math.random() * 26) * strength;
+      this.spawn(PK.Splash, x + (Math.random() * 4 - 2), y, -dir * (10 + Math.random() * 22) + (Math.random() * 16 - 8), vy, (-2 * vy) / GRAVITY[PK.Splash]);
+    }
+  }
+
   update(dt: number): void {
     const d = Math.min(0.1, Math.max(0, dt));
     let i = 0;
@@ -186,6 +197,10 @@ export class Particles {
           ctx.fillRect(x - 1, y, 3, 1);
           ctx.fillRect(x, y - 1, 1, 3);
         } else ctx.fillRect(x, y, 1, 1);
+      } else if (k === PK.Splash) {
+        ctx.globalAlpha = 0.8 * Math.min(1, left * 2);
+        ctx.fillStyle = SPLASH_COLOR;
+        ctx.fillRect(x, y, 1, 1);
       } else {
         ctx.globalAlpha = 0.9;
         ctx.fillStyle = RAIN_COLOR;

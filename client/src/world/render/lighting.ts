@@ -38,7 +38,7 @@ export interface LightScene {
   readonly exterior: ExteriorLayout;
   readonly shells: readonly SlotShell[];
   readonly shellWindows: readonly WallVis[];
-  readonly cars: readonly { x: number; y: number; dir: 1 | -1 }[];
+  readonly cars: readonly { x: number; y: number; dir: 1 | -1; kind: 'car' | 'bike' }[];
   roomInSlot(slot: number): RoomState | undefined;
   deskScreen(f: FurnVis, area: AreaVis): ScreenMode;
 }
@@ -581,18 +581,25 @@ export class Lighting {
     return { x: f.ax, y: f.ay - 33 };
   }
 
-  /** Headlights (yellowish beam ahead) and red tail lights of the cars. */
+  /** Headlights (yellowish beam ahead) and red tail lights of the cars and motorbikes (smaller, higher up). */
   private drawHeadlights(ctx: CanvasRenderingContext2D, scene: LightScene, view: View, n: number): void {
     if (!scene.cars.length) return;
     const beam = glowSprite('#fff1c4', 64);
     const tail = glowSprite('#ff4a3a', 16);
     for (const car of scene.cars) {
       if (car.x < view.x0 - 80 || car.x > view.x1 + 80 || car.y < view.y0 - 30 || car.y > view.y1 + 30) continue;
-      const front = car.x + car.dir * 16;
+      if (car.kind === 'bike') {
+        ctx.globalAlpha = 0.45 * n;
+        ctx.drawImage(beam, Math.round(car.x + car.dir * 9 + (car.dir > 0 ? 0 : -28)), Math.round(car.y - 17), 28, 10);
+        ctx.globalAlpha = 0.7 * n;
+        ctx.drawImage(tail, Math.round(car.x - car.dir * 11 - 3), Math.round(car.y - 10), 6, 6);
+        continue;
+      }
+      const front = car.x + car.dir * 28;
       ctx.globalAlpha = 0.55 * n;
-      ctx.drawImage(beam, Math.round(front + (car.dir > 0 ? 0 : -46)), Math.round(car.y - 15), 46, 16);
+      ctx.drawImage(beam, Math.round(front + (car.dir > 0 ? 0 : -56)), Math.round(car.y - 20), 56, 18);
       ctx.globalAlpha = 0.8 * n;
-      ctx.drawImage(tail, Math.round(car.x - car.dir * 16 - 4), Math.round(car.y - 11), 8, 8);
+      ctx.drawImage(tail, Math.round(car.x - car.dir * 28 - 4), Math.round(car.y - 16), 8, 8);
     }
   }
 

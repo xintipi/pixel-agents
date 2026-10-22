@@ -634,53 +634,303 @@ const CAR_COLORS: [string, string, string][] = [
   ['#4a5468', '#323a4a', '#76819a'],
 ];
 
-/** Car seen from the side (3/4), facing right; `flip` draws it facing left. */
+/** Car seen from the side, facing right; `flip` draws it facing left. About twice a motorbike's length. */
 export function carSprite(variant: number, flip: boolean): PropSprite {
   const key = `car:${variant % CAR_COLORS.length}:${flip ? 1 : 0}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const [body, dark, light] = CAR_COLORS[variant % CAR_COLORS.length];
-  const [c, ctx] = makeCanvas(36, 20);
+  const W = 60;
+  const H = 32;
+  const [c, ctx] = makeCanvas(W, H);
   if (flip) {
-    ctx.translate(36, 0);
+    ctx.translate(W, 0);
     ctx.scale(-1, 1);
   }
-  shadowEllipse(ctx, 18, 17, 16, 2, 0.3);
   const o = '#2e3648';
-  // body
-  ctx.fillStyle = o;
-  ctx.fillRect(2, 8, 32, 8);
-  ctx.fillRect(8, 3, 18, 6);
-  ctx.fillStyle = body;
-  ctx.fillRect(3, 9, 30, 6);
-  ctx.fillRect(9, 4, 16, 5);
-  ctx.fillStyle = light;
-  ctx.fillRect(3, 9, 30, 1);
-  ctx.fillRect(9, 4, 16, 1);
-  ctx.fillStyle = dark;
-  ctx.fillRect(3, 13, 30, 2);
-  // windows
-  ctx.fillStyle = '#3a5f86';
-  ctx.fillRect(10, 5, 6, 3);
-  ctx.fillRect(18, 5, 6, 3);
-  ctx.fillStyle = '#9cc7ec';
-  ctx.fillRect(10, 5, 2, 1);
-  ctx.fillRect(18, 5, 2, 1);
-  // headlight and tail light
-  ctx.fillStyle = '#fff3c4';
-  ctx.fillRect(32, 10, 2, 2);
-  ctx.fillStyle = '#e04a3a';
-  ctx.fillRect(2, 10, 1, 2);
-  // wheels
-  for (const wx of [7, 25]) {
-    ctx.fillStyle = o;
-    ctx.fillRect(wx, 13, 5, 5);
-    ctx.fillStyle = '#6b7385';
-    ctx.fillRect(wx + 1, 14, 3, 3);
-    ctx.fillStyle = '#9aa3b5';
-    ctx.fillRect(wx + 2, 15, 1, 1);
+  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+  shadowEllipse(ctx, 30, 29, 28, 2, 0.3);
+  // cabin: a trapezoid, the windshield raked more than the rear window
+  const cabin = (y: number): [number, number] => [17 - Math.round((y - 5) * 0.7), 39 + Math.round((y - 5) * 1.1)];
+  for (let y = 5; y <= 14; y++) {
+    const [x0, x1] = cabin(y);
+    px(o, x0 - 1, y, x1 - x0 + 3);
   }
-  const s = { canvas: c, ax: 18, ay: 17 };
+  px(o, 17, 4, 23);
+  for (let y = 5; y <= 14; y++) {
+    const [x0, x1] = cabin(y);
+    px(y === 5 ? light : body, x0, y, x1 - x0 + 1);
+  }
+  // windows: rear and front, split by the B pillar, a reflection streak across each
+  for (let y = 7; y <= 13; y++) {
+    const [x0, x1] = cabin(y);
+    px('#3a5f86', x0 + 2, y, 28 - x0 - 2);
+    px('#3a5f86', 31, y, x1 - 2 - 31);
+  }
+  for (let i = 0; i < 5; i++) {
+    px('#9cc7ec', 18 + i, 12 - i);
+    px('#9cc7ec', 35 + i, 12 - i);
+  }
+  // lower body: long, rounded at the ends, lit along the shoulder line
+  px(o, 3, 14, 54, 11);
+  px(o, 2, 16, 56, 7);
+  px(body, 4, 15, 52, 9);
+  px(body, 3, 16, 54, 6);
+  px(light, 4, 15, 52, 1);
+  px(dark, 3, 21, 54, 3);
+  // doors, handles, side mirror
+  px(dark, 29, 15, 1, 7);
+  px(dark, 44, 15, 1, 6);
+  px(light, 24, 17, 3, 1);
+  px(light, 39, 17, 3, 1);
+  px(o, 44, 12, 3, 3);
+  px(body, 45, 13, 1, 1);
+  // bumpers, headlight and tail light
+  px('#9aa3b5', 54, 21, 4, 2);
+  px('#9aa3b5', 2, 21, 4, 2);
+  px('#fff3c4', 55, 16, 2, 2);
+  px('#e04a3a', 2, 16, 2, 3);
+  // wheels in their arches
+  for (const wx of [13, 46]) {
+    px(o, wx - 6, 19, 13, 2);
+    for (let y = -5; y <= 5; y++)
+      for (let x = -5; x <= 5; x++) {
+        const d = Math.hypot(x, y);
+        if (d > 5.3) continue;
+        px(d > 3.4 ? '#1f2430' : d > 1.4 ? '#6b7385' : '#b8bfcc', wx + x, 24 + y);
+      }
+    px('#9aa3b5', wx - 2, 21, 2, 1);
+  }
+  const s = { canvas: c, ax: 30, ay: 29 };
+  cache.set(key, s);
+  return s;
+}
+
+const BIKE_COLORS: [string, string, string][] = [
+  ['#c9302c', '#8f201d', '#e8665f'],
+  ['#2b2f3a', '#1b1e26', '#4a5060'],
+  ['#e8e4da', '#b9b4a8', '#ffffff'],
+  ['#3d7ce0', '#2a589f', '#7fb0f0'],
+  ['#8c3fd1', '#632b96', '#b57ce8'],
+  ['#d9a43a', '#a77b26', '#f2c870'],
+  ['#4c9a6a', '#356e4b', '#7cc496'],
+];
+
+/** Motorbike sprites: `back` goes under the riders, `front` on top of them (leg shield, floorboard, handlebar). */
+export interface BikeSprites {
+  back: PropSprite;
+  front: PropSprite;
+}
+
+/** Riders sit this far ahead of the bike's center (px, facing right): the rider and the passenger behind. */
+export const BIKE_SEATS = { rider: -1, passenger: -8 } as const;
+
+/** Scooter (facing right; 30 px long, the anchor where the wheels touch the ground), in one of the body colors. */
+export function motorbikeSprites(variant: number, flip: boolean): BikeSprites {
+  const key = `bike:${variant % BIKE_COLORS.length}:${flip ? 1 : 0}`;
+  const hit = cache.get(key);
+  if (hit) return { back: hit, front: cache.get(key + ':front')! };
+  const [body, dark, light] = BIKE_COLORS[variant % BIKE_COLORS.length];
+  const o = '#2e3648';
+  const W = 30;
+  const H = 24;
+  const layer = (): [HTMLCanvasElement, CanvasRenderingContext2D] => {
+    const [c, ctx] = makeCanvas(W, H);
+    if (flip) {
+      ctx.translate(W, 0);
+      ctx.scale(-1, 1);
+    }
+    return [c, ctx];
+  };
+  const px = (ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w = 1, h = 1) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+  const wheel = (ctx: CanvasRenderingContext2D, cx: number, cy: number) => {
+    for (let y = -4; y <= 4; y++)
+      for (let x = -4; x <= 4; x++) {
+        const d = Math.hypot(x, y);
+        if (d > 4.3) continue;
+        px(ctx, d > 2.6 ? '#1f2430' : d > 0.8 ? '#5d6476' : '#b8bfcc', cx + x, cy + y);
+      }
+    px(ctx, '#3a4050', cx - 3, cy - 3);
+  };
+
+  // ---- back: wheels, rear body, seat, exhaust
+  const [bc, b] = layer();
+  shadowEllipse(b, 15, 21, 13, 2, 0.3);
+  // rear body: a tall rounded cowl under the seat, sloping down to the tail, outlined and lit from the top
+  const rows: [number, number, number][] = [
+    [7, 5, 16],
+    [8, 3, 17],
+    [9, 2, 17],
+    [10, 2, 17],
+    [11, 2, 17],
+    [12, 3, 17],
+    [13, 4, 17],
+    [14, 5, 16],
+  ];
+  for (const [y, x0, x1] of rows) px(b, o, x0 - 1, y, x1 - x0 + 3);
+  px(b, o, 4, 15, 13);
+  for (const [y, x0, x1] of rows) px(b, y === 8 ? light : y >= 13 ? dark : body, x0, y, x1 - x0 + 1);
+  px(b, light, 5, 7, 4);
+  // side panel line and a stripe decal
+  px(b, dark, 6, 10, 10);
+  px(b, light, 7, 11, 6);
+  // tail light and rear rack
+  px(b, '#e04a3a', 1, 9, 2, 2);
+  px(b, o, 2, 6, 4, 1);
+  // seat: long, padded, dark, a highlight along the top
+  px(b, o, 4, 4, 14, 4);
+  px(b, '#2a2e38', 5, 5, 12, 2);
+  px(b, '#4a5060', 6, 5, 9, 1);
+  // exhaust peeking out behind the rear wheel, then the wheels
+  px(b, o, 1, 15, 7, 3);
+  px(b, '#9aa3b5', 2, 16, 5, 1);
+  wheel(b, 7, 18);
+  wheel(b, 23, 18);
+
+  // ---- front: floorboard, leg shield up to the handlebar, front fender, lights, mirror
+  const [fc, f] = layer();
+  px(f, o, 12, 15, 9, 3);
+  px(f, '#4a5060', 13, 16, 7, 1);
+  // leg shield: a column leaning back from the front wheel up to the handlebar
+  for (let y = 4; y <= 16; y++) {
+    const x = 18 + Math.round((y - 4) / 4);
+    px(f, o, x - 1, y, 5);
+    px(f, y < 7 ? light : y > 13 ? dark : body, x, y, 3);
+  }
+  // front fender hugging the wheel
+  px(f, o, 20, 12, 8, 3);
+  px(f, body, 21, 13, 6, 1);
+  px(f, light, 21, 12, 5, 1);
+  // headlight and turn signal on the shield
+  px(f, o, 20, 5, 4, 3);
+  px(f, '#fff3c4', 21, 6, 2, 1);
+  px(f, '#f2a33a', 22, 9, 1, 1);
+  // handlebar with its grip, and the mirror on its stalk
+  px(f, o, 14, 2, 8, 2);
+  px(f, '#1b1e26', 14, 2, 2, 2);
+  px(f, o, 19, 0, 1, 2);
+  px(f, '#9aa3b5', 18, 0, 3, 1);
+
+  const back = { canvas: bc, ax: 15, ay: 21 };
+  const front = { canvas: fc, ax: 15, ay: 21 };
+  cache.set(key, back);
+  cache.set(key + ':front', front);
+  return { back, front };
+}
+
+/** Where the rear rack is, from the bike's anchor (px, facing right): cargo sits on it, behind the rider. */
+export const BIKE_RACK = { dx: -11, dy: -15 } as const;
+
+/** Something tied to a bike's rear rack (facing right); the anchor is the bottom center, on the rack. */
+export function cargoSprite(kind: 'water' | 'foam' | 'plant' | 'flowers' | 'peach', flip: boolean, seed = 0): PropSprite {
+  const key = `cargo:${kind}:${flip ? 1 : 0}:${seed % 4}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const W = 24;
+  const H = 30;
+  const [c, ctx] = makeCanvas(W, H);
+  if (flip) {
+    ctx.translate(W, 0);
+    ctx.scale(-1, 1);
+  }
+  const o = '#2e3648';
+  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+  const cx = 12;
+  const by = H - 1;
+  if (kind === 'water') {
+    // a 20 L water jug standing on the rack: translucent blue, white cap
+    px(o, cx - 4, by - 10, 9, 10);
+    px('#5aa9e6', cx - 3, by - 9, 7, 8);
+    px('#9fd0f5', cx - 2, by - 8, 1, 6);
+    px('#3f86c4', cx + 2, by - 8, 1, 7);
+    px(o, cx - 2, by - 13, 5, 3);
+    px('#f4f4f0', cx - 1, by - 12, 3, 2);
+  } else if (kind === 'foam') {
+    // two foam boxes stacked and tied with red string
+    for (const [y, w] of [
+      [by - 6, 12],
+      [by - 12, 11],
+    ] as const) {
+      px(o, cx - Math.ceil(w / 2), y, w + 1, 7);
+      px('#f4f4f0', cx - Math.ceil(w / 2) + 1, y + 1, w - 1, 5);
+      px('#d4d4cc', cx - Math.ceil(w / 2) + 1, y + 4, w - 1, 2);
+    }
+    px('#d9342b', cx - 1, by - 12, 1, 12);
+    px('#d9342b', cx - 6, by - 9, 12, 1);
+  } else if (kind === 'plant') {
+    // a potted plant: terracotta pot and a big round leafy top, lit from the top left
+    const leaf = mulberry32(0x9e1 + seed);
+    for (let y = -8; y <= 7; y++)
+      for (let x = -8; x <= 8; x++) {
+        const d = Math.hypot(x, y * 1.15);
+        if (d > 8.4 - leaf() * 1.2) continue;
+        const lit = x + y < -5 ? '#8fd08a' : x + y > 5 ? '#357a45' : '#4fa25c';
+        px(d > 7.4 ? '#2a5c34' : leaf() < 0.18 ? '#2f6b3c' : lit, cx + x, by - 13 + y);
+      }
+    px(o, cx - 4, by - 6, 9, 6);
+    px('#c8693a', cx - 3, by - 5, 7, 4);
+    px('#e08a5a', cx - 3, by - 5, 7, 1);
+  } else if (kind === 'flowers') {
+    // a big bouquet in a kraft paper cone, leaning back: red roses, pink and white blooms, leaves
+    for (let y = 0; y < 10; y++) {
+      const w = 2 + Math.floor(y / 2);
+      px(o, cx - w - 1, by - y, w * 2 + 3, 1);
+      px(y % 3 ? '#e9cfa6' : '#d6b88a', cx - w, by - y, w * 2 + 1, 1);
+    }
+    px('#d9342b', cx - 4, by - 4, 9, 1);
+    const blooms = ['#e8454a', '#f08ab8', '#ffffff', '#c92d3a', '#f2c94c', '#f08ab8'];
+    const spots: [number, number][] = [
+      [-6, -13], [-3, -16], [1, -18], [4, -15], [6, -12], [-4, -11], [0, -13], [3, -11], [-1, -20], [5, -18], [-6, -17],
+    ];
+    for (const [x, y] of [[-7, -11], [7, -10], [-2, -21], [6, -19]] as const) px('#4c9a5a', cx + x, by + y, 2, 2);
+    spots.forEach(([x, y], i) => {
+      px(o, cx + x - 1, by + y - 1, 4, 4);
+      px(blooms[(i + seed) % blooms.length], cx + x, by + y, 2, 2);
+      px('#ffffff', cx + x, by + y, 1, 1);
+    });
+  } else {
+    // a peach branch for Tết: dark twigs fanning up and back, covered in pink blossoms
+    const rng = mulberry32(0xda0 + seed);
+    const twig = '#5a3a2a';
+    const wood: [number, number][] = [];
+    const branch = (x: number, y: number, dx: number, n: number) => {
+      for (let i = 0; i < n && y > 1; i++) {
+        const rx = Math.round(x);
+        if (rx >= 0 && rx < W) {
+          px(i < 4 ? '#4a2e22' : twig, rx, y, i < 3 ? 2 : 1, 1);
+          if (i > 3) wood.push([rx, y]);
+        }
+        x += dx + (rng() - 0.5) * 0.7;
+        y -= 1;
+        if (rng() < 0.2 && n - i > 5) branch(x, y, dx + (rng() < 0.5 ? -0.7 : 0.7), Math.floor((n - i) * 0.65));
+      }
+    };
+    // tied to the rack: a thick stump, branches fanning up and back
+    px('#d9342b', cx - 2, by - 2, 5, 1);
+    branch(cx, by - 1, -0.3, 27);
+    branch(cx, by - 1, 0.25, 22);
+    branch(cx - 1, by - 1, -0.75, 18);
+    // blossoms hugging the twigs: pink five-petal dots, some still buds
+    for (let i = 0; i < 90 && wood.length; i++) {
+      const [wx, wy] = wood[Math.floor(rng() * wood.length)];
+      const x = wx + Math.round((rng() - 0.5) * 4);
+      const y = wy + Math.round((rng() - 0.5) * 3);
+      if (y > by - 5 || y < 0 || x < 0 || x >= W - 1) continue;
+      const r = rng();
+      px(r < 0.15 ? '#c2185b' : r < 0.5 ? '#f08ab8' : '#f9b9d2', x, y, 2, 2);
+      if (r > 0.4) px('#fff0f5', x, y, 1, 1);
+    }
+  }
+  const s = { canvas: c, ax: cx, ay: by };
   cache.set(key, s);
   return s;
 }

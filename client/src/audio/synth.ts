@@ -172,6 +172,29 @@ export function playVoice(ac: AudioContext, dest: AudioNode, kind: SoundKind, t:
         tone(ac, out, 'sine', f, t + i * (0.09 + o.rng() * 0.06), 0.05 * g, 0.004, 0.06, f * 1.35);
       }
       return;
+    case 'horn_bike': {
+      // scooter horn: two quick buzzy "tin tin" beeps, a pair of detuned notes through a low-pass
+      const lp = ac.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 1800;
+      lp.connect(out);
+      const n = o.rng() < 0.3 ? 3 : 2;
+      for (let i = 0; i < n; i++) {
+        tone(ac, lp, 'square', 415, t + i * 0.15, 0.035 * g, 0.004, 0.09);
+        tone(ac, lp, 'square', 498, t + i * 0.15, 0.03 * g, 0.004, 0.09);
+      }
+      return;
+    }
+    case 'horn_car': {
+      // car horn: a longer two-tone blare
+      const lp = ac.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 1400;
+      lp.connect(out);
+      tone(ac, lp, 'sawtooth', 349, t, 0.04 * g, 0.01, 0.38);
+      tone(ac, lp, 'sawtooth', 440, t, 0.035 * g, 0.01, 0.38);
+      return;
+    }
     case 'robot_hum':
     case 'rain':
     case 'wind':

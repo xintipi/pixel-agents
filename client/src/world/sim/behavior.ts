@@ -65,7 +65,7 @@ export function screenModeFor(kind: ActivityKind | undefined): ScreenMode {
   }
 }
 
-export type IdleActivity = 'coffee' | 'water' | 'bathroom' | 'lounge' | 'pingpong' | 'talk' | 'window' | 'shelf' | 'stretch' | 'arcade' | 'snack' | 'mirror' | 'phone' | 'tea' | 'banhmi';
+export type IdleActivity = 'coffee' | 'water' | 'bathroom' | 'lounge' | 'pingpong' | 'talk' | 'window' | 'shelf' | 'stretch' | 'arcade' | 'snack' | 'mirror' | 'phone' | 'tea' | 'banhmi' | 'flood';
 
 export const IDLE_WEIGHTS: Readonly<Record<IdleActivity, number>> = {
   coffee: 18,
@@ -83,6 +83,7 @@ export const IDLE_WEIGHTS: Readonly<Record<IdleActivity, number>> = {
   phone: 6,
   tea: 9,
   banhmi: 10,
+  flood: 9,
 };
 
 /** Weighted draw among the available activities (`avail[k] === false` excludes). */
