@@ -276,6 +276,29 @@ describe('simulação do escritório', () => {
     expect(sim.repairUp).toBe(false);
   });
 
+  it('ve chai: passa de manhã e à tarde, compra as garrafas da moça do chá e segue', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.hourOverride = 9.4;
+    sim.applySnapshot(snap([room('/a', 0)], [agent('ana', '/a', 'working')]), clock.now);
+    run(sim, clock, 3);
+    expect(sim.scrapBike()).toBeNull();
+    sim.hourOverride = 9.6;
+    run(sim, clock, 2);
+    const bike = sim.scrapBike();
+    expect(bike).not.toBeNull();
+    run(sim, clock, 5);
+    expect(sim.scrapBike()!.x).toBeGreaterThan(bike!.x);
+    run(sim, clock, 300, () => !sim.scrapBike());
+    expect(sim.scrapBike()).toBeNull();
+    // once per window: not again this morning, but again in the afternoon
+    run(sim, clock, 5);
+    expect(sim.scrapBike()).toBeNull();
+    sim.hourOverride = 14.6;
+    run(sim, clock, 2);
+    expect(sim.scrapBike()).not.toBeNull();
+  });
+
   it('xe rác: às 19h passa uma vez, tocando o sino, e o carrinho vai junto', () => {
     const sim = newSim();
     const clock = { now: T0 };

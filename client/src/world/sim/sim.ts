@@ -43,6 +43,7 @@ import type { Step } from './steps';
 import { PARKING, floodLine } from './traffic';
 import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen } from './repair';
 import { trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './trash';
+import { SCRAP_CALL_MS, scrapBikeAt, scrapCall, scrapPay, scrapRoute, scrapSell, scrapWindow } from './vechai';
 import { DRAW_H, ROUND_GAP_MIN, buyerLine, buyerSpot, loseLine, lotteryOpen, roundLegs, sellerCall, sellerThanks, winLine, wins } from './lottery';
 import {
   LANE_Y,
@@ -117,6 +118,7 @@ const BANHMI_VENDOR_ID = 'npc:banh-mi';
 const LOTTERY_SELLER_ID = 'npc:ve-so';
 const MECHANIC_ID = 'npc:sua-xe';
 const TRASH_ID = 'npc:rac';
+const SCRAP_ID = 'npc:ve-chai';
 /** The garbage cart's bell rings every this many ms while she's out. */
 const TRASH_BELL_MS = 2_600;
 /** At most this many from the office come down to buy when she calls at the path. */
@@ -237,6 +239,9 @@ export class Sim {
   private repairForcedUntil = 0;
   private trashDoneOn = '';
   private nextTrashBellAt = 0;
+  /** Scrap buyer (sim/vechai.ts): the last window she came in (day + index), the next loudspeaker call. */
+  private scrapDone = '';
+  private nextScrapCallAt = 0;
   /** Thần Tài altar (sim/altar.ts): incense lit until; last prayer for a waiting agent; day of the morning incense. */
   altarLitUntil = 0;
   private altarPrayedAt = 0;
@@ -1144,6 +1149,7 @@ export class Sim {
       this.updateLottery(now);
       this.updateRepair(now);
       this.updateTrash(now);
+      this.updateScrap(now);
     }
   }
 
@@ -2950,6 +2956,77 @@ export class Sim {
   trashNow(): boolean {
     if (this.visit || this.extras.some((e) => e.id === TRASH_ID)) return false;
     return !!this.spawnTrash(this.now);
+  }
+
+  /** The scrap buyer comes by once in each window (mid-morning, mid-afternoon), the loudspeaker calling all along. */
+  private updateScrap(now: number): void {
+    const buyer = this.extras.find((e) => e.id === SCRAP_ID);
+    if (buyer && !buyer.gone && now >= this.nextScrapCallAt) {
+      this.nextScrapCallAt = now + SCRAP_CALL_MS;
+      this.social.say(buyer, scrapCall(buyer.rng), now);
+    }
+    const w = scrapWindow(this.hourOf(now));
+    const key = `${dayKey(now)}#${w}`;
+    if (buyer || this.visit || w < 0 || this.scrapDone === key) return;
+    this.scrapDone = key;
+    this.spawnScrap(now);
+  }
+
+  /** Walks her loaded bike along the curb, stops at the tea stall to buy the empty bottles, walks on east. */
+  private spawnScrap(now: number): Character | null {
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(5513, { look: 'f', sub: false });
+      appearance = { ...base, top: '#8a6a9c', topAccent: '#c9a8d8', bottom: '#4a4038', lanyard: null };
+    } catch {
+      return null;
+    }
+    const ch = new Character(this.npcInfo(SCRAP_ID, tr('Scrap buyer'), 'f', 5513, now), appearance);
+    ch.costume = 'nonla';
+    const route = scrapRoute(TEA_SELLER_FROM_X, (this.building.cols * COL_W + 19) * TILE);
+    ch.x = route.in[0];
+    ch.y = route.in[1];
+    ch.dir = 'right';
+    const rng = ch.rng;
+    ch.queue.push(
+      { t: 'route', pts: route.in },
+      {
+        t: 'do',
+        fn: () => {
+          const seller = this.extras.find((e) => e.id === TEA_SELLER_ID);
+          if (!seller || !this.teaUp) return;
+          this.social.say(seller, scrapSell(rng), this.now);
+          ch.queue.unshift(
+            { t: 'act', pose: 'stand', dir: 'right', ms: 3_500 },
+            {
+              t: 'do',
+              fn: () => {
+                this.social.say(ch, scrapPay(rng), this.now);
+                seller.setIcon('coin', 3_000, this.now);
+              },
+            },
+            { t: 'act', pose: 'stand', dir: 'right', ms: 3_500 },
+          );
+        },
+      },
+      { t: 'route', pts: route.out },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+    this.nextScrapCallAt = now;
+    return ch;
+  }
+
+  /** Where the scrap buyer's bike is drawn (bottom center, px): beside her while she's out, null otherwise. */
+  scrapBike(): { x: number; y: number } | null {
+    const buyer = this.extras.find((e) => e.id === SCRAP_ID && !e.gone);
+    return buyer ? scrapBikeAt(buyer) : null;
+  }
+
+  /** Debug: the scrap buyer comes by now (if she isn't already out). Returns whether she came. */
+  scrapNow(): boolean {
+    if (this.visit || this.extras.some((e) => e.id === SCRAP_ID)) return false;
+    return !!this.spawnScrap(this.now);
   }
 
   /** A street character's info (not an agent: no session, never in the panels). */

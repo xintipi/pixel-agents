@@ -18,6 +18,10 @@ do meio (0.**3**.0).
   motoqueiro desce e empurra até a banca, espera ao lado enquanto o mecânico levanta para consertar e depois segue
   viagem. No console:
   `habblaud.world.debug.repairNow()`.
+- **Ve chai (compradora de recicláveis).** Duas vezes por dia (por volta das 9h30 e das 14h30) uma senhora de chapéu
+  cônico passa pela beira da calçada empurrando a bicicleta carregada de sacos, papelão e garrafas, o alto-falante no
+  guidão chamando "ai ve chai…"; para na barraquinha de trà đá, compra o saco de garrafas vazias da vendedora e segue.
+  No console: `habblaud.world.debug.scrapNow()`.
 - **Carrinho do lixo à noite.** Por volta das 19h, uma vez por dia, a gari de colete laranja e chapéu cônico passa
   empurrando o carrinho verde pela beira da calçada tocando o sino ("keng keng", em **Configurações › Sons › Vida do
   escritório**); para na barraquinha de trà đá, a vendedora traz o saco de lixo, e ela segue. No console:

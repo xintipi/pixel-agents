@@ -87,6 +87,8 @@ export interface WorldDebug {
   repairNow(): void;
   /** The evening garbage cart comes by now (if it isn't already out). Returns whether it came. */
   trashNow(): boolean;
+  /** The scrap buyer (ve chai) comes by now. */
+  scrapNow(): boolean;
   /** The lottery seller starts a round now (if she isn't already out). Returns whether she came. */
   lotteryNow(): boolean;
   /** Reads the lottery draw now (normally 16:15): ticket holders check theirs. Returns who had one and who won. */
@@ -413,6 +415,7 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     },
 
     trashNow: () => sim.trashNow(),
+    scrapNow: () => sim.scrapNow(),
 
     lotteryDraw: () => sim.lotteryDraw(sim.now),
 
