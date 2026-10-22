@@ -41,6 +41,7 @@ import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, s
 import { SpotRegistry } from './spots';
 import type { Step } from './steps';
 import { PARKING, floodLine } from './traffic';
+import { DRAW_H, ROUND_GAP_MIN, buyerLine, buyerSpot, loseLine, lotteryOpen, roundLegs, sellerCall, sellerThanks, winLine, wins } from './lottery';
 import {
   LANE_Y,
   TEA_DOOR,
@@ -111,6 +112,9 @@ const TEA_SELLER_ID = 'npc:tra-da';
 const TEA_SELLER_FROM_X = -19 * TILE;
 /** Id of the bánh mì vendor (extra). He pushes the cart in from the west and off to the east. */
 const BANHMI_VENDOR_ID = 'npc:banh-mi';
+const LOTTERY_SELLER_ID = 'npc:ve-so';
+/** At most this many from the office come down to buy when she calls at the path. */
+const LOTTERY_MAX_BUYERS = 2;
 /** Once awake, doesn't nap for this long. */
 const AWAKE_MS = 5 * 60_000;
 const DISCO_FADE_MS = 700;
@@ -214,6 +218,12 @@ export class Sim {
   readonly bikeTrips: { t: 'arrive' | 'depart'; id: string; slot: number; appearance: Appearance }[] = [];
   /** Riders whose bike has just parked (the renderer fills it): they get off and walk in. */
   readonly bikeParked = new Set<string>();
+  /** Who holds a lottery ticket for the next draw. */
+  readonly lotteryHolders = new Set<string>();
+  /** Coming down the path to buy one right now (she waits for them). */
+  private readonly lotteryBuyers = new Set<string>();
+  private lotteryDrawnOn = '';
+  private nextLotteryAt = 0;
   /** Thần Tài altar (sim/altar.ts): incense lit until; last prayer for a waiting agent; day of the morning incense. */
   altarLitUntil = 0;
   private altarPrayedAt = 0;
@@ -1118,6 +1128,7 @@ export class Sim {
       this.updateTea(now);
       this.updateAltar(now);
       this.updateBanhMi(now);
+      this.updateLottery(now);
     }
   }
 
@@ -2637,6 +2648,155 @@ export class Sim {
     return ch;
   }
 
+  /**
+   * The lottery seller's day: a round every 25–45 minutes while she's out (not on a flooded street), and the afternoon
+   * draw read once a day at 16:15 for whoever holds a ticket. Once a second.
+   */
+  private updateLottery(now: number): void {
+    const hour = this.hourOf(now);
+    const today = dayKey(now);
+    if (hour >= DRAW_H && this.lotteryDrawnOn !== today) {
+      this.lotteryDrawnOn = today;
+      this.lotteryDraw(now);
+    }
+    if (this.visit || this.flooded || !lotteryOpen(hour) || now < this.nextLotteryAt) return;
+    if (this.extras.some((e) => e.id === LOTTERY_SELLER_ID)) return;
+    if (this.spawnLotterySeller(now)) this.nextLotteryAt = now + between(Math.random, ROUND_GAP_MIN[0], ROUND_GAP_MIN[1]) * 60_000;
+  }
+
+  /** The draw: each ticket holder still around checks it; the winners celebrate (confetti), the rest slump. */
+  lotteryDraw(now: number): { buyers: string[]; winners: string[] } {
+    const buyers: string[] = [];
+    const winners: string[] = [];
+    for (const id of this.lotteryHolders) {
+      const ch = this.chars.get(id);
+      if (!ch || ch.leaving) continue;
+      const won = wins(ch.rng);
+      buyers.push(ch.info.name);
+      if (won) winners.push(ch.info.name);
+      // the same celebration (or slump) as a background shell finishing, with the ticket's line
+      this.reactShellDone(ch, won, now);
+      if (won) ch.setIcon('coin', 3_000, now);
+      this.social.say(ch, won ? winLine(ch.rng) : loseLine(ch.rng), now);
+    }
+    this.lotteryHolders.clear();
+    return { buyers, winners };
+  }
+
+  /**
+   * The seller: blouse, bucket hat and her stack of tickets. In from the west end, stops at the foot of the stone path
+   * calling out (and waits for whoever comes down to buy), then at the tea stall, and walks on east.
+   */
+  private spawnLotterySeller(now: number): Character | null {
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(6113, { look: 'f', sub: false });
+      appearance = { ...base, top: '#c25b7a', topAccent: '#f2c3d1', topStyle: 'blouse' as const, bottom: '#3a3f4f', accessory: 'cap' as const, accessoryColor: '#d8c9a0', lanyard: null };
+    } catch {
+      return null;
+    }
+    const info: AgentInfo = {
+      id: LOTTERY_SELLER_ID,
+      kind: 'main',
+      provider: 'claude',
+      roomId: RECEPTION_ID,
+      name: tr('Lottery seller'),
+      look: 'f',
+      role: tr('Lottery seller'),
+      sessionId: LOTTERY_SELLER_ID,
+      account: '',
+      status: 'working',
+      recent: [],
+      tasks: [],
+      startedAt: now,
+      lastEventAt: now,
+      statusSince: now,
+      stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
+      seed: 6113,
+    };
+    const ch = new Character(info, appearance);
+    const rng = ch.rng;
+    const legs = roundLegs(TEA_SELLER_FROM_X, (this.building.cols * COL_W + 19) * TILE);
+    ch.x = legs.toPath[0];
+    ch.y = legs.toPath[1];
+    ch.dir = 'right';
+    ch.queue.push(
+      { t: 'route', pts: legs.toPath, held: 'papers' },
+      {
+        t: 'do',
+        fn: () => {
+          this.social.say(ch, sellerCall(rng), this.now);
+          this.callLotteryBuyers();
+        },
+      },
+      { t: 'until', cond: () => this.lotteryBuyers.size === 0, minMs: 6_000, maxMs: 40_000, pose: 'stand', held: 'papers', dir: 'left' },
+      { t: 'do', fn: () => this.lotteryBuyers.clear() },
+      { t: 'route', pts: legs.toTea, held: 'papers' },
+      { t: 'do', fn: () => this.sellAtTea(ch) },
+      { t: 'act', pose: 'stand', held: 'papers', dir: 'up', ms: 6_000 },
+      { t: 'route', pts: legs.out, held: 'papers' },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+    return ch;
+  }
+
+  /** She's calling at the path: a couple of the idle ones may come down to buy a ticket. */
+  private callLotteryBuyers(): void {
+    for (const c of this.chars.values()) {
+      if (this.lotteryBuyers.size >= LOTTERY_MAX_BUYERS) break;
+      if (c.leaving || c.mode !== 'idle' || c.outdoors || c.gathering || c.inside || c.step || c.queue.length || this.lotteryHolders.has(c.id)) continue;
+      if (c.rng() < 0.35) this.planLotteryBuy(c, this.lotteryBuyers.size);
+    }
+  }
+
+  /** Down the stone path to her, a ticket bought (out loud), and back up to the desk with it. */
+  private planLotteryBuy(ch: Character, i: number): void {
+    const rng = ch.rng;
+    const spot = buyerSpot(i);
+    const seller = () => this.extras.find((e) => e.id === LOTTERY_SELLER_ID);
+    this.lotteryBuyers.add(ch.id);
+    const steps: Step[] = [];
+    this.pushLeave(ch, steps);
+    steps.push(
+      { t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty },
+      { t: 'route', pts: routeToSeat(spot), trail: 'out' },
+      { t: 'do', fn: () => this.social.say(ch, buyerLine(rng), this.now) },
+      { t: 'act', pose: 'stand', dir: 'right', ms: between(rng, 2_200, 3_200) },
+      {
+        t: 'do',
+        fn: () => {
+          const s = seller();
+          if (s) this.social.say(s, sellerThanks(rng), this.now);
+          this.lotteryHolders.add(ch.id);
+          this.lotteryBuyers.delete(ch.id);
+        },
+      },
+      { t: 'act', pose: 'read', held: 'papers', dir: 'right', ms: between(rng, 1_500, 2_500) },
+      { t: 'do', fn: () => ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), held: 'papers', trail: 'back' }) },
+    );
+    ch.queue.push(...steps);
+    this.pushHome(ch, 'none');
+  }
+
+  /** At the tea stall: some of the customers on the stools buy one without getting up. */
+  private sellAtTea(seller: Character): void {
+    this.social.say(seller, sellerCall(seller.rng), this.now);
+    if (!this.teaUp) return;
+    for (const id of this.tea.taken) {
+      const c = id ? this.chars.get(id) : undefined;
+      if (!c || this.lotteryHolders.has(c.id) || c.rng() >= 0.5) continue;
+      this.lotteryHolders.add(c.id);
+      this.social.say(c, buyerLine(c.rng), this.now);
+    }
+  }
+
+  /** Debug: the lottery seller starts a round now (if she isn't already out). Returns whether she came. */
+  lotteryNow(): boolean {
+    if (this.visit || this.extras.some((e) => e.id === LOTTERY_SELLER_ID)) return false;
+    return !!this.spawnLotterySeller(this.now);
+  }
+
   /** Goes back to the desk at the end of a stroll. */
   pushHome(ch: Character, held: 'none' | 'coffee' | 'water'): void {
     const home = this.spots.get(ch.homeSpot);
@@ -2898,6 +3058,7 @@ export class Sim {
     // so does the bánh mì cart (pushed in again, if it's still breakfast time)
     this.banhmiUp = false;
     this.banhmi.clear();
+    this.lotteryBuyers.clear();
     for (const room of this.rooms.values()) {
       if (room.phase === 'building') room.setPhase('ready', now - 10_000);
       if (room.phase === 'dismantling') room.setPhase('gone', now);

@@ -12,6 +12,12 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Vendedora de bilhete de loteria (vé số dạo).** Das 8h às 17h30, a cada meia hora mais ou menos, uma senhora de
+  chapéu de pano e blusa rosa passa pela calçada com o maço de bilhetes: para ao pé do caminho de pedra chamando
+  ("Vé số đây!") e quem está à toa às vezes desce para comprar um; depois para na barraquinha de trà đá, onde os
+  clientes compram sem levantar do banquinho. Às 16h15 sai o resultado: quem comprou confere o bilhete, os sortudos
+  comemoram com confete e moedas, o resto fica com a nuvenzinha de chuva. No console:
+  `habblaud.world.debug.lotteryNow()` e `habblaud.world.debug.lotteryDraw()`.
 - **Chegando de moto.** Metade dos agentes principais que começam uma sessão vem de moto: chega pela rua (de
   capacete), sobe na calçada a oeste do caminho de pedra, estaciona, desce e entra a pé pelo caminho. A moto fica ali
   estacionada enquanto ele trabalha; quando a sessão termina, ele volta até ela e vai embora pela rua. Quem chega de

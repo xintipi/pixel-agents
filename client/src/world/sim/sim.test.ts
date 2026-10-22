@@ -233,6 +233,27 @@ describe('simulação do escritório', () => {
     expect(sim.parkedBikes.has(rider.info.id)).toBe(false);
   });
 
+  it('vé số: a vendedora passa, um ocioso desce para comprar e às 16h15 confere o bilhete', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    const rooms = [room('/a', 0), room('/b', 1)];
+    const ids = ['ana', 'bia', 'caio', 'davi', 'edu', 'fê'];
+    sim.hourOverride = 10;
+    sim.applySnapshot(snap(rooms, ids.map((id, i) => agent(id, rooms[i % 2].id, 'idle', { seed: 2000 + i * 7919 }))), clock.now);
+    run(sim, clock, 1);
+    // she's out from 8:00: the first round starts right away
+    expect(sim.extras.some((e) => e.id === 'npc:ve-so')).toBe(true);
+    run(sim, clock, 120, () => sim.lotteryHolders.size > 0);
+    expect(sim.lotteryHolders.size).toBeGreaterThan(0);
+    const holder = sim.chars.get([...sim.lotteryHolders][0])!;
+    // the draw at 16:15: tickets checked once, the holder reacts
+    sim.hourOverride = 16.5;
+    run(sim, clock, 2);
+    expect(sim.lotteryHolders.size).toBe(0);
+    expect(holder.icon === 'coin' || holder.icon === 'storm').toBe(true);
+    expect(sim.lotteryDraw(clock.now).buyers).toEqual([]);
+  });
+
   it('subagente entrega o resultado ao pai e vai embora', () => {
     const sim = newSim();
     const clock = { now: T0 };

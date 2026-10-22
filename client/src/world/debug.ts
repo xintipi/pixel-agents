@@ -83,6 +83,10 @@ export interface WorldDebug {
   altarNow(): boolean;
   /** Sends whoever is idle at the desk to the bánh mì cart now (mornings, while it's parked). Returns how many went. */
   banhmiNow(): number;
+  /** The lottery seller starts a round now (if she isn't already out). Returns whether she came. */
+  lotteryNow(): boolean;
+  /** Reads the lottery draw now (normally 16:15): ticket holders check theirs. Returns who had one and who won. */
+  lotteryDraw(): { buyers: string[]; winners: string[] };
   /**
    * Starts a round now with whoever is idle/waiting on shell (or with `ids`): all go back to the table
    * right away and leave together. Returns the participants' names or null.
@@ -396,6 +400,10 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     altarNow: () => sim.altarNow(),
 
     banhmiNow: () => sim.banhmiNow(),
+
+    lotteryNow: () => sim.lotteryNow(),
+
+    lotteryDraw: () => sim.lotteryDraw(sim.now),
 
     socialize: (kind, ids) => {
       sim.fastForward(now());
