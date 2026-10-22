@@ -12,6 +12,10 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Chegando de moto.** Metade dos agentes principais que começam uma sessão vem de moto: chega pela rua (de
+  capacete), sobe na calçada a oeste do caminho de pedra, estaciona, desce e entra a pé pelo caminho. A moto fica ali
+  estacionada enquanto ele trabalha; quando a sessão termina, ele volta até ela e vai embora pela rua. Quem chega de
+  elevador continua indo embora de elevador.
 - **Hora do rush na rua.** Das 7h às 8h30 e das 17h às 18h45 (mais leve no fim de semana) a rua em frente ao prédio
   enche de motos: scooters coloridas com gente do escritório de capacete, às vezes com garupa, andando em bando, freando
   do nada e parando em engarrafamentos que andam e param. As motos se espremem ao lado dos carros, buzinam quando ficam

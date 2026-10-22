@@ -31,5 +31,7 @@ export type Step =
   | { t: 'gather'; g: Gathering }
   /** Immediate side effect. */
   | { t: 'do'; fn: () => void }
+  /** Riding in on a motorbike (hidden): done when the street says the bike parked, or after a while anyway. */
+  | { t: 'bike' }
   /** Removes the character from the world. */
   | { t: 'remove' };

@@ -4,8 +4,11 @@
 // rises over ~10 minutes, everyone crawls through it, some bikes stall and get pushed, and it drains over ~20 minutes
 // once the rain or the rush is over. Some bikes carry things on the rack (a water jug, foam boxes, a potted plant;
 // flowers on the flower holidays, peach branches before Tết), and on the first days of Tết the street is empty.
+// Agents who come to work by motorbike ride in from the west, park on the near sidewalk (west of the stone path) and
+// ride off again when their session ends: their bikes are owned vehicles (`owner`) the sim asks for.
 // Pure (no DOM): the renderer steps and draws it, the sound cues drain the horns.
 import { tr } from '../../../../shared/i18n';
+import { TILE } from '../constants';
 
 export type VehicleKind = 'car' | 'bike';
 /** What a bike carries on its rear rack. */
@@ -42,7 +45,18 @@ export interface Vehicle {
   cargo?: Cargo;
   /** A xe ôm driver waiting on the far sidewalk (the renderer's, not in the traffic). */
   parked?: boolean;
+  /** An agent's own bike (character id): riding in to park, parked while they work, riding off. */
+  owner?: string;
+  phase?: 'arrive' | 'parked' | 'leave';
+  /** Where an owned bike parks (bottom center, px). */
+  park?: { x: number; y: number };
 }
+
+/**
+ * Parking spots for the agents' bikes: on the near sidewalk, west of the stone path, clear of the lamp posts (the tea
+ * stall and the bánh mì cart are east of the path). Bottom center (px), wheels just above the curb.
+ */
+export const PARKING: readonly { x: number; y: number }[] = [-56, -132, -166, -200, -234].map((x) => ({ x, y: 32 * TILE + 14 }));
 
 export interface Horn {
   kind: VehicleKind;
@@ -117,6 +131,26 @@ export class Traffic {
   floodForced: boolean | null = null;
   private nextSpawn = new Map<number, number>();
   private day: StreetDay = {};
+  /** Owners whose bike just parked (the renderer passes them on to the sim). */
+  readonly parked: string[] = [];
+
+  /** An agent rides in from the west on the eastbound lane to park at `park`. */
+  arrive(owner: string, park: { x: number; y: number }, env: TrafficEnv): void {
+    const lane = env.lanes.find((l) => l.dir > 0) ?? env.lanes[0];
+    if (!lane) return;
+    const y = lane.y - 4;
+    const want = 44 + this.rng() * 12;
+    this.vehicles.push({ kind: 'bike', x: env.x0 - 10, y, dir: 1, speed: want, want, laneY: lane.y, ty: y, variant: Math.floor(this.rng() * 1e6), riders: 1, stuck: 0, sidewalk: 0, owner, phase: 'arrive', park });
+  }
+
+  /** The agent's bike leaves its spot (or turns back, if it hadn't parked yet) and rides off east. */
+  depart(owner: string): void {
+    const v = this.vehicles.find((o) => o.owner === owner && o.phase !== 'leave');
+    if (!v) return;
+    v.phase = 'leave';
+    v.ty = v.laneY - 4;
+    v.want = 40 + this.rng() * 14;
+  }
 
   constructor(private readonly rng: () => number = Math.random) {}
 
@@ -173,12 +207,21 @@ export class Traffic {
     // through deep water everyone crawls; now and then a bike's engine drowns and the rider gets off to push
     const wade = 1 - 0.55 * this.flood;
     for (const v of this.vehicles) {
-      if (v.kind === 'bike' && !v.pushing && v.riders === 1 && this.flood > 0.6 && !onSidewalk(v) && this.rng() < 0.012 * dt) v.pushing = true;
+      if (v.phase === 'parked') continue;
+      if (v.kind === 'bike' && !v.owner && !v.pushing && v.riders === 1 && this.flood > 0.6 && !onSidewalk(v) && this.rng() < 0.012 * dt) v.pushing = true;
       if (v.pushing && this.flood < 0.2) v.pushing = false;
       const lead = this.leader(v, v.y);
       const gap = lead ? lead.gap : Infinity;
       const want = v.pushing ? PUSH_SPEED : (onSidewalk(v) ? v.want * 0.7 : v.want) * (onSidewalk(v) ? 1 : wade);
       let target = Math.min(want, Math.max(0, gap - MIN_GAP) * GAP_GAIN);
+      // riding in to park: up onto the sidewalk near the spot, braking to stop right at it
+      const toPark = v.phase === 'arrive' && v.park ? v.park.x - v.x : Infinity;
+      if (toPark < 70) {
+        v.ty = v.park!.y;
+        target = Math.min(target, Math.max(0, toPark) * 1.6 + (toPark > 1 ? 6 : 0));
+      }
+      // pulling out of a spot: slowly until back on the road
+      if (v.phase === 'leave' && v.y !== v.ty) target = Math.min(target, 22);
       // at rush hour someone always brakes for no reason: the stop-and-go waves start here
       if (l > 0.3 && this.rng() < 0.25 * l * dt) target *= 0.3;
       v.speed = target < v.speed ? Math.max(target, v.speed - BRAKE * dt) : Math.min(target, v.speed + ACCEL[v.kind] * dt);
@@ -186,10 +229,26 @@ export class Traffic {
       if (gap - step < 1) step = Math.max(0, gap - 1);
       v.x += v.dir * step;
       v.stuck = v.speed < want * 0.35 ? v.stuck + dt : 0;
-      if (v.kind === 'bike' && !v.pushing) this.steer(v, dt, env);
-      if (v.stuck > 1 && this.rng() < 0.12 * dt) this.honk(v, now);
+      if (v.owner) this.ride(v, dt);
+      else if (v.kind === 'bike' && !v.pushing) this.steer(v, dt, env);
+      if (v.stuck > 1 && !v.owner && this.rng() < 0.12 * dt) this.honk(v, now);
       else if (v.kind === 'bike' && l > 0.5 && this.rng() < 0.015 * dt) this.honk(v, now);
     }
+  }
+
+  /** An owned bike: drifts towards its spot or back to the road (yielding to the traffic there), parks when it's there. */
+  private ride(v: Vehicle, dt: number): void {
+    if (v.y !== v.ty) {
+      const y = v.y + Math.sign(v.ty - v.y) * Math.min(Math.abs(v.ty - v.y), DRIFT * 1.6 * dt);
+      if (v.phase !== 'leave' || this.clear(v, y)) v.y = y;
+    }
+    if (v.phase === 'arrive' && v.park && v.y === v.park.y && v.park.x - v.x <= 1) {
+      v.x = v.park.x;
+      v.speed = 0;
+      v.phase = 'parked';
+      if (v.owner) this.parked.push(v.owner);
+    }
+    if (v.phase === 'leave' && v.y === v.ty) v.phase = undefined;
   }
 
   /** Bikes weave through the jam and, westbound, ride the far sidewalk for a stretch. */

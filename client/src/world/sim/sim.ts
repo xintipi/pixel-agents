@@ -2,7 +2,7 @@
 // plans behaviors and runs the step queues every frame.
 import { partsKey } from '../../../../shared/appearance';
 import type { AgentInfo, OfficeSnapshot, Provider, RoomInfo } from '../../../../shared/types';
-import type { ArtModule, Dir, RoomTheme } from '../../art/api';
+import type { Appearance, ArtModule, Dir, RoomTheme } from '../../art/api';
 import type { SoundCueKind, WorldOptions } from '../api';
 import { COL_W, COMPACT_DELAY_MS, DISMANTLE_DELAY_MS, FOOT_DX, FOOT_DY, MISSING_DEBOUNCE_MS, RUN_SPEED, TILE, WALK_SPEED } from '../constants';
 import { assembleBuilding, type BuildingLayout } from '../layout/building';
@@ -40,7 +40,7 @@ import { RoomState } from './room-state';
 import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, spinDir, spinPhase, yawnPhase } from './shell';
 import { SpotRegistry } from './spots';
 import type { Step } from './steps';
-import { floodLine } from './traffic';
+import { PARKING, floodLine } from './traffic';
 import {
   LANE_Y,
   TEA_DOOR,
@@ -88,6 +88,10 @@ export interface SimMode {
 /** Visit lights: 'away' (paused) turns everything off; 'discreet' lights the empty rooms; 'live' is the usual `Sim`. */
 export type VisitLight = 'live' | 'discreet' | 'away';
 /** Celebration (shell finished) and lament (failed/killed). */
+/** Share of the main agents who come (and go) by motorbike, when the street is drawn. */
+const BIKE_SHARE = 0.5;
+/** Riding in never takes longer than this (ms): past it, the agent appears at the spot anyway. */
+const BIKE_RIDE_MAX_MS = 45_000;
 const CHEER_MS = 2_200;
 const SULK_MS = 4_000;
 /** Three errors within this window: hands on head for FRUSTRATED_MS. */
@@ -202,6 +206,14 @@ export class Sim {
   teaUp = false;
   /** The street is flooded (rain at rush hour; the renderer's traffic says): no tea or bánh mì, people go and look. */
   flooded = false;
+  /** The renderer runs the street: main agents may come and go by motorbike (without it, always the elevator). */
+  bikes = false;
+  /** Who parked their bike on the sidewalk, and in which spot (PARKING). */
+  readonly parkedBikes = new Map<string, number>();
+  /** Bike trips for the street to carry out (the renderer drains it): riding in to a spot, riding off from it. */
+  readonly bikeTrips: { t: 'arrive' | 'depart'; id: string; slot: number; appearance: Appearance }[] = [];
+  /** Riders whose bike has just parked (the renderer fills it): they get off and walk in. */
+  readonly bikeParked = new Set<string>();
   /** Thần Tài altar (sim/altar.ts): incense lit until; last prayer for a waiting agent; day of the morning incense. */
   altarLitUntil = 0;
   private altarPrayedAt = 0;
@@ -904,6 +916,7 @@ export class Sim {
     ch.shellDoneAt = latestShellDone(a)?.at ?? 0;
     this.chars.set(a.id, ch);
     if (first) return ch;
+    if (a.kind === 'main' && this.arriveByBike(ch)) return ch;
     // arrival via the elevator
     const el = this.pickElevator(ch);
     const spot = this.spots.get(el.spotId)!;
@@ -982,6 +995,32 @@ export class Sim {
     if (!room || !room.present) return;
     const seat = chooseSeat(room.layout.spots, (id) => this.spots.isFree(id, ch.id), ch.info.kind);
     if (seat && this.spots.reserve(seat.id, ch.id)) ch.homeSpot = seat.id;
+  }
+
+  /**
+   * Half the main agents come to work by motorbike (when the street is drawn and a spot is free): hidden while the
+   * bike rides in and parks, then they get off and walk in along the sidewalk and up the stone path.
+   */
+  private arriveByBike(ch: Character): boolean {
+    if (!this.bikes || this.visit || ch.rng() >= BIKE_SHARE) return false;
+    const taken = new Set<number>();
+    for (const [id, slot] of this.parkedBikes) if (this.chars.has(id)) taken.add(slot);
+    const slot = PARKING.findIndex((_, i) => !taken.has(i));
+    if (slot < 0) return false;
+    const p = PARKING[slot];
+    const spot = { x: p.x - 9, y: p.y - 3 };
+    this.parkedBikes.set(ch.id, slot);
+    this.bikeTrips.push({ t: 'arrive', id: ch.id, slot, appearance: ch.appearance });
+    ch.placeAtTile(TEA_DOOR.tx, TEA_DOOR.ty);
+    ch.x = spot.x;
+    ch.y = spot.y;
+    ch.dir = 'up';
+    ch.alpha = 0;
+    ch.inside = true;
+    ch.arriving = true;
+    ch.outdoors = [];
+    ch.queue.push({ t: 'bike' }, { t: 'route', pts: wayBack(routeToSeat(spot).slice(0, -2)), trail: 'back' });
+    return true;
   }
 
   private pickElevator(ch: Character): Elevator {
@@ -1382,6 +1421,13 @@ export class Sim {
         return this.social.stepGather(ch, s.g, now);
       case 'do':
         s.fn();
+        return true;
+      case 'bike':
+        if (!this.bikeParked.has(ch.id) && ch.stepT < BIKE_RIDE_MAX_MS) return false;
+        this.bikeParked.delete(ch.id);
+        ch.alpha = 1;
+        ch.inside = false;
+        ch.setPose('stand');
         return true;
       case 'remove':
         ch.gone = true;
@@ -1930,6 +1976,26 @@ export class Sim {
           { t: 'do', fn: () => room.switchClaim === ch.id && (room.switchClaim = null) },
         );
       }
+    }
+    // came by motorbike: back out to it, on, and off into the traffic
+    const slot = this.parkedBikes.get(ch.id);
+    if (slot !== undefined && this.bikes && !this.visit) {
+      const p = PARKING[slot];
+      steps.push(
+        { t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty },
+        { t: 'route', pts: routeToSeat({ x: p.x - 9, y: p.y - 3 }), trail: 'out' },
+        {
+          t: 'do',
+          fn: () => {
+            this.parkedBikes.delete(ch.id);
+            this.bikeTrips.push({ t: 'depart', id: ch.id, slot, appearance: ch.appearance });
+            ch.alpha = 0;
+          },
+        },
+        { t: 'remove' },
+      );
+      ch.queue.push(...steps);
+      return true;
     }
     const el = this.pickElevator(ch);
     const es = this.spots.get(el.spotId)!;
@@ -2956,6 +3022,11 @@ export class Sim {
       }
       case 'do':
         s.fn();
+        break;
+      case 'bike':
+        this.bikeParked.delete(ch.id);
+        ch.alpha = 1;
+        ch.inside = false;
         break;
       case 'remove':
       case 'elevIn':

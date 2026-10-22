@@ -38,7 +38,7 @@ export interface LightScene {
   readonly exterior: ExteriorLayout;
   readonly shells: readonly SlotShell[];
   readonly shellWindows: readonly WallVis[];
-  readonly cars: readonly { x: number; y: number; dir: 1 | -1; kind: 'car' | 'bike' }[];
+  readonly cars: readonly { x: number; y: number; dir: 1 | -1; kind: 'car' | 'bike'; phase?: string }[];
   roomInSlot(slot: number): RoomState | undefined;
   deskScreen(f: FurnVis, area: AreaVis): ScreenMode;
 }
@@ -587,7 +587,7 @@ export class Lighting {
     const beam = glowSprite('#fff1c4', 64);
     const tail = glowSprite('#ff4a3a', 16);
     for (const car of scene.cars) {
-      if (car.x < view.x0 - 80 || car.x > view.x1 + 80 || car.y < view.y0 - 30 || car.y > view.y1 + 30) continue;
+      if (car.phase === 'parked' || car.x < view.x0 - 80 || car.x > view.x1 + 80 || car.y < view.y0 - 30 || car.y > view.y1 + 30) continue;
       if (car.kind === 'bike') {
         ctx.globalAlpha = 0.45 * n;
         ctx.drawImage(beam, Math.round(car.x + car.dir * 9 + (car.dir > 0 ? 0 : -28)), Math.round(car.y - 17), 28, 10);

@@ -198,6 +198,41 @@ describe('simulação do escritório', () => {
     expect(sim.rooms.get('/a')!.lightOn).toBe(true);
   });
 
+  it('de moto: quem chega de moto espera estacionar, sobe o caminho e, ao sair, volta para a moto e vai embora nela', () => {
+    const sim = newSim();
+    sim.bikes = true;
+    const clock = { now: T0 };
+    const rooms = [room('/a', 0), room('/b', 1), room('/c', 2)];
+    sim.applySnapshot(snap(rooms, []), clock.now);
+    run(sim, clock, 0.5);
+    const ids = ['ana', 'bia', 'caio', 'davi', 'edu', 'fê'];
+    const who = (id: string, i: number) => agent(id, rooms[i % 3].id, 'working', { seed: 1000 + i * 7919 });
+    sim.applySnapshot(snap(rooms, ids.map(who)), clock.now);
+    const trips = [...sim.bikeTrips];
+    sim.bikeTrips.length = 0;
+    // some by bike, the rest by elevator; each bike in its own spot
+    expect(trips.length).toBeGreaterThan(0);
+    expect(trips.length).toBeLessThan(ids.length);
+    expect(new Set(trips.map((t) => t.slot)).size).toBe(trips.length);
+    const rider = sim.chars.get(trips[0].id)!;
+    run(sim, clock, 5);
+    // still riding in: hidden until the street says the bike parked
+    expect(rider.alpha).toBe(0);
+    for (const t of trips) sim.bikeParked.add(t.id);
+    run(sim, clock, 1);
+    expect(rider.alpha).toBe(1);
+    expect(rider.outdoors).not.toBeNull();
+    run(sim, clock, 40, () => rider.outdoors === null);
+    expect(rider.outdoors).toBeNull();
+    // the session ends: back out to the bike and off on it
+    sim.applySnapshot(snap(rooms, ids.map(who).filter((a) => a.id !== rider.info.id), 2), clock.now);
+    run(sim, clock, 90, () => sim.bikeTrips.some((t) => t.t === 'depart'));
+    expect(sim.bikeTrips).toMatchObject([{ t: 'depart', id: rider.info.id, slot: trips[0].slot }]);
+    run(sim, clock, 1);
+    expect(sim.chars.has(rider.info.id)).toBe(false);
+    expect(sim.parkedBikes.has(rider.info.id)).toBe(false);
+  });
+
   it('subagente entrega o resultado ao pai e vai embora', () => {
     const sim = newSim();
     const clock = { now: T0 };

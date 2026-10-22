@@ -151,6 +151,24 @@ describe('street traffic', () => {
     expect(holiday.peach).toBeGreaterThan(0);
   });
 
+  it("rides an agent's bike in to park, keeps it there and rides it off later", () => {
+    const t = new Traffic(mulberry32(9));
+    t.forced = true;
+    let now = 0;
+    const park = { x: 300, y: 75 };
+    t.arrive('ana', park, ENV);
+    for (let i = 0; i < 60 * 30 && !t.parked.length; i++) t.step((now += 33), 1 / 30, ENV, 12, 3);
+    expect(t.parked).toEqual(['ana']);
+    const bike = t.vehicles.find((v) => v.owner === 'ana')!;
+    expect(bike).toMatchObject({ x: 300, y: 75, phase: 'parked', speed: 0 });
+    now = run(t, 30, now);
+    expect(bike).toMatchObject({ x: 300, y: 75, phase: 'parked' });
+    expect(t.horns.some((h) => h.x === 300 && h.y === 75)).toBe(false);
+    t.depart('ana');
+    run(t, 90, now);
+    expect(t.vehicles.includes(bike)).toBe(false);
+  });
+
   it('honks in the jam, and drops horns nobody listened to', () => {
     const t = new Traffic(mulberry32(4));
     t.forced = true;

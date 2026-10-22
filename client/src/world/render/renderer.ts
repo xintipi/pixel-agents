@@ -31,7 +31,7 @@ import { drawWeather, drawWeatherWindow, weatherFor, type Weather } from './weat
 import { reducedMotion } from './github-fx';
 import type { Pet } from '../sim/pets';
 import { SIESTA_DIM } from '../sim/siesta';
-import { FLOODED, Traffic, type StreetDay, type Vehicle } from '../sim/traffic';
+import { FLOODED, PARKING, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
 import { countBadge, fallbackIcon } from './shell-sprites';
 import { decorateElevator, drawSeasonalLights, drawSeasonalWindow, seasonalCostume, seasonalFurniture } from './seasonal';
 import { buildAreaVis, furnitureSprites, opaqueBounds, paintShell, toWallVis, WALL_MARGIN, wallItemOrigin, wallSprites, type AreaVis, type FurnVis, type WallVis } from './scene';
@@ -120,6 +120,8 @@ export class Renderer {
   readonly traffic = new Traffic();
   /** Motorbike riders' looks, by vehicle variant. */
   private riders = new Map<number, Appearance[]>();
+  /** Looks of the agents riding (or owning a parked) bike, by character id. */
+  private owners = new Map<string, Appearance>();
   private xeOmFor: ExteriorLayout | null = null;
   private xeOmList: Vehicle[] = [];
   private ents: Ent[] = [];
@@ -162,6 +164,8 @@ export class Renderer {
     this.ctx = canvas.getContext('2d', { alpha: false })!;
     this.exterior = layoutExterior(sim.building.cols);
     this.lighting = new Lighting(art, sim);
+    // the street is drawn: agents may come and go by motorbike
+    sim.bikes = true;
   }
 
   setAssets(a: WorldAssets | null): void {
@@ -1352,7 +1356,7 @@ export class Renderer {
           this.ctx.drawImage(sp.canvas, Math.round(car.x + car.dir * dx - sp.ax), Math.round(car.y - RIDER_LIFT - sp.ay));
         });
       });
-      if (rain) this.drawPoncho(car, car.x + car.dir * BIKE_SEATS.rider, car.y - RIDER_LIFT - 13, riders.length > 1);
+      if (rain && riders.length) this.drawPoncho(car, car.x + car.dir * BIKE_SEATS.rider, car.y - RIDER_LIFT - 13, riders.length > 1);
     }
     this.ctx.drawImage(front.canvas, x, y);
     // stalled in the flood: the rider walks beside the bike, pushing it by the handlebar
@@ -1397,7 +1401,8 @@ export class Renderer {
     const f = this.traffic.flood;
     const rain = this.weather === 'rain';
     if (!rain && f < 0.05) return;
-    if (car.y > this.exterior.streetY + this.exterior.streetH + 2) return;
+    // only on the road (not the bikes parked or waiting on the sidewalks)
+    if (car.y < this.exterior.streetY - 2 || car.y > this.exterior.streetY + this.exterior.streetH + 2) return;
     const moving = car.speed > 8;
     if (moving && Math.random() < this.dt * (rain ? 5 : 0) + this.dt * f * 14) this.particles.splash(car.x - car.dir * (half - 4), car.y - 1, car.dir, 0.6 + f);
     if (f < 0.05) return;
@@ -1417,6 +1422,11 @@ export class Renderer {
 
   /** Who rides a bike (passenger last, drawn first so the rider is in front): stable per vehicle, a helmet for each. */
   private bikeRiders(car: Vehicle): Appearance[] {
+    // an agent's own bike: nobody on it while parked, the agent (helmet on) riding
+    if (car.owner) {
+      const look = car.phase === 'parked' ? undefined : this.owners.get(car.owner);
+      return look ? [{ ...look, accessory: 'cap', accessoryColor: HELMETS[car.variant % HELMETS.length], lanyard: null }] : [];
+    }
     let list = this.riders.get(car.variant);
     if (list) return list;
     if (this.riders.size > 200) this.riders.clear();
@@ -1442,9 +1452,28 @@ export class Renderer {
     const ext = this.exterior;
     const d = this.date;
     const hour = d.getHours() + d.getMinutes() / 60;
+    const env: TrafficEnv = { x0: b.x * TILE - 40, x1: (b.x + b.w) * TILE + 40, lanes: ext.lanes, sidewalkY: ext.streetY + ext.streetH };
+    this.bikeTrips(env);
     // last frame's weather: this frame's is worked out further down
-    this.traffic.step(now, dt, { x0: b.x * TILE - 40, x1: (b.x + b.w) * TILE + 40, lanes: ext.lanes, sidewalkY: ext.streetY + ext.streetH }, hour, d.getDay(), this.weather === 'rain', this.streetDay());
+    this.traffic.step(now, dt, env, hour, d.getDay(), this.weather === 'rain', this.streetDay());
     this.sim.flooded = this.traffic.flood > FLOODED;
+    for (const id of this.traffic.parked) this.sim.bikeParked.add(id);
+    this.traffic.parked.length = 0;
+  }
+
+  /**
+   * The sim's bike trips: an agent riding in to park, or riding off. A bike still parked whose owner is gone (the
+   * session vanished some other way) rides off too.
+   */
+  private bikeTrips(env: TrafficEnv): void {
+    for (const trip of this.sim.bikeTrips) {
+      this.owners.set(trip.id, trip.appearance);
+      if (trip.t === 'arrive') this.traffic.arrive(trip.id, PARKING[trip.slot], env);
+      else this.traffic.depart(trip.id);
+    }
+    this.sim.bikeTrips.length = 0;
+    for (const v of this.traffic.vehicles) if (v.phase === 'parked' && v.owner && !this.sim.chars.has(v.owner)) this.traffic.depart(v.owner);
+    if (this.owners.size > 64) for (const id of this.owners.keys()) if (!this.traffic.vehicles.some((v) => v.owner === id)) this.owners.delete(id);
   }
 
   /** The office's holiday theme as the street sees it: peach branches and an empty Tết, flowers on the flower days. */
