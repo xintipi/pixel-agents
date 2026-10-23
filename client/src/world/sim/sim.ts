@@ -170,6 +170,7 @@ import {
   phoneLine,
   receptionOpen,
 } from './reception';
+import { NightGuard } from './guard';
 import { BOSS_FIRST_MS, BOSS_GAP_MS, BOSS_LINGER_MS, BOSS_LOOK_MS, arrivalLine, bossHours, catchLine, inSight, patrolOrder } from './boss';
 
 /**
@@ -400,6 +401,26 @@ export class Sim {
   readonly extras: Character[] = [];
   /** The boss's next round (ms epoch; 0 = schedule on the first check). */
   private nextBossAt = 0;
+  /** Night security guard and the entrance's roll-up shutter (sim/guard.ts). */
+  readonly guard = new NightGuard({
+    now: () => this.now,
+    visit: () => this.visit,
+    hour: (now) => this.hourOf(now),
+    extras: () => this.extras,
+    chars: () => this.chars.values(),
+    people: () => this.people(),
+    besideTile: (target, from) => this.besideTile(target, from),
+    say: (ch, text) => this.social.say(ch, text, this.now),
+    npc: (id, name, look, seed, patch) => {
+      try {
+        const base = this.art.appearanceFromSeed(seed, { look, sub: false });
+        return new Character(this.npcInfo(id, name, look, seed, this.now), { ...base, ...patch });
+      } catch {
+        return null;
+      }
+    },
+    cols: () => this.building.cols,
+  });
   /** Next check of who the boss sees (a few times a second, not every frame). */
   private bossLookAt = 0;
   /** Iced tea stall on the sidewalk: who holds each stool (sim/tea.ts). */
@@ -1783,6 +1804,7 @@ export class Sim {
     }
     this.danceTick(now);
     this.policeTick(now);
+    this.guard.tick(dt);
     for (const [id, ch] of this.chars) {
       if (ch.gone) {
         this.spots.releaseAll(id);
@@ -1813,6 +1835,7 @@ export class Sim {
       this.updateHutieu(now);
       this.updatePolice(now);
       this.updateReception(now);
+      this.guard.update(now);
     }
   }
 

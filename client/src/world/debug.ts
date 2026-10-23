@@ -68,6 +68,10 @@ export interface WorldDebug {
   danceNow(): boolean;
   /** The night hủ tiếu cart comes now and stays 5 minutes (whatever the hour). */
   hutieuNow(): boolean;
+  /** The night guard comes now for a round of the desks still busy (whatever the hour) and stays ~5 minutes. */
+  guardNow(): boolean;
+  /** The entrance's roll-up shutter down (true) or up (false) now; null goes back to the night (down 23:00–6:00). */
+  shutterNow(down: boolean | null): void;
   /** A customer for the hủ tiếu cart now: someone walking up ('walk') or a rider pulling over ('bike'). */
   hutieuGuestNow(kind: 'walk' | 'bike'): void;
   /** Whoever is idle walks out to eat at the hủ tiếu cart now. Returns how many went. */
@@ -382,6 +386,8 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     flowersNow: () => sim.flowersNow(),
     danceNow: () => sim.danceNow(),
     hutieuNow: () => sim.hutieuNow(),
+    guardNow: () => sim.guard.guardNow(),
+    shutterNow: (down) => sim.guard.shutterNow(down),
     hutieuGuestNow: (kind) => sim.hutieuGuestNow(kind),
     hutieuOutNow: () => sim.hutieuOutNow(),
     teaGuestNow: (kind) => sim.teaGuestNow(kind),

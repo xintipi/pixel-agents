@@ -9,6 +9,7 @@ import { TILE, type ArtModule, type ScreenMode } from '../../art/api';
 import { mulberry32 } from '../../../../shared/hash';
 import { BUILDING_H, COL_W, CORRIDOR_H, CORRIDOR_Y } from '../constants';
 import type { ExteriorLayout, SlotShell } from '../layout/exterior';
+import type { Character } from '../sim/character';
 import type { RoomState } from '../sim/room-state';
 import type { Sim } from '../sim/sim';
 import { buildAnim } from './anim';
@@ -322,7 +323,7 @@ export class Lighting {
   /** Everything that changes the map, in discrete steps (avoids redoing it every frame). */
   private lightKey(scene: LightScene, now: number): string {
     const a = this.ambient;
-    let k = `${Math.round(a.night * 200)}|${a.outside.join(',')}|${a.inside.join(',')}|${a.dim.join(',')}|${this.sim.building.cols}|${Math.round(this.sim.outageDark * 24)}`;
+    let k = `${Math.round(a.night * 200)}|${a.outside.join(',')}|${a.inside.join(',')}|${a.dim.join(',')}|${this.sim.building.cols}|${Math.round(this.sim.outageDark * 24)}|${Math.round(this.sim.guard.shutter * 10)}`;
     for (const vis of scene.areas.values()) {
       const { lit, cover } = this.areaLight(vis, now);
       k += `|${vis.id}:${Math.round(lit * 24)}:${Math.round(cover * 20)}`;
@@ -443,7 +444,8 @@ export class Lighting {
     }
     // corridor glass facades (entrance to the west and east end)
     const cy = (CORRIDOR_Y + CORRIDOR_H / 2) * TILE;
-    halo(warm, -20, cy, 56, 92, 0.6 * k);
+    // (dimmed by the roll-up shutter when it's down, sim/guard.ts)
+    halo(warm, -20, cy, 56, 92, 0.6 * k * (1 - 0.8 * this.sim.guard.shutter));
     halo(warm, bw + 20, cy, 56, 92, 0.45 * k);
     // corridor windows facing the patios of empty slots
     for (const w of scene.shellWindows) {
@@ -504,7 +506,7 @@ export class Lighting {
         }
       }
     }
-    if (out > 0.2) this.drawFlashlights(ctx, view, out);
+    if (out > 0.2 || n > 0.2) this.drawFlashlights(ctx, view, out, n);
     this.drawSunbeams(ctx, scene, view);
     if (n > 0.2) {
       for (const prop of scene.exterior.props) {
@@ -522,23 +524,28 @@ export class Lighting {
    * Power cut: whoever holds a phone has its flashlight on, a small cone of white light ahead of them (two cached glow
    * sprites per person, no allocation).
    */
-  private drawFlashlights(ctx: CanvasRenderingContext2D, view: View, out: number): void {
+  private drawFlashlights(ctx: CanvasRenderingContext2D, view: View, out: number, night: number): void {
     const beam = glowSprite('#fff6dc', 48);
     const dot = glowSprite('#ffffff', 16);
-    for (const c of this.sim.chars.values()) {
-      if (c.held !== 'phone' || c.inside || c.gone || c.alpha < 0.5) continue;
-      if (c.x < view.x0 - 40 || c.x > view.x1 + 40 || c.y < view.y0 - 40 || c.y > view.y1 + 40) continue;
+    const cone = (c: Character, k: number, size: number) => {
+      if (c.inside || c.gone || c.alpha < 0.5) return;
+      if (c.x < view.x0 - 40 || c.x > view.x1 + 40 || c.y < view.y0 - 40 || c.y > view.y1 + 40) return;
       const dx = c.dir === 'left' ? -1 : c.dir === 'right' ? 1 : 0;
       const dy = c.dir === 'up' ? -1 : c.dir === 'down' ? 1 : 0;
       const hx = c.x + dx * 5;
       const hy = c.y - (c.seated ? 12 : 16) + dy * 3;
-      ctx.globalAlpha = 0.9 * out;
+      ctx.globalAlpha = 0.9 * k;
       ctx.drawImage(dot, Math.round(hx - 4), Math.round(hy - 4), 8, 8);
-      ctx.globalAlpha = 0.55 * out;
-      const w = dx ? 30 : 22;
-      const h = dx ? 18 : 26;
-      ctx.drawImage(beam, Math.round(hx + dx * 16 - w / 2), Math.round(hy + dy * 14 + (dy ? 0 : 4) - h / 2), w, h);
-    }
+      ctx.globalAlpha = 0.55 * k;
+      const w = (dx ? 30 : 22) * size;
+      const h = (dx ? 18 : 26) * size;
+      ctx.drawImage(beam, Math.round(hx + dx * 16 * size - w / 2), Math.round(hy + dy * 14 * size + (dy ? 0 : 4) - h / 2), w, h);
+    };
+    // power cut: the phones' flashlights
+    if (out > 0.2) for (const c of this.sim.chars.values()) if (c.held === 'phone') cone(c, out, 1);
+    // the night guard's flashlight (sim/guard.ts), at night or in the cut
+    const torch = Math.max(out, night);
+    if (torch > 0.2) for (const c of this.sim.extras) if (c.held === 'flashlight') cone(c, torch, 1.3);
   }
 
   /**

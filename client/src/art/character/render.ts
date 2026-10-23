@@ -1308,6 +1308,21 @@ function drawItem(dc: Dc, x: number, y: number): void {
         else b.set(x + 1, y - 4 + i, c);
       }
       break;
+    case 'flashlight':
+      // black barrel with a silver band, the yellow lens ahead: forward (left) in profile, toward the camera from the front
+      if (side) {
+        b.set(x - 3, y, '#fff3b0');
+        b.set(x - 3, y + 1, '#ffd75e');
+        b.rect(x - 2, y, 5, 2, '#2b2f3a');
+        b.hline(x - 2, x + 2, y, '#4a5060');
+        b.vline(x, y, y + 1, '#b9c0cb');
+      } else {
+        b.rect(x, y - 2, 2, 5, '#2b2f3a');
+        b.vline(x, y - 2, y + 2, '#4a5060');
+        b.hline(x, x + 1, y, '#b9c0cb');
+        b.hline(x, x + 1, y + 3, '#ffd75e');
+      }
+      break;
     case 'hutieu':
       // the red-banded "rooster" bowl, white rice noodles, a pink shrimp on top
       b.stamp(BOWL, x - 1, y, { s: '#eef2f7', n: '#f7f3ea', h: '#f08a6a', B: '#c9363b', b: '#f7f5f0' }, side);
@@ -1608,6 +1623,16 @@ function drawCostume(dc: Dc, costume: CharacterFrameRequest['costume']): void {
     b.rect(x + 6, y - 1, 2, 3, '#f2c94c');
     b.set(x + 6, y, '#d9342b');
     b.set(x + 7, y, '#d9342b');
+    b.rect(x + 1, y + 4, 12, 1, '#1d2230');
+    b.hline(x + 3, x + 9, y + 4, '#3a4150');
+  } else if (costume === 'baove') {
+    // Security guard's peaked cap (mũ bảo vệ): olive crown, darker band, the little gold badge, black visor.
+    b.rect(x + 2, y - 1, 10, 1, '#6f7444');
+    b.rect(x + 1, y, 12, 2, '#5d6238');
+    b.hline(x + 1, x + 12, y, '#6f7444');
+    b.rect(x, y + 2, 14, 2, '#454a2a');
+    b.rect(x + 6, y, 2, 2, '#f2c94c');
+    b.set(x + 7, y + 1, '#c99a2e');
     b.rect(x + 1, y + 4, 12, 1, '#1d2230');
     b.hline(x + 3, x + 9, y + 4, '#3a4150');
   } else if (costume === 'nonla') {

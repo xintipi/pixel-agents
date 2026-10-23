@@ -12,6 +12,7 @@ import type { ExteriorProp } from '../layout/types';
 import { screenModeFor } from '../sim/behavior';
 import type { Character } from '../sim/character';
 import type { RoomState } from '../sim/room-state';
+import { drawShutter, SHUTTER_BOX, shutterDepth } from './shutter';
 import { cobwebScale, hourglassIcon, HOURGLASS_FLIP_MS, STORM_LIFT } from '../sim/shell';
 import type { Sim } from '../sim/sim';
 import { banhmiCartProps } from '../sim/banhmi';
@@ -56,6 +57,7 @@ const enum K {
   Pet,
   Ball,
   Robot,
+  Shutter,
 }
 
 interface Ent {
@@ -533,6 +535,9 @@ export class Renderer {
     for (const prop of danceSpeakerProps(this.sim.danceUp())) if (visible(prop.x - 12, prop.y - 32, 24, 34)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of hutieuCartProps(this.sim.hutieuCart())) if (visible(prop.x - 24, prop.y - 36, 48, 40)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of hutieuStoolProps(this.sim.hutieuUp)) if (visible(prop.x - 8, prop.y - 10, 16, 12)) push(K.Prop, prop.y, prop, null, 1);
+    // the night guard's stool by the entrance, and the roll-up shutter over the west glass (sim/guard.ts)
+    for (const prop of this.sim.guard.props()) push(K.Prop, prop.y, prop, null, 1);
+    if (!this.sim.visit && visible(SHUTTER_BOX.x, SHUTTER_BOX.y, SHUTTER_BOX.w, SHUTTER_BOX.h)) push(K.Shutter, shutterDepth(this.sim.guard.shutter), null, null, 1);
     for (const prop of bunBikeProps(this.sim.bunBike())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     // the ward loudspeaker's pole (loa phường), always there
     for (const prop of loaProps()) if (visible(prop.x - 16, prop.y - 64, 32, 68)) push(K.Prop, prop.y, prop, null, 1);
@@ -575,6 +580,9 @@ export class Renderer {
           break;
         case K.Robot:
           this.drawRobot();
+          break;
+        case K.Shutter:
+          drawShutter(this.ctx, this.sim.guard.shutter);
           break;
       }
     }
