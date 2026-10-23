@@ -38,11 +38,11 @@ import { trashCartProps } from '../sim/trash';
 import { scrapBikeProps } from '../sim/vechai';
 import { flowerBikeProps, flowerInfo, type FlowerInfo } from '../sim/flowers';
 import { danceSpeakerProps } from '../sim/danvu';
-import { hutieuCartProps } from '../sim/hutieu';
+import { hutieuCartProps, hutieuStoolProps } from '../sim/hutieu';
 import { crosswalkClearsDash, drawCrosswalk } from './crosswalk';
 import { bunBikeProps } from '../sim/banhbao';
 import { loaProps } from '../sim/loa';
-import { FLOODED, PARKING, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
+import { FLOODED, PARKING, RIDER_HELMETS, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
 import { countBadge, fallbackIcon } from './shell-sprites';
 import { decorateElevator, drawSeasonalLights, drawSeasonalWindow, seasonalCostume, seasonalFurniture } from './seasonal';
 import { buildAreaVis, furnitureSprites, opaqueBounds, paintShell, toWallVis, WALL_MARGIN, wallItemOrigin, wallSprites, type AreaVis, type FurnVis, type WallVis } from './scene';
@@ -92,7 +92,7 @@ const POPCORN_DY: Readonly<Record<string, number>> = { down: 11, up: 8, left: 9,
 const WEB_MAX_OUT = 9;
 const NO_VEHICLES: readonly Vehicle[] = [];
 /** Motorbike helmets (the art's cap, recolored). */
-const HELMETS = ['#e8454a', '#f2c94c', '#3d7ce0', '#f4f4f0', '#e98ad0', '#4cbf7a', '#2e3648', '#f08a3c'];
+const HELMETS = RIDER_HELMETS;
 /** Raincoat plastics: the colors you see on any rainy street. */
 const PONCHOS: readonly [string, string, string][] = [
   ['#3d7ce0', '#2a589f', '#8fbdf2'],
@@ -532,6 +532,7 @@ export class Renderer {
     for (const prop of flowerBikeProps(this.sim.flowerBike(), this.sim.flowerKind)) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of danceSpeakerProps(this.sim.danceUp())) if (visible(prop.x - 12, prop.y - 32, 24, 34)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of hutieuCartProps(this.sim.hutieuCart())) if (visible(prop.x - 24, prop.y - 36, 48, 40)) push(K.Prop, prop.y, prop, null, 1);
+    for (const prop of hutieuStoolProps(this.sim.hutieuUp)) if (visible(prop.x - 8, prop.y - 10, 16, 12)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of bunBikeProps(this.sim.bunBike())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     // the ward loudspeaker's pole (loa phường), always there
     for (const prop of loaProps()) if (visible(prop.x - 16, prop.y - 64, 32, 68)) push(K.Prop, prop.y, prop, null, 1);
@@ -1393,7 +1394,8 @@ export class Renderer {
       const c = cargoSprite(car.cargo, car.dir < 0, car.variant);
       this.ctx.drawImage(c.canvas, Math.round(car.x + car.dir * BIKE_RACK.dx - c.ax), Math.round(car.y + BIKE_RACK.dy - c.ay));
     }
-    if (!car.pushing) {
+    // a rider who pulled over to eat is off the bike (the sim walks them to the stools)
+    if (!car.pushing && !(car.diner && car.phase === 'parked')) {
       riders.forEach((appearance, i) => {
         const rider = i === riders.length - 1;
         const dx = rider ? BIKE_SEATS.rider : BIKE_SEATS.passenger;
@@ -1549,6 +1551,15 @@ export class Renderer {
     this.traffic.police.catches = 0;
     // racing boys whizzing past: the sidewalks react
     for (const e of this.traffic.racerEvents) this.sim.racerPassed(e, now);
+    // hủ tiếu diners on bikes: the sim calls one over, the street parks them, the sim walks them, then they ride on
+    if (this.sim.dinerCall) {
+      this.traffic.dinerCall = { ...this.sim.dinerCall, until: now + 120_000 };
+      this.sim.dinerCall = null;
+    }
+    for (const variant of this.traffic.diners) this.sim.dinerParked(variant, now);
+    this.traffic.diners.length = 0;
+    for (const variant of this.sim.dinersDone) this.traffic.dinerLeave(variant);
+    this.sim.dinersDone.length = 0;
     this.traffic.racerEvents.length = 0;
     this.sim.flooded = this.traffic.flood > FLOODED;
     this.sim.repairBusy = this.traffic.repairing;

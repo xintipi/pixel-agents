@@ -61,6 +61,17 @@ export interface Vehicle {
   racer?: boolean;
   /** Last time this vehicle honked at a racing boy cutting past it (ms). */
   startled?: number;
+  /** Pulled over to eat at the hủ tiếu cart: parked with nobody on it while the rider eats. */
+  diner?: boolean;
+}
+
+/** Helmet colors of the riders (the renderer draws them; the sim dresses a rider who gets off the same way). */
+export const RIDER_HELMETS = ['#e8454a', '#f2c94c', '#3d7ce0', '#f4f4f0', '#e98ad0', '#4cbf7a', '#2e3648', '#f08a3c'] as const;
+
+/** The appearance seed and look of a passing bike's rider (`i` = 0 for the rider, 1 for a passenger). */
+export function riderSeed(variant: number, i = 0): { seed: number; look: 'f' | 'm'; helmet: string } {
+  const seed = variant * 7 + i * 1013;
+  return { seed, look: seed % 2 ? 'f' : 'm', helmet: RIDER_HELMETS[seed % RIDER_HELMETS.length] };
 }
 
 /** A racing boy whizzing past, for the people on the sidewalks to react (`police`: right past the officer). */
@@ -220,6 +231,10 @@ export class Traffic {
   racerNow = false;
   /** Racing boys passing by since the sim last looked (the renderer empties it). */
   readonly racerEvents: RacerEvent[] = [];
+  /** A rider is wanted to pull over and park here (the hủ tiếu cart) until `until` (ms): the next fitting bike does. */
+  dinerCall: { x: number; y: number; until: number } | null = null;
+  /** Diners who just parked (the renderer passes them on to the sim): their bike's variant. */
+  readonly diners: number[] = [];
   private lastRacerEvent = 0;
 
   /** A bike is at the repair stall being fixed. */
@@ -257,6 +272,7 @@ export class Traffic {
     else this.flood = Math.max(0, this.flood - dt / FLOOD_DRAIN_S);
     for (const lane of env.lanes) this.spawn(now, lane, env);
     this.racer(now, hour, env);
+    this.callDiner(now);
     this.flat(now, hour);
     this.policeStep(now, dt);
     this.move(now, dt, env);
@@ -357,6 +373,36 @@ export class Traffic {
       this.racerEvents.push({ x: v.x, y: v.y, at: now, police: !!past });
       if (this.racerEvents.length > 16) this.racerEvents.shift();
     }
+  }
+
+  /**
+   * Someone hungry: the next eastbound rider alone (no load) coming up to the spot pulls over and parks there; they
+   * get off to eat (the sim walks them) and ride on when `dinerLeave` says so.
+   */
+  private callDiner(now: number): void {
+    const park = this.dinerCall;
+    if (!park) return;
+    // nobody came by in time (a quiet street): never mind
+    if (now > park.until) {
+      this.dinerCall = null;
+      return;
+    }
+    const v = this.vehicles.find((o) => o.kind === 'bike' && o.dir > 0 && !o.owner && !o.phase && !o.racer && !o.pushing && !o.cargo && o.riders === 1 && park.x - o.x > 80 && park.x - o.x < 700);
+    if (!v) return;
+    v.phase = 'arrive';
+    v.park = { x: park.x, y: park.y };
+    v.diner = true;
+    this.dinerCall = null;
+  }
+
+  /** The diner riding `variant` is done eating: back on the bike and into the lane. */
+  dinerLeave(variant: number): void {
+    const v = this.vehicles.find((o) => o.diner && o.variant === variant && o.phase === 'parked');
+    if (!v) return;
+    v.diner = false;
+    v.phase = 'leave';
+    v.ty = v.laneY - 4;
+    v.want = 40 + this.rng() * 14;
   }
 
   /** An oncoming vehicle near `v`'s path at height `y` (a racing boy won't swerve head-on into it). */
@@ -493,6 +539,7 @@ export class Traffic {
       } else {
         v.phase = 'parked';
         if (v.owner) this.parked.push(v.owner);
+        if (v.diner) this.diners.push(v.variant);
       }
     }
     if (v.phase === 'leave' && v.y === v.ty) v.phase = undefined;

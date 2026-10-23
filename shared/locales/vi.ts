@@ -3535,4 +3535,11 @@ export const VI: Readonly<Record<string, string>> = {
   "Racing boy again… 😤": "Lại racing boy… 😤",
   "He nearly hit that bike! 😱": "Suýt tông chiếc kia rồi! 😱",
   "Where's the fire?! 😤": "Đi đâu mà vội thế?! 😤",
+  // client/src/world/sim/hutieu.ts, sim.ts (customers at the hủ tiếu cart)
+  "Passer-by": "Khách qua đường",
+  "Uncle, one bowl please! 🍜": "Chú ơi, cho con một tô! 🍜",
+  "A big bowl, extra noodles! 🍜": "Một tô đặc biệt, nhiều mì nha chú! 🍜",
+  "One hủ tiếu, quick please, I'm starving! 🍜": "Một tô hủ tiếu, nhanh giùm con, đói quá! 🍜",
+  "How much, uncle? 💵": "Bao nhiêu chú ơi? 💵",
+  "Delicious, see you tomorrow! 😋": "Ngon quá, mai con ghé tiếp! 😋",
 };

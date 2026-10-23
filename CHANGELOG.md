@@ -12,6 +12,11 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Fregueses no hủ tiếu.** O carrinho ganhou banquinhos de plástico: de vez em quando um pedestre chega, senta e come
+  uma tigela; um motoqueiro encosta a moto no meio-fio, desce para comer e segue viagem; e agentes à toa às vezes saem
+  para comer ali (além de pedir da mesa). O tio só vai embora depois que o último freguês termina. No console:
+  `habblaud.world.debug.hutieuGuestNow('walk' | 'bike')` e `hutieuOutNow()`.
+
 - **Racing boy.** De vez em quando passa um garoto de moto (moletom preto, cabelo espetado, sem capacete) muito mais
   rápido que todo mundo, costurando entre as motos e por cima da faixa do meio, buzinando, com o rastro de vento atrás;
   quem ele corta buzina de volta. Os horários encaixam no dia da rua: à noite (21h–23h30, depois da dança e do bánh
@@ -203,6 +208,10 @@ do meio (0.**3**.0).
 
 ### Alterado
 
+- **Mais movimento na calçada.** A compradora de recicláveis passa quatro vezes por dia (9h, 10h30, 14h e 16h; a moça do
+  trà đá só tem um saco de garrafas para ela a cada três horas) e a vendedora de bilhetes dá uma volta a cada 12–25
+  minutos. O carrinho do lixo das 19h agora para ao lado do hủ tiếu (o trà đá já fechou) e o menino leva o saco de lixo
+  até ela. Quem empurra os carrinhos e as bicicletas não fica mais escondido atrás deles.
 - **Cartões de uso no celular.** Em telas estreitas (360 px), com três contas, os cartões perdem também a coluna
   "5h / Semana" e mostram só as barras e as porcentagens (antes a porcentagem saía do cartão). Com o celular deitado, os
   cartões ficam compactos na mesma linha da barra em vez de uma segunda linha, e o escritório ganha cerca de 60 px de

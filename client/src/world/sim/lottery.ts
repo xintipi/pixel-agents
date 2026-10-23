@@ -11,7 +11,7 @@ export const LOTTERY_TO_H = 17.5;
 /** The afternoon draw (xổ số miền Nam, 16:15). */
 export const DRAW_H = 16.25;
 /** Minutes between two rounds. */
-export const ROUND_GAP_MIN: readonly [number, number] = [25, 45];
+export const ROUND_GAP_MIN: readonly [number, number] = [12, 25];
 /** Share of the ticket holders who win something. */
 export const WIN_CHANCE = 0.15;
 

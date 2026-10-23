@@ -16,7 +16,7 @@ export const BANHMI_CLOSE_H = 9.5;
 export const BANHMI_CART = { x: 19 * TILE, y: 32 * TILE + 12 } as const;
 
 /** The cart rides this far right of the vendor's feet (he pushes it with the handle on its west end). */
-const CART_DX = 20;
+const CART_DX = 30;
 const CART_DY = 1;
 
 /** Where the vendor stands while parked: at the handle (west end), facing the cart. */

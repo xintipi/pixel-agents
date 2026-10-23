@@ -40,14 +40,14 @@ import { RoomState } from './room-state';
 import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, spinDir, spinPhase, yawnPhase } from './shell';
 import { SpotRegistry } from './spots';
 import type { Step } from './steps';
-import { PARKING, floodLine, type RacerEvent } from './traffic';
+import { PARKING, floodLine, riderSeed, type RacerEvent } from './traffic';
 import { racerReaction, type RacerWitness } from './racer';
 import { STREET_H, STREET_Y } from '../layout/exterior';
 import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen } from './repair';
-import { trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './trash';
+import { TRASH_HANDOVER, trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './trash';
 import { LOA_LINE_MS, loaGroan, loaScript, loaWindow } from './loa';
 import { BUN_CALL_MS, BUN_MAX_BUYERS, bunBikeAt, bunCall, bunOrder, bunRoute, bunThanks, bunTime } from './banhbao';
-import { SCRAP_CALL_MS, scrapBikeAt, scrapCall, scrapPay, scrapRoute, scrapSell, scrapWindow } from './vechai';
+import { SCRAP_CALL_MS, SCRAP_SALE_GAP_MS, scrapBikeAt, scrapCall, scrapPay, scrapRoute, scrapSell, scrapWindow } from './vechai';
 import {
   FLOWER_CALL_MS,
   FLOWER_MAX_SALES,
@@ -82,6 +82,7 @@ import {
   uncleRouteIn,
   uncleRouteOut,
 } from './hutieu';
+import { DINER_PARK, EAT_MS, HUTIEU_STOOLS, PASSERBY_CHANCE, RIDER_CHANCE, passerbyRouteIn, passerbyRouteOut, riderToBike, riderToStool, stoolBye, stoolOrder } from './hutieu';
 import { policeArrive, policeCatch, policeGesture, policeRouteIn, policeRouteOut, policeWhistle } from './police';
 import { DANCE_WALK_Y, DANCERS, DANCER_GAP_MS, DANCER_SLOTS, DANCE_JOIN_CHANCE, JOIN_SLOTS, danceMove, danceTime, dancerLine, dancerRouteIn, dancerRouteOut, joinLine } from './danvu';
 import { DRAW_H, ROUND_GAP_MIN, buyerLine, buyerSpot, loseLine, lotteryOpen, roundLegs, sellerCall, sellerThanks, winLine, wins } from './lottery';
@@ -310,6 +311,12 @@ export class Sim {
   private danceForcedUntil = 0;
   /** Night hủ tiếu cart (sim/hutieu.ts): the cart is parked; orders waiting (agent id -> when); bowls served tonight. */
   hutieuUp = false;
+  /** The stools by the cart (passers-by, riders who pulled over, agents who walked out). */
+  readonly hutieuStools = new Stall(HUTIEU_STOOLS.length);
+  /** A rider is wanted to pull over and eat (the renderer passes it to the street), and the diners done eating. */
+  dinerCall: { x: number; y: number } | null = null;
+  readonly dinersDone: number[] = [];
+  private passerbySeq = 0;
   readonly hutieuOrders = new Map<string, number>();
   private hutieuBowls = 0;
   /** Debug: the cart stays until this instant whatever the hour. */
@@ -396,6 +403,8 @@ export class Sim {
   /** Scrap buyer (sim/vechai.ts): the last window she came in (day + index), the next loudspeaker call. */
   private scrapDone = '';
   private nextScrapCallAt = 0;
+  /** When the tea seller last sold her the empty bottles (a bag fills up every few hours). */
+  private lastScrapSale = -1e15;
   /** Ward loudspeaker (sim/loa.ts): the last window it played (day + index), and the broadcast on air. */
   private loaDone = '';
   private loaLines: string[] = [];
@@ -1746,6 +1755,7 @@ export class Sim {
         this.banhmi.release(id);
         this.flowers.release(id);
         this.dance.release(id);
+        this.hutieuStools.release(id);
         this.chars.delete(id);
       }
     }
@@ -2393,6 +2403,7 @@ export class Sim {
     this.banhmi.release(ch.id);
     this.flowers.release(ch.id);
     this.dance.release(ch.id);
+    this.hutieuStools.release(ch.id);
     ch.danceLag = null;
     // out at the tea stall: whatever comes next starts by walking back in through the corridor door
     if (ch.outdoors) {
@@ -2822,6 +2833,7 @@ export class Sim {
       phone: !!this.randomFree(PHONE_SEATS, ch),
       tea: !this.flooded && this.teaUp && this.tea.hasFree(),
       banhmi: !this.flooded && this.banhmiUp && this.banhmi.hasFree(),
+      hutieu: !this.flooded && this.hutieuUp && this.hutieuOn(now) && this.hutieuStools.hasFree(),
       flood: this.flooded && !this.visit,
     };
     const what = pickIdleActivity(rng, avail, soloWeights(persona));
@@ -2946,6 +2958,8 @@ export class Sim {
       }
       case 'tea':
         return this.planTea(ch);
+      case 'hutieu':
+        return this.planHutieuOut(ch);
       case 'banhmi':
         return this.planBanhMi(ch);
       case 'flood':
@@ -3536,7 +3550,31 @@ export class Sim {
     this.spawnTrash(now);
   }
 
-  /** The sweeper: orange vest, conical hat; pushes the cart along the curb, stops by the tea stall, pushes on east. */
+  /** The hủ tiếu cart's bag went out to the garbage cart (the sweeper waits for it). */
+  private trashHanded = false;
+
+  /**
+   * The hủ tiếu boy runs out with the cart's bag of trash (if he's out on the sidewalk and not carrying a bowl):
+   * drops his beat, hands it to the sweeper by the curb and goes back to clacking. Returns whether he's coming.
+   */
+  private hutieuTrashRun(): boolean {
+    const boy = this.extras.find((e) => e.id === HUTIEU_BOY_ID && !e.gone);
+    if (!boy || !this.hutieuUp || boy.held === 'hutieu' || boy.y < STREET_Y - 40) return false;
+    const h = TRASH_HANDOVER;
+    const rng = boy.rng;
+    boy.queue.length = 0;
+    boy.step = null;
+    boy.queue.push(
+      { t: 'route', pts: [boy.x, LANE_Y, h.x, LANE_Y, h.x, h.y], run: true },
+      { t: 'do', fn: () => this.social.say(boy, trashReply(rng), this.now) },
+      { t: 'act', pose: 'use', held: 'box', dir: 'down', ms: 1_800 },
+      { t: 'do', fn: () => (this.trashHanded = true) },
+      { t: 'route', pts: [h.x, LANE_Y] },
+    );
+    return true;
+  }
+
+  /** The sweeper: orange vest, conical hat; pushes the cart along the curb, stops by the hủ tiếu cart, pushes on east. */
   private spawnTrash(now: number): Character | null {
     let appearance;
     try {
@@ -3558,11 +3596,12 @@ export class Sim {
         t: 'do',
         fn: () => {
           this.social.say(ch, trashCall(rng), this.now);
-          const seller = this.extras.find((e) => e.id === TEA_SELLER_ID);
-          if (seller && this.teaUp) this.social.say(seller, trashReply(rng), this.now);
+          // the hủ tiếu boy brings out the cart's bag; nobody out there: she rings and moves on
+          this.trashHanded = !this.hutieuTrashRun();
         },
       },
-      { t: 'act', pose: 'stand', dir: 'right', ms: 7_000 },
+      { t: 'until', cond: () => this.trashHanded, minMs: 4_000, maxMs: 15_000, pose: 'stand', dir: 'right' },
+      { t: 'act', pose: 'stand', dir: 'right', ms: 1_500 },
       { t: 'route', pts: route.out },
       { t: 'remove' },
     );
@@ -3752,7 +3791,9 @@ export class Sim {
         t: 'do',
         fn: () => {
           const seller = this.extras.find((e) => e.id === TEA_SELLER_ID);
-          if (!seller || !this.teaUp) return;
+          // no bag of bottles yet since the last time: she just rides on calling
+          if (!seller || !this.teaUp || this.now - this.lastScrapSale < SCRAP_SALE_GAP_MS) return;
+          this.lastScrapSale = this.now;
           this.social.say(seller, scrapSell(rng), this.now);
           ch.queue.unshift(
             { t: 'act', pose: 'stand', dir: 'right', ms: 3_500 },
@@ -4050,6 +4091,7 @@ export class Sim {
     if (open && this.hutieuUp && !boy) boy = this.spawnHutieuBoy(now) ?? undefined;
     for (const [id, at] of this.hutieuOrders) if (now - at > HUTIEU_ORDER_MS || !this.chars.has(id)) this.hutieuOrders.delete(id);
     if (boy && !boy.step && !boy.queue.length) this.planHutieuBoy(boy, open);
+    this.hutieuCustomers(now);
     if (!open || !boy || this.hutieuBowls + this.hutieuOrders.size >= HUTIEU_MAX_BOWLS || boy.rng() >= HUTIEU_ORDER_CHANCE) return;
     for (const c of this.chars.values()) {
       if (c.leaving || c.mode !== 'idle' || c.outdoors || c.gathering || c.step || c.queue.length || !c.homeSpot || c.atSpot !== c.homeSpot) continue;
@@ -4083,7 +4125,15 @@ export class Sim {
     ch.queue.push(
       { t: 'route', pts },
       { t: 'do', fn: () => (this.hutieuUp = true) },
-      { t: 'until', cond: () => !this.hutieuOn(this.now) && !this.extras.some((e) => e.id === HUTIEU_BOY_ID), minMs: 0, maxMs: Number.MAX_SAFE_INTEGER, pose: 'stand', dir: HUTIEU_UNCLE_SPOT.dir },
+      // closing: once the boy is back and the last customers have eaten
+      {
+        t: 'until',
+        cond: () => !this.hutieuOn(this.now) && !this.extras.some((e) => e.id === HUTIEU_BOY_ID) && this.hutieuStools.taken.every((t) => !t),
+        minMs: 0,
+        maxMs: Number.MAX_SAFE_INTEGER,
+        pose: 'stand',
+        dir: HUTIEU_UNCLE_SPOT.dir,
+      },
       { t: 'do', fn: () => (this.hutieuUp = false) },
       { t: 'route', pts: uncleRouteOut((this.building.cols * COL_W + 19) * TILE) },
       { t: 'remove' },
@@ -4147,6 +4197,147 @@ export class Sim {
   }
 
   /** Inside with the bowl: to the agent's desk (if they're still there), hands it over, and back out to the sidewalk. */
+  /**
+   * Customers at the stools (once a second, while the cart is out): now and then a passer-by walks up, or a rider is
+   * called over to pull up and park (the street finds one), to sit and eat a bowl.
+   */
+  private hutieuCustomers(now: number): void {
+    if (!this.hutieuUp || !this.hutieuOn(now) || !this.hutieuStools.hasFree()) return;
+    const r = Math.random();
+    if (r < PASSERBY_CHANCE) this.spawnPasserby(now);
+    else if (r < PASSERBY_CHANCE + RIDER_CHANCE && !this.dinerCall) this.dinerCall = { x: DINER_PARK.x, y: DINER_PARK.y };
+  }
+
+  /** Steps of a bowl at stool `i` for `ch` (who is standing at it): sits, orders, eats, pays, gets up. */
+  private eatAtStool(ch: Character, i: number): Step[] {
+    const seat = HUTIEU_STOOLS[i];
+    const rng = ch.rng;
+    return [
+      {
+        t: 'do',
+        fn: () => {
+          this.hutieuStools.sit(i, ch.id);
+          ch.seated = true;
+          ch.sortY = seatDepth(seat);
+          ch.dir = seat.dir;
+          this.social.say(ch, stoolOrder(rng), this.now);
+          const uncle = this.extras.find((e) => e.id === HUTIEU_UNCLE_ID);
+          if (uncle) uncle.chatEmoji = '🍜';
+          if (uncle) uncle.chatUntil = this.now + 2_000;
+        },
+      },
+      { t: 'act', pose: 'sit', dir: seat.dir, ms: between(rng, 3_000, 5_000) },
+      { t: 'act', pose: 'sit', held: 'hutieu', dir: seat.dir, ms: between(rng, EAT_MS[0], EAT_MS[1]) },
+      {
+        t: 'do',
+        fn: () => {
+          this.hutieuStools.release(ch.id);
+          ch.seated = false;
+          ch.sortY = null;
+          this.social.say(ch, stoolBye(rng), this.now);
+        },
+      },
+    ];
+  }
+
+  /** Debug: whoever is idle (and not already outside or in a circle) walks out to eat at the cart now. Returns how many. */
+  hutieuOutNow(): number {
+    if (!this.hutieuUp) return 0;
+    let n = 0;
+    for (const c of this.chars.values()) {
+      if (c.leaving || c.mode !== 'idle' || c.outdoors || c.gathering || c.inside || (c.step && !this.interruptible(c.step))) continue;
+      if (!this.hutieuStools.hasFree()) break;
+      this.clearPlan(c);
+      if (this.planHutieuOut(c)) n++;
+    }
+    return n;
+  }
+
+  /** Debug: a customer for the cart now (if it's out with a free stool): walking up, or a rider called over. */
+  hutieuGuestNow(kind: 'walk' | 'bike'): void {
+    if (!this.hutieuUp || !this.hutieuStools.hasFree()) return;
+    if (kind === 'walk') this.spawnPasserby(this.now);
+    else this.dinerCall = { x: DINER_PARK.x, y: DINER_PARK.y };
+  }
+
+  /** A passer-by: walks in from one end of the sidewalk, eats at a stool, walks on to the other end. */
+  private spawnPasserby(now: number): void {
+    const n = ++this.passerbySeq;
+    const id = `npc:khach:${n}`;
+    const i = this.hutieuStools.reserve(id, Math.random);
+    if (i < 0) return;
+    const seed = 61_000 + n * 97;
+    let appearance;
+    try {
+      appearance = { ...this.art.appearanceFromSeed(seed, { look: seed % 2 ? 'f' : 'm', sub: false }), lanyard: null };
+    } catch {
+      this.hutieuStools.release(id);
+      return;
+    }
+    const ch = new Character(this.npcInfo(id, tr('Passer-by'), seed % 2 ? 'f' : 'm', seed, now), appearance);
+    ch.crowd = true;
+    const west = TEA_SELLER_FROM_X;
+    const east = (this.building.cols * COL_W + 19) * TILE;
+    const fromWest = Math.random() < 0.5;
+    const seat = HUTIEU_STOOLS[i];
+    const pts = passerbyRouteIn(fromWest ? west : east, seat);
+    ch.x = pts[0];
+    ch.y = pts[1];
+    ch.dir = fromWest ? 'right' : 'left';
+    ch.queue.push({ t: 'route', pts }, ...this.eatAtStool(ch, i), { t: 'route', pts: passerbyRouteOut(seat, fromWest ? east : west) }, { t: 'remove' });
+    this.extras.push(ch);
+  }
+
+  /** A rider pulled over (the street parked the bike): gets off, eats at a stool, gets back on and rides off. */
+  dinerParked(variant: number, now: number): void {
+    const id = `npc:khach-xe:${variant}`;
+    const i = this.hutieuUp ? this.hutieuStools.reserve(id, Math.random) : -1;
+    if (i < 0) {
+      this.dinersDone.push(variant);
+      return;
+    }
+    const r = riderSeed(variant);
+    let appearance;
+    try {
+      appearance = { ...this.art.appearanceFromSeed(r.seed, { look: r.look, sub: false }), accessory: 'cap' as const, accessoryColor: r.helmet, lanyard: null };
+    } catch {
+      this.hutieuStools.release(id);
+      this.dinersDone.push(variant);
+      return;
+    }
+    const ch = new Character(this.npcInfo(id, tr('Passer-by'), r.look, r.seed, now), appearance);
+    ch.crowd = true;
+    ch.x = DINER_PARK.x;
+    ch.y = DINER_PARK.y - 2;
+    ch.dir = 'right';
+    const seat = HUTIEU_STOOLS[i];
+    ch.queue.push(
+      { t: 'route', pts: riderToStool(seat) },
+      ...this.eatAtStool(ch, i),
+      { t: 'route', pts: riderToBike(seat) },
+      { t: 'do', fn: () => this.dinersDone.push(variant) },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+  }
+
+  /** An agent walks out (corridor door, stone path, sidewalk) to eat a bowl at the stools, and back to the desk. */
+  private planHutieuOut(ch: Character): boolean {
+    const i = this.hutieuStools.reserve(ch.id, ch.rng);
+    if (i < 0) return false;
+    const steps: Step[] = [];
+    this.pushLeave(ch, steps);
+    steps.push(
+      { t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty },
+      { t: 'route', pts: routeToSeat(HUTIEU_STOOLS[i]), trail: 'out' },
+      ...this.eatAtStool(ch, i),
+      { t: 'do', fn: () => ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), trail: 'back' }) },
+    );
+    ch.queue.push(...steps);
+    this.pushHome(ch, 'none');
+    return true;
+  }
+
   private hutieuToDesk(boy: Character, id: string): void {
     const c = this.chars.get(id);
     const out = routeToSeat({ x: nextBeat(0, boy.rng), y: LANE_Y });
@@ -4646,6 +4837,8 @@ export class Sim {
     // the hủ tiếu cart too (pushed in again, if it's still the hour); pending orders are dropped
     this.hutieuUp = false;
     this.hutieuOrders.clear();
+    this.hutieuStools.clear();
+    this.dinerCall = null;
     // the officer is gone too (comes back if the street is still jammed)
     this.policeOnPost = false;
     // the dance too (the aunties walk in again, if it's still the hour)

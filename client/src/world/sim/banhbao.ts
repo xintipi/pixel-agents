@@ -14,7 +14,7 @@ export const BUN_CALL_MS = 8_000;
 export const BUN_MAX_BUYERS = 3;
 
 /** The bike rides just ahead of him (he pushes it by the rear rack). */
-const BIKE_DX = 26;
+const BIKE_DX = 32;
 /** He walks the same line as the lottery seller and stops at the same place, so the buyers line up beside him. */
 const STOP = LOTTERY_STOPS.path;
 

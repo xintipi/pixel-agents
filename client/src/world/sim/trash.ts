@@ -1,10 +1,11 @@
 // The evening garbage cart (xe rác): around 19:00 the street sweeper in her orange vest and conical hat pushes the big
-// hand cart along the curb, ringing the bell ("keng keng"); she stops by the iced tea stall, the seller brings out her
-// bag, and she pushes on east. Once a day. Pure (no DOM).
+// hand cart along the curb, ringing the bell ("keng keng"); she stops by the hủ tiếu cart (the tea stall has packed up
+// by then), the hủ tiếu boy runs out with the cart's bag of trash, and she pushes on east. Once a day. Pure (no DOM).
 import { tr } from '../../../../shared/i18n';
 import type { ExteriorProp } from '../layout/types';
 import { TILE } from '../constants';
-import { TEA_TABLE } from './tea';
+import { HUTIEU_CART } from './hutieu';
+import { LANE_Y } from './tea';
 
 /** She comes by once a day, starting in this window (local, fractional). */
 export const TRASH_FROM_H = 19;
@@ -13,10 +14,13 @@ export const TRASH_TO_H = 19.5;
 /** She pushes the cart along the curb (street edge), like the bánh mì vendor. */
 const CURB_Y = 33 * TILE + 5;
 /** The cart rides this far ahead of her feet (she pushes it from its west end). */
-const CART_DX = 22;
+const CART_DX = 28;
 
-/** Where she stops: just east of the tea stall, so the seller can bring out her bag. */
-export const TRASH_STOP = { x: TEA_TABLE.x + 26, y: CURB_Y } as const;
+/** Where she stops: east of the hủ tiếu cart and its stools, so the boy can bring out its bag. */
+export const TRASH_STOP = { x: HUTIEU_CART.x + 100, y: CURB_Y } as const;
+
+/** Where the hủ tiếu boy hands her the bag: on the sidewalk's edge, right by her (feet, px). */
+export const TRASH_HANDOVER = { x: TRASH_STOP.x - 4, y: LANE_Y + 18 } as const;
 
 export function trashTime(hour: number): boolean {
   return hour >= TRASH_FROM_H && hour < TRASH_TO_H;
@@ -42,7 +46,7 @@ export function trashCall(rng: () => number): string {
   return lines[Math.floor(rng() * lines.length)];
 }
 
-/** The tea seller, hurrying out with her bag. */
+/** The hủ tiếu boy, hurrying out with the bag. */
 export function trashReply(rng: () => number): string {
   const lines = [tr('Wait, wait, coming! 🗑️'), tr('Here you go, thank you!')];
   return lines[Math.floor(rng() * lines.length)];

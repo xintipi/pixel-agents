@@ -61,7 +61,7 @@ export const FLOWER_CALL_MS = 12_000;
 /** Along the curb, like the scrap buyer. */
 const CURB_Y = 33 * TILE + 5;
 /** The bike rides just ahead of her (she walks it by the handlebar's left side). */
-const BIKE_DX = 26;
+const BIKE_DX = 32;
 
 /** Where she stops: in front of the building, between the iced tea stall and the bánh mì cart. */
 export const FLOWER_STOP = { x: 13 * TILE, y: CURB_Y } as const;

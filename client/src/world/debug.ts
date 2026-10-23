@@ -68,6 +68,10 @@ export interface WorldDebug {
   danceNow(): boolean;
   /** The night hủ tiếu cart comes now and stays 5 minutes (whatever the hour). */
   hutieuNow(): boolean;
+  /** A customer for the hủ tiếu cart now: someone walking up ('walk') or a rider pulling over ('bike'). */
+  hutieuGuestNow(kind: 'walk' | 'bike'): void;
+  /** Whoever is idle walks out to eat at the hủ tiếu cart now. Returns how many went. */
+  hutieuOutNow(): number;
   /** Forces the after-lunch siesta on/off (idle agents nap, lights dim); null goes back to the clock (12:30–13:30). */
   siestaNow(on: boolean | null): void;
   /**
@@ -374,6 +378,8 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     flowersNow: () => sim.flowersNow(),
     danceNow: () => sim.danceNow(),
     hutieuNow: () => sim.hutieuNow(),
+    hutieuGuestNow: (kind) => sim.hutieuGuestNow(kind),
+    hutieuOutNow: () => sim.hutieuOutNow(),
 
     setWeather: (w) => {
       renderer.weatherOverride = w;
