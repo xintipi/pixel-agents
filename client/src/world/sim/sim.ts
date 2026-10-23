@@ -69,6 +69,7 @@ import { BANHMI_SPOTS, BANHMI_VENDOR_SPOT, banhmiOpen, cartAt, pickOrder, vendor
 import { EXIT_RADIUS, NO_INTENT, stepFree, tileAt, VISITOR_LANYARD, type VisitorIntent } from './visitor';
 import { tr } from '../../../../shared/i18n';
 import { ALTAR_CHANCE, INCENSE_MS, altarState, cooldownOver, dayKey, morningDue, prayerLine, waitingLong } from './altar';
+import { BOSS_FIRST_MS, BOSS_GAP_MS, BOSS_LINGER_MS, BOSS_LOOK_MS, arrivalLine, bossHours, catchLine, inSight, patrolOrder } from './boss';
 
 /**
  * One-off visual effect the simulation asks the renderer for (drained every frame): confetti (shell
@@ -111,6 +112,8 @@ const PIZZA_MS = 90_000;
 const NAP_WAKE_MS = 70_000;
 /** Id of the pizza delivery guy (extra). */
 const PIZZA_ID = 'npc:pizza';
+/** Id of the boss on their rounds (extra). */
+const BOSS_ID = 'npc:sep';
 /** Id of the iced tea seller (extra). */
 const TEA_SELLER_ID = 'npc:tra-da';
 /** The seller walks in from (and back to) this x (px), off to the west on the sidewalk. */
@@ -215,6 +218,10 @@ export class Sim {
   pizzaTile: { tx: number; ty: number } | null = null;
   /** Extras who are not agents (the pizza delivery guy): drawn with the people, without an agent label. */
   readonly extras: Character[] = [];
+  /** The boss's next round (ms epoch; 0 = schedule on the first check). */
+  private nextBossAt = 0;
+  /** Next check of who the boss sees (a few times a second, not every frame). */
+  private bossLookAt = 0;
   /** Iced tea stall on the sidewalk: who holds each stool (sim/tea.ts). */
   readonly tea = new TeaStall();
   /** The stall is set up (the seller is there): the renderer shows the stools out or stacked. */
@@ -712,6 +719,124 @@ export class Sim {
     this.pets.beg(this.petWorld, table, this.now);
   }
 
+  /**
+   * The boss's rounds (sim/boss.ts): out of the elevator, through the lounge and up to a few lit rooms (west to east),
+   * a look around in each, back into the elevator. Returns whether the boss came.
+   */
+  bossPatrol(now: number): boolean {
+    if (this.visit || this.extras.some((e) => e.id === BOSS_ID)) return false;
+    const el = this.elevators[0];
+    const spot = el ? this.spots.get(el.spotId) : undefined;
+    if (!el || !spot) return false;
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(9091, { look: 'm', sub: false });
+      appearance = { ...base, top: '#f4f6f8', topAccent: '#c9363b', bottom: '#2e3648', shoes: '#1d2230', accessory: 'glasses' as const, accessoryColor: '#2e3648', lanyard: null };
+    } catch {
+      return false;
+    }
+    const grid = this.building.grid;
+    const rooms = [...this.rooms.values()]
+      .filter((r) => r.present && r.lightOn && r.phase === 'ready')
+      .map((r) => grid.nearestWalkable(r.layout.rect.x + Math.floor(r.layout.rect.w / 2), r.layout.rect.y + Math.floor(r.layout.rect.h / 2), 6))
+      .filter((t): t is { x: number; y: number } => !!t)
+      .map((t) => ({ tx: t.x, ty: t.y }));
+    const lounge = this.coreTile(LOUNGE_ID, 8, 6);
+    const stops = [...(lounge ? [lounge] : []), ...patrolOrder(rooms)];
+    const info: AgentInfo = {
+      id: BOSS_ID,
+      kind: 'main',
+      provider: 'claude',
+      roomId: RECEPTION_ID,
+      name: tr('The boss'),
+      look: 'm',
+      role: tr('The boss'),
+      sessionId: BOSS_ID,
+      account: '',
+      status: 'working',
+      recent: [],
+      tasks: [],
+      startedAt: now,
+      lastEventAt: now,
+      statusSince: now,
+      stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
+      seed: 9091,
+    };
+    const ch = new Character(info, appearance);
+    ch.placeAtTile(spot.tx, spot.ty);
+    ch.x = spot.x;
+    ch.y = spot.y - 6;
+    ch.dir = 'down';
+    ch.alpha = 0;
+    ch.inside = true;
+    ch.arriving = true;
+    ch.hiddenUntil = el.reserveAppear(now);
+    const rng = ch.rng;
+    ch.queue.push({ t: 'elevOut', elev: el.index, phase: 0 }, { t: 'do', fn: () => this.social.say(ch, arrivalLine(rng), this.now) });
+    for (const s of stops) {
+      const look = () => BOSS_LOOK_MS[0] + rng() * (BOSS_LOOK_MS[1] - BOSS_LOOK_MS[0]);
+      ch.queue.push({ t: 'go', tx: s.tx, ty: s.ty }, { t: 'act', pose: 'stand', dir: 'left', ms: look() / 2 }, { t: 'act', pose: 'stand', dir: 'right', ms: look() / 2 });
+    }
+    ch.queue.push(
+      { t: 'go', tx: spot.tx, ty: spot.ty, fx: spot.tx * TILE + FOOT_DX, fy: spot.ty * TILE + FOOT_DY - 2, dir: 'up' },
+      { t: 'elevIn', elev: el.index, phase: 0 },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+    return true;
+  }
+
+  /** Schedules the rounds: weekdays, office hours, never during a party, the disco or the siesta. Runs once a second. */
+  private updateBoss(now: number): void {
+    if (this.visit) return;
+    if (!this.nextBossAt) {
+      this.nextBossAt = now + between(Math.random, BOSS_FIRST_MS[0], BOSS_FIRST_MS[1]);
+      return;
+    }
+    if (now < this.nextBossAt) return;
+    const day = new Date(now).getDay();
+    const calm = now >= this.pizzaUntil && now >= this.discoUntil && this.newYear.phase !== 'party' && !this.siestaOn;
+    if (!calm || !bossHours(this.hourOf(now), day) || !this.bossPatrol(now)) {
+      this.nextBossAt = now + 5 * 60_000;
+      return;
+    }
+    this.nextBossAt = now + between(Math.random, BOSS_GAP_MS[0], BOSS_GAP_MS[1]);
+  }
+
+  /**
+   * Who the boss sees (a few times a second): idle agents in sight pretend to work (and a nap ends with a jolt); whoever
+   * is really working gets a nod now and then. Out of sight, the pretending lasts a moment longer and ends in a sigh.
+   */
+  private bossLooks(now: number): void {
+    const boss = this.extras.find((e) => e.id === BOSS_ID && !e.inside && e.alpha > 0.5);
+    for (const ch of this.chars.values()) {
+      const seen = !!boss && !ch.leaving && !ch.inside && !ch.outdoors && inSight(boss, ch);
+      if (seen && ch.mode === 'idle') {
+        if (ch.fakeWorkUntil <= now) {
+          // caught: a fright, and the boss notices (not always out loud)
+          ch.chatEmoji = '😳';
+          ch.chatUntil = now + 1_400;
+          if (ch.pose === 'sleep') {
+            ch.awakeUntil = now + AWAKE_MS;
+            ch.sleepSince = 0;
+            if (ch.icon === 'zzz') ch.setIcon(null, 0, now);
+          }
+          if (boss.sayUntil <= now && boss.rng() < 0.4) this.social.say(boss, catchLine(boss.rng), now);
+        }
+        ch.fakeWorkUntil = now + BOSS_LINGER_MS;
+      } else if (seen && ch.mode === 'work' && boss.chatUntil <= now && boss.rng() < 0.03) {
+        boss.chatEmoji = '👍';
+        boss.chatUntil = now + 1_200;
+      } else if (ch.fakeWorkUntil && now >= ch.fakeWorkUntil) {
+        ch.fakeWorkUntil = 0;
+        if (ch.mode === 'idle' && ch.chatUntil <= now) {
+          ch.chatEmoji = '😮‍💨';
+          ch.chatUntil = now + 1_400;
+        }
+      }
+    }
+  }
+
   /** Extra: only the step queue (no planning of its own). */
   private runExtra(e: Character, dt: number, now: number): void {
     e.animT += dt * 1000;
@@ -1144,6 +1269,10 @@ export class Sim {
     this.pets.update(this.petWorld, dt, now, now < this.discoUntil || this.newYear.phase === 'party');
     for (const e of this.extras) this.runExtra(e, dt, now);
     for (let i = this.extras.length - 1; i >= 0; i--) if (this.extras[i].gone) this.extras.splice(i, 1);
+    if (now >= this.bossLookAt) {
+      this.bossLookAt = now + 250;
+      this.bossLooks(now);
+    }
     for (const [id, ch] of this.chars) {
       if (ch.gone) {
         this.spots.releaseAll(id);
@@ -1165,6 +1294,7 @@ export class Sim {
       this.updateScrap(now);
       this.updateLoa(now);
       this.updateBun(now);
+      this.updateBoss(now);
     }
   }
 
@@ -1447,7 +1577,9 @@ export class Sim {
           if (s.machine) this.machineUntil.set(s.machine, now + s.ms);
           if (s.sound) this.sound(s.sound, ch.x, ch.y);
         }
-        ch.setPose(s.pose, s.held ?? 'none');
+        // the boss is around: the phone gives way to papers
+        if (s.held === 'phone' && now < ch.fakeWorkUntil) ch.setPose('read', 'papers');
+        else ch.setPose(s.pose, s.held ?? 'none');
         return ch.stepT >= s.ms;
       }
       case 'until': {
@@ -3217,6 +3349,12 @@ export class Sim {
     if (now < this.discoUntil || this.newYear.phase === 'party') {
       if (spot) ch.dir = spot.dir;
       ch.setPose(Math.floor((now + (ch.lane + 1) * 397) / 1600) % 2 ? 'cheer' : 'laugh');
+      return;
+    }
+    // the boss is around: idle at the desk, types as if there were no tomorrow
+    if (now < ch.fakeWorkUntil && spot && atHome && spot.seated) {
+      ch.dir = spot.dir;
+      ch.setPose('type', spot.kind === 'stool' || spot.kind === 'nook' ? 'laptop' : 'none');
       return;
     }
     // error after error: hands on head, right there (seated or standing)

@@ -56,6 +56,8 @@ export interface WorldDebug {
   setNewYear(phase: 'countdown' | 'party' | null): void;
   /** Calls the pizza delivery person now. */
   pizzaParty(): boolean;
+  /** Sends the boss on a round now (whatever the hour). */
+  bossNow(): boolean;
   /** Forces the after-lunch siesta on/off (idle agents nap, lights dim); null goes back to the clock (12:30–13:30). */
   siestaNow(on: boolean | null): void;
   /**
@@ -347,6 +349,7 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     },
 
     pizzaParty: () => sim.pizzaParty(sim.now),
+    bossNow: () => sim.bossPatrol(sim.now),
 
     setWeather: (w) => {
       renderer.weatherOverride = w;

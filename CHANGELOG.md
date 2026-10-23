@@ -12,6 +12,12 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **O chefe fazendo a ronda (sếp đi tuần).** Nos dias úteis, em horário de expediente (fora do almoço e da sesta), de
+  vez em quando o chefe de camisa branca e gravata vermelha sai do elevador, passa pelo lounge e por algumas salas
+  acesas, olha em volta e vai embora. Quem está à toa e no campo de visão leva um susto 😳: na mesa finge digitar, no
+  celular troca o aparelho por papéis, cochilando acorda num pulo; quando o chefe vai embora, um suspiro de alívio 😮‍💨.
+  Quem trabalha de verdade ganha um 👍. Só visual: nada muda nos agentes reais. No console:
+  `habblaud.world.debug.bossNow()`.
 - **Borracharia de calçada (tiệm vá xe).** Na calçada da frente, a leste do carrinho de bánh mì, das 7h às 18h30, o
   mecânico monta a banca: cavalete com pneus pendurados, compressor vermelho, bacia d'água para achar o furo, banquinho
   e um pneu em pé como placa. Ele passa o dia sentado mexendo no celular; de vez em quando uma moto fura o pneu, o

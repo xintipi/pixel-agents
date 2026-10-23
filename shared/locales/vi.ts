@@ -3454,4 +3454,12 @@ export const VI: Readonly<Record<string, string>> = {
   "Hot bánh mì here! 🥖": "Bánh mì nóng giòn đây! 🥖",
   "Bánh mì, xôi, fresh this morning! 🍙": "Bánh mì, xôi nóng sáng nay đây! 🍙",
   "Breakfast before work? 🌅": "Ăn sáng rồi hẵng làm nào! 🌅",
+  // client/src/world/sim/boss.ts, sim.ts (the boss on their rounds)
+  "The boss": "Sếp",
+  "Morning, team! 👔": "Chào cả nhà! 👔",
+  "How are we doing? 👔": "Mọi người làm đến đâu rồi? 👔",
+  "Just passing by… 👔": "Anh đi qua chút thôi… 👔",
+  "Hmm… 🤨": "Hửm… 🤨",
+  "Busy, are we? 🤨": "Bận lắm hả em? 🤨",
+  "Deadline is Friday, right? 🤨": "Thứ Sáu là deadline rồi đấy nhé? 🤨",
 };

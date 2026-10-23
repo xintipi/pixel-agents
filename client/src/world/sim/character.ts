@@ -128,6 +128,8 @@ export class Character {
   outdoors: number[] | null = null;
   /** Fixed costume (extras, e.g. the tea seller's conical hat); absent = the theme's. */
   costume?: CharacterFrameRequest['costume'];
+  /** The boss is around (sim/boss.ts): pretends to work until this instant (0 = not pretending). */
+  fakeWorkUntil = 0;
 
   constructor(info: AgentInfo, appearance: Appearance) {
     this.id = info.id;
