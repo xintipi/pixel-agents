@@ -42,7 +42,7 @@ import { hutieuCartProps, hutieuStoolProps } from '../sim/hutieu';
 import { crosswalkClearsDash, drawCrosswalk } from './crosswalk';
 import { bunBikeProps } from '../sim/banhbao';
 import { loaProps } from '../sim/loa';
-import { FLOODED, PARKING, RIDER_HELMETS, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
+import { DINER_CALL_MS, FLOODED, PARKING, RIDER_HELMETS, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
 import { countBadge, fallbackIcon } from './shell-sprites';
 import { decorateElevator, drawSeasonalLights, drawSeasonalWindow, seasonalCostume, seasonalFurniture } from './seasonal';
 import { buildAreaVis, furnitureSprites, opaqueBounds, paintShell, toWallVis, WALL_MARGIN, wallItemOrigin, wallSprites, type AreaVis, type FurnVis, type WallVis } from './scene';
@@ -1394,8 +1394,8 @@ export class Renderer {
       const c = cargoSprite(car.cargo, car.dir < 0, car.variant);
       this.ctx.drawImage(c.canvas, Math.round(car.x + car.dir * BIKE_RACK.dx - c.ax), Math.round(car.y + BIKE_RACK.dy - c.ay));
     }
-    // a rider who pulled over to eat is off the bike (the sim walks them to the stools)
-    if (!car.pushing && !(car.diner && car.phase === 'parked')) {
+    // a rider who pulled over to eat is off the bike (the sim walks them to the stools); one buying to go stays on
+    if (!car.pushing && !(car.diner && !car.dinerStays && car.phase === 'parked')) {
       riders.forEach((appearance, i) => {
         const rider = i === riders.length - 1;
         const dx = rider ? BIKE_SEATS.rider : BIKE_SEATS.passenger;
@@ -1551,12 +1551,12 @@ export class Renderer {
     this.traffic.police.catches = 0;
     // racing boys whizzing past: the sidewalks react
     for (const e of this.traffic.racerEvents) this.sim.racerPassed(e, now);
-    // hủ tiếu diners on bikes: the sim calls one over, the street parks them, the sim walks them, then they ride on
-    if (this.sim.dinerCall) {
-      this.traffic.dinerCall = { ...this.sim.dinerCall, until: now + 120_000 };
-      this.sim.dinerCall = null;
-    }
-    for (const variant of this.traffic.diners) this.sim.dinerParked(variant, now);
+    // riders pulling over at the sidewalk stalls: the sim calls one over, the street parks them, the sim walks them (or
+    // the vendor comes to the curb), then they ride on
+    for (const c of this.sim.dinerCalls) this.traffic.dinerCalls.push({ ...c, until: now + DINER_CALL_MS });
+    this.sim.dinerCalls.length = 0;
+    for (const { variant, tag } of this.traffic.diners) this.sim.dinerParked(variant, tag, now);
+
     this.traffic.diners.length = 0;
     for (const variant of this.sim.dinersDone) this.traffic.dinerLeave(variant);
     this.sim.dinersDone.length = 0;

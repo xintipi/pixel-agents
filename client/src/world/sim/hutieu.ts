@@ -60,22 +60,24 @@ export const EAT_MS: readonly [number, number] = [25_000, 45_000];
 /** A passer-by walks along the sidewalk (just below the lane) from one end, to a stool, and on to the other end. */
 const STROLL_Y = LANE_Y + 10;
 
-export function passerbyRouteIn(fromX: number, s: TeaSeat): number[] {
+/** (Any sidewalk stall: the hủ tiếu stools, the tea stools, the bánh mì cart.) */
+export function passerbyRouteIn(fromX: number, s: { x: number; y: number }): number[] {
   return [fromX, STROLL_Y, s.x, STROLL_Y, s.x, s.y];
 }
 
-export function passerbyRouteOut(s: TeaSeat, toX: number): number[] {
+export function passerbyRouteOut(s: { x: number; y: number }, toX: number): number[] {
   return [s.x, STROLL_Y, toX, STROLL_Y];
 }
 
-/** A rider walks from the parked bike to the stool, and back. */
-export function riderToStool(s: TeaSeat): number[] {
-  return [DINER_PARK.x, STROLL_Y, s.x, STROLL_Y, s.x, s.y];
+/** A rider walks from the bike parked at `park` (the hủ tiếu's, or the tea stall's) to the stool, and back. */
+export function riderToStool(s: TeaSeat, park: { x: number; y: number } = DINER_PARK): number[] {
+  return [park.x, STROLL_Y, s.x, STROLL_Y, s.x, s.y];
 }
 
-export function riderToBike(s: TeaSeat): number[] {
-  return [s.x, STROLL_Y, DINER_PARK.x, STROLL_Y, DINER_PARK.x, DINER_PARK.y - 2];
+export function riderToBike(s: TeaSeat, park: { x: number; y: number } = DINER_PARK): number[] {
+  return [s.x, STROLL_Y, park.x, STROLL_Y, park.x, park.y - 2];
 }
+
 
 /** The boy's beat along the sidewalk (px): west end, east end. */
 export const BOY_BEAT: readonly [number, number] = [3 * TILE, 30 * TILE];

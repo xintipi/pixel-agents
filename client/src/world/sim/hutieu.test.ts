@@ -75,12 +75,12 @@ describe('a rider pulling over on the street', () => {
     const bike: Vehicle = { kind: 'bike', x: DINER_PARK.x - 200, y: env.lanes[0].y - 4, dir: 1, speed: 50, want: 50, laneY: env.lanes[0].y, ty: env.lanes[0].y - 4, variant: 77, riders: 1, stuck: 0, sidewalk: 0 };
     t.vehicles.push(bike);
     let now = 1_000;
-    t.dinerCall = { x: DINER_PARK.x, y: DINER_PARK.y, until: now + 60_000 };
+    t.dinerCalls = [{ x: DINER_PARK.x, y: DINER_PARK.y, until: now + 60_000, tag: 'hutieu' }];
     for (let i = 0; i < 20 * 30 && !t.diners.length; i++) {
       now += 1000 / 30;
       t.step(now, 1 / 30, env, 19, 3);
     }
-    expect(t.diners).toEqual([77]);
+    expect(t.diners).toEqual([{ variant: 77, tag: 'hutieu' }]);
     expect(bike.phase).toBe('parked');
     expect(bike.x).toBe(DINER_PARK.x);
     t.dinerLeave(77);
@@ -130,7 +130,7 @@ describe('customers at the hủ tiếu stools', () => {
 
   it('a rider who pulled over gets off, eats, and is sent back to the bike', () => {
     const { sim, step } = evening();
-    sim.dinerParked(4242, T0);
+    sim.dinerParked(4242, 'hutieu', T0);
     const rider = () => sim.extras.find((e) => e.id === 'npc:khach-xe:4242');
     expect(rider()).toBeDefined();
     let ate = false;

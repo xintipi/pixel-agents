@@ -2,7 +2,7 @@
 // plans behaviors and runs the step queues every frame.
 import { partsKey } from '../../../../shared/appearance';
 import type { AgentInfo, OfficeSnapshot, Provider, RoomInfo } from '../../../../shared/types';
-import type { Appearance, ArtModule, Dir, RoomTheme } from '../../art/api';
+import type { Appearance, ArtModule, Dir, HeldItem, RoomTheme } from '../../art/api';
 import type { SoundCueKind, WorldOptions } from '../api';
 import { COL_W, COMPACT_DELAY_MS, DISMANTLE_DELAY_MS, FOOT_DX, FOOT_DY, MISSING_DEBOUNCE_MS, RUN_SPEED, TILE, WALK_SPEED } from '../constants';
 import { assembleBuilding, type BuildingLayout } from '../layout/building';
@@ -40,7 +40,7 @@ import { RoomState } from './room-state';
 import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, spinDir, spinPhase, yawnPhase } from './shell';
 import { SpotRegistry } from './spots';
 import type { Step } from './steps';
-import { PARKING, floodLine, riderSeed, type RacerEvent } from './traffic';
+import { DINER_CALL_MS, PARKING, floodLine, riderSeed, type DinerCall, type RacerEvent } from './traffic';
 import { racerReaction, type RacerWitness } from './racer';
 import { STREET_H, STREET_Y } from '../layout/exterior';
 import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen } from './repair';
@@ -89,12 +89,20 @@ import { DRAW_H, ROUND_GAP_MIN, buyerLine, buyerSpot, loseLine, lotteryOpen, rou
 import {
   LANE_Y,
   TEA_DOOR,
+  TEA_DRINK_MS,
+  TEA_PARK,
+  TEA_PASSERBY_CHANCE,
   TEA_SEATS,
   TEA_SELLER_SEAT,
+  XEOM_CHANCE,
   Stall,
   TeaStall,
   chatLine,
   orderLine,
+  sellerChat,
+  teaBye,
+  teaRiderChance,
+  xeomLine,
   routeAcross,
   routeToSeat,
   seatDepth,
@@ -125,7 +133,24 @@ import {
   type Outage,
   type OutageCause,
 } from './outage';
-import { BANHMI_SPOTS, BANHMI_VENDOR_SPOT, banhmiOpen, cartAt, pickOrder, vendorLine, vendorReply, vendorRouteIn, vendorRouteOut } from './banhmi';
+import {
+  BANHMI_PARKS,
+  BANHMI_PASSERBY_CHANCE,
+  BANHMI_RIDER_CHANCE,
+  BANHMI_SPOTS,
+  BANHMI_VENDOR_SPOT,
+  banhmiOpen,
+  banhmiRush,
+  cartAt,
+  pickOrder,
+  vendorComing,
+  vendorFromBike,
+  vendorLine,
+  vendorReply,
+  vendorRouteIn,
+  vendorRouteOut,
+  vendorToBike,
+} from './banhmi';
 import { EXIT_RADIUS, NO_INTENT, stepFree, tileAt, VISITOR_LANYARD, type VisitorIntent } from './visitor';
 import { tr } from '../../../../shared/i18n';
 import { dayKey } from '../../../../shared/timeline';
@@ -313,9 +338,19 @@ export class Sim {
   hutieuUp = false;
   /** The stools by the cart (passers-by, riders who pulled over, agents who walked out). */
   readonly hutieuStools = new Stall(HUTIEU_STOOLS.length);
-  /** A rider is wanted to pull over and eat (the renderer passes it to the street), and the diners done eating. */
-  dinerCall: { x: number; y: number } | null = null;
+  /**
+   * Riders wanted to pull over at the sidewalk stalls (the renderer passes them to the street; the tag says which
+   * stall and parking spot), and the diners done (their bikes ride on).
+   */
+  readonly dinerCalls: Omit<DinerCall, 'until'>[] = [];
   readonly dinersDone: number[] = [];
+  /** Parking spots of riders called over (tag -> held until, ms; Infinity while a bike is parked there). */
+  private readonly bikeSpots = new Map<string, number>();
+  /** Riders waiting on the bike by the bánh mì cart for the vendor to bring it over. */
+  private readonly banhmiBikes: { variant: number; tag: string }[] = [];
+  /** The bánh mì vendor stepped away to the curb (the cart stays put). */
+  private banhmiAway = false;
+
   private passerbySeq = 0;
   readonly hutieuOrders = new Map<string, number>();
   private hutieuBowls = 0;
@@ -2986,13 +3021,32 @@ export class Sim {
   private planTea(ch: Character): boolean {
     const i = this.tea.reserve(ch.id, ch.rng);
     if (i < 0) return false;
-    const seat = TEA_SEATS[i];
-    const rng = ch.rng;
     const steps: Step[] = [];
     this.pushLeave(ch, steps);
     steps.push(
       { t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty },
-      { t: 'route', pts: routeToSeat(seat), trail: 'out' },
+      { t: 'route', pts: routeToSeat(TEA_SEATS[i]), trail: 'out' },
+      ...this.drinkAtStool(ch, i, false),
+      { t: 'do', fn: () => ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), trail: 'back' }) },
+    );
+    ch.queue.push(...steps);
+    this.pushHome(ch, 'none');
+    return true;
+  }
+
+  /**
+   * Steps of a glass at tea stool `i` for `ch` (who is standing at it): sits, orders, drinks, gets up. A xe ôm driver
+   * (`xeom`) stays a good while longer, grumbling to the seller about the slow day.
+   */
+  private drinkAtStool(ch: Character, i: number, xeom: boolean): Step[] {
+    const seat = TEA_SEATS[i];
+    const rng = ch.rng;
+    const sip = (a: number, b: number): Step => ({ t: 'act', pose: 'sit', held: 'water', dir: seat.dir, ms: between(rng, a, b) });
+    const sellerSays = () => {
+      const seller = this.extras.find((e) => e.id === TEA_SELLER_ID);
+      if (seller && seller.sayUntil <= this.now) this.social.say(seller, sellerChat(seller.rng), this.now);
+    };
+    const steps: Step[] = [
       {
         t: 'do',
         fn: () => {
@@ -3007,20 +3061,30 @@ export class Sim {
         },
       },
       { t: 'act', pose: 'sit', dir: seat.dir, ms: between(rng, 3000, 5000) },
-      { t: 'act', pose: 'sit', held: 'water', dir: seat.dir, ms: between(rng, 14_000, 30_000) },
-      {
-        t: 'do',
-        fn: () => {
-          this.tea.release(ch.id);
-          ch.seated = false;
-          ch.sortY = null;
-          ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), trail: 'back' });
-        },
+    ];
+    if (xeom) {
+      steps.push(
+        sip(8_000, 14_000),
+        { t: 'do', fn: () => this.social.say(ch, xeomLine(rng), this.now) },
+        sip(5_000, 8_000),
+        { t: 'do', fn: sellerSays },
+        sip(25_000, 50_000),
+        { t: 'do', fn: () => this.social.say(ch, xeomLine(rng), this.now) },
+        sip(5_000, 8_000),
+        { t: 'do', fn: sellerSays },
+        sip(10_000, 20_000),
+      );
+    } else steps.push(sip(TEA_DRINK_MS[0], TEA_DRINK_MS[1]));
+    steps.push({
+      t: 'do',
+      fn: () => {
+        this.tea.release(ch.id);
+        ch.seated = false;
+        ch.sortY = null;
+        if (ch.sayUntil <= this.now) this.social.say(ch, teaBye(rng), this.now);
       },
-    );
-    ch.queue.push(...steps);
-    this.pushHome(ch, 'none');
-    return true;
+    });
+    return steps;
   }
 
   /** Flooded street: out the same way as for the tea, a look at the water from the curb, a sigh, a facepalm, back in. */
@@ -3080,19 +3144,53 @@ export class Sim {
       this.teaUp = false;
       return;
     }
+    this.teaCustomers(now);
     const sitting = this.tea.sitting();
     if (!seller.seated || seller.sayUntil > now) return;
     const rng = seller.rng;
     if (sitting.length >= 2 && rng() < 0.12) {
-      const who = this.chars.get(sitting[Math.floor(rng() * sitting.length)]);
+      // the office jokes are the agents' (passers-by just sip)
+      const agents = sitting.filter((id) => this.chars.has(id));
+      const who = agents.length ? this.chars.get(agents[Math.floor(rng() * agents.length)]) : undefined;
       if (who && who.sayUntil <= now) this.social.say(who, chatLine(rng), now);
     } else if (sitting.length && rng() < 0.08) {
-      const who = this.chars.get(sitting[Math.floor(rng() * sitting.length)]);
+      const who = this.personById(sitting[Math.floor(rng() * sitting.length)]);
       if (who) {
         who.chatEmoji = rng() < 0.5 ? '😂' : '🧊';
         who.chatUntil = now + 1_400;
       }
     } else if (rng() < 0.015) this.social.say(seller, sellerLine(rng), now);
+  }
+
+  /** Someone in the office or on the sidewalk, by id. */
+  private personById(id: string): Character | undefined {
+    return this.chars.get(id) ?? this.extras.find((e) => e.id === id);
+  }
+
+  /**
+   * Customers from the street at the tea stall (once a second, while it's set up): now and then a passer-by sits down
+   * for a glass, or a rider is called over to pull up (more at the hot midday), sometimes a xe ôm driver to chat.
+   */
+  private teaCustomers(now: number): void {
+    if (!this.teaUp || this.flooded || !this.tea.hasFree()) return;
+    const r = Math.random();
+    if (r < TEA_PASSERBY_CHANCE) this.spawnPasserby(now, 'tea');
+    // the scrap buyer stops by the curb right there: not while she's around
+    else if (r < TEA_PASSERBY_CHANCE + teaRiderChance(this.hourOf(now)) && !this.extras.some((e) => e.id === SCRAP_ID)) this.callRider('tea', TEA_PARK);
+  }
+
+  /** Calls a rider over to park at the spot `tag` (the renderer passes it to the street), unless one is already coming or there. */
+  private callRider(tag: string, park: { x: number; y: number }, stays = false): boolean {
+    if ((this.bikeSpots.get(tag) ?? 0) > this.now) return false;
+    this.bikeSpots.set(tag, this.now + DINER_CALL_MS);
+    this.dinerCalls.push({ x: park.x, y: park.y, tag, stays });
+    return true;
+  }
+
+  /** The rider parked at the spot `tag` is done: the bike rides on and the spot is free. */
+  private riderDone(variant: number, tag: string): void {
+    this.dinersDone.push(variant);
+    this.bikeSpots.delete(tag);
   }
 
   /** The seller: conical hat, brown blouse; walks in along the sidewalk, sits by the jug until closing, walks off. */
@@ -3146,8 +3244,6 @@ export class Sim {
         t: 'do',
         fn: () => {
           this.teaUp = false;
-          ch.seated = false;
-          ch.sortY = null;
           // whoever is still sitting there drinks up and goes back in
           for (const id of this.tea.sitting()) {
             const c = this.chars.get(id);
@@ -3155,6 +3251,16 @@ export class Sim {
           }
         },
       },
+      // customers from the street finish their glass first
+      { t: 'until', cond: () => this.tea.taken.every((t) => !t || this.chars.has(t)), minMs: 0, maxMs: 3 * 60_000, pose: 'sit', dir: seat.dir },
+      {
+        t: 'do',
+        fn: () => {
+          ch.seated = false;
+          ch.sortY = null;
+        },
+      },
+
       { t: 'route', pts: sellerRouteOut(TEA_SELLER_FROM_X), held: 'box' },
       { t: 'remove' },
     );
@@ -3169,14 +3275,35 @@ export class Sim {
   private planBanhMi(ch: Character): boolean {
     const i = this.banhmi.reserve(ch.id, ch.rng);
     if (i < 0) return false;
-    const spot = BANHMI_SPOTS[i];
     const rng = ch.rng;
     const order = pickOrder(rng);
     const steps: Step[] = [];
     this.pushLeave(ch, steps);
     steps.push(
       { t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty },
-      { t: 'route', pts: routeToSeat(spot), trail: 'out' },
+      { t: 'route', pts: routeToSeat(BANHMI_SPOTS[i]), trail: 'out' },
+      ...this.buyAtCart(ch, i, order),
+      { t: 'do', fn: () => ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), held: order.held, trail: 'back' }) },
+    );
+    ch.queue.push(...steps);
+    // back at the desk with it: breakfast seated, then the usual rest before the next stroll
+    const home = this.spots.get(ch.homeSpot);
+    ch.queue.push({ t: 'do', fn: () => this.releaseTemp(ch) });
+    if (!home) return true;
+    ch.queue.push(
+      { t: 'go', tx: home.tx, ty: home.ty, held: order.held },
+      { t: 'enter', spot: home.id },
+      { t: 'act', pose: 'sit', held: order.held, ms: between(rng, 20_000, 40_000) },
+      { t: 'do', fn: () => (ch.nextOutingAt = this.now + idleSitMs(ch.rng, this.options().liveliness)) },
+    );
+    return true;
+  }
+
+  /** Steps of buying `order` at the cart's spot `i` for `ch` (who is standing at it): orders, the vendor hands it over. */
+  private buyAtCart(ch: Character, i: number, order: { held: HeldItem; line: string }): Step[] {
+    const spot = BANHMI_SPOTS[i];
+    const rng = ch.rng;
+    return [
       {
         t: 'do',
         fn: () => {
@@ -3197,26 +3324,89 @@ export class Sim {
         },
       },
       { t: 'act', pose: 'stand', held: order.held, dir: spot.dir, ms: between(rng, 1200, 2200) },
+      { t: 'do', fn: () => this.banhmi.release(ch.id) },
+    ];
+  }
+
+  /**
+   * Customers from the street at the bánh mì cart (once a second, while it's out; twice as many at 7–8): a passer-by
+   * walks up and buys one to go, or a rider is called over to stop by the curb and wait on the bike for the vendor.
+   */
+  private banhmiCustomers(now: number): void {
+    if (!this.banhmiUp || this.flooded) return;
+    const r = Math.random() / banhmiRush(this.hourOf(now));
+    if (r < BANHMI_PASSERBY_CHANCE) {
+      if (this.banhmi.hasFree()) this.spawnPasserby(now, 'banhmi');
+    } else if (r < BANHMI_PASSERBY_CHANCE + BANHMI_RIDER_CHANCE) {
+      const i = BANHMI_PARKS.findIndex((_, k) => (this.bikeSpots.get(`banhmi:${k}`) ?? 0) <= now);
+      if (i >= 0) this.callRider(`banhmi:${i}`, BANHMI_PARKS[i], true);
+    }
+  }
+
+  /** A rider stopped by the curb at the bánh mì cart (still on the bike, beeping): the vendor will bring it over. */
+  private banhmiRider(variant: number, tag: string): void {
+    const vendor = this.extras.find((e) => e.id === BANHMI_VENDOR_ID);
+    if (!this.banhmiUp || !vendor) {
+      this.riderDone(variant, tag);
+      return;
+    }
+    if (vendor.sayUntil <= this.now) this.social.say(vendor, vendorComing(vendor.rng), this.now);
+    this.banhmiBikes.push({ variant, tag });
+  }
+
+  /** The vendor at the handle until closing, or until a rider waits by the curb: then over to them, and back to waiting. */
+  private vendorWait(ch: Character): Step[] {
+    const spot = BANHMI_VENDOR_SPOT;
+    const open = () => !this.visit && banhmiOpen(this.hourOf(this.now));
+    return [
+      { t: 'until', cond: () => !open() || this.banhmiBikes.length > 0, minMs: 0, maxMs: Number.MAX_SAFE_INTEGER, pose: 'stand', dir: spot.dir },
       {
         t: 'do',
         fn: () => {
-          this.banhmi.release(ch.id);
-          ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), held: order.held, trail: 'back' });
+          const b = open() ? this.banhmiBikes.shift() : undefined;
+          if (b) ch.queue.unshift(...this.vendorToCurb(ch, b), ...this.vendorWait(ch));
         },
       },
-    );
-    ch.queue.push(...steps);
-    // back at the desk with it: breakfast seated, then the usual rest before the next stroll
-    const home = this.spots.get(ch.homeSpot);
-    ch.queue.push({ t: 'do', fn: () => this.releaseTemp(ch) });
-    if (!home) return true;
-    ch.queue.push(
-      { t: 'go', tx: home.tx, ty: home.ty, held: order.held },
-      { t: 'enter', spot: home.id },
-      { t: 'act', pose: 'sit', held: order.held, ms: between(rng, 20_000, 40_000) },
-      { t: 'do', fn: () => (ch.nextOutingAt = this.now + idleSitMs(ch.rng, this.options().liveliness)) },
-    );
-    return true;
+    ];
+  }
+
+  /** The vendor walks behind the cart to the rider at the curb, hands it over (the bike rides on) and walks back. */
+  private vendorToCurb(ch: Character, b: { variant: number; tag: string }): Step[] {
+    const p = BANHMI_PARKS[Number(b.tag.slice('banhmi:'.length))] ?? BANHMI_PARKS[0];
+    const order = pickOrder(ch.rng);
+    return [
+      { t: 'do', fn: () => (this.banhmiAway = true) },
+      { t: 'route', pts: vendorToBike(p), held: order.held },
+      { t: 'act', pose: 'stand', held: order.held, dir: 'left', ms: between(ch.rng, 1_000, 1_800) },
+      {
+        t: 'do',
+        fn: () => {
+          this.social.say(ch, vendorReply(ch.rng), this.now);
+          this.riderDone(b.variant, b.tag);
+        },
+      },
+      { t: 'act', pose: 'stand', dir: 'left', ms: 800 },
+      { t: 'route', pts: vendorFromBike(p) },
+      { t: 'do', fn: () => (this.banhmiAway = false) },
+    ];
+  }
+
+  /** Debug: a customer for the bánh mì cart now (if it's out): someone walking up, or a rider stopping by the curb. */
+  banhmiGuestNow(kind: 'walk' | 'bike'): void {
+    if (!this.banhmiUp) return;
+    if (kind === 'walk') {
+      if (this.banhmi.hasFree()) this.spawnPasserby(this.now, 'banhmi');
+      return;
+    }
+    const i = BANHMI_PARKS.findIndex((_, k) => (this.bikeSpots.get(`banhmi:${k}`) ?? 0) <= this.now);
+    if (i >= 0) this.callRider(`banhmi:${i}`, BANHMI_PARKS[i], true);
+  }
+
+  /** Debug: a customer for the tea stall now (if it's set up with a free stool): walking up, or a rider pulling over. */
+  teaGuestNow(kind: 'walk' | 'bike'): void {
+    if (!this.teaUp || !this.tea.hasFree()) return;
+    if (kind === 'walk') this.spawnPasserby(this.now, 'tea');
+    else this.callRider('tea', TEA_PARK);
   }
 
   /** Debug: whoever is idle (and not already outside or in a circle) goes to the bánh mì cart now. Returns how many went. */
@@ -3235,7 +3425,8 @@ export class Sim {
   /** Where the cart is drawn (bottom center, px): next to the vendor while he's around, null otherwise. */
   banhmiCart(): { x: number; y: number } | null {
     const vendor = this.extras.find((e) => e.id === BANHMI_VENDOR_ID && !e.gone);
-    return vendor ? cartAt(vendor) : null;
+    // stepped away to a rider at the curb: the cart stays parked
+    return vendor ? cartAt(this.banhmiAway ? BANHMI_VENDOR_SPOT : vendor) : null;
   }
 
   /** The cart's morning: the vendor pushes it in at opening, calls out now and then, pushes it off at closing. Once a second. */
@@ -3247,6 +3438,7 @@ export class Sim {
       this.banhmiUp = false;
       return;
     }
+    this.banhmiCustomers(now);
     if (!this.banhmiUp || vendor.sayUntil > now) return;
     if (vendor.rng() < 0.015) this.social.say(vendor, vendorLine(vendor.rng), now);
   }
@@ -3288,11 +3480,14 @@ export class Sim {
     ch.queue.push(
       { t: 'route', pts },
       { t: 'do', fn: () => (this.banhmiUp = true) },
-      { t: 'until', cond: () => this.visit || !banhmiOpen(this.hourOf(this.now)), minMs: 0, maxMs: Number.MAX_SAFE_INTEGER, pose: 'stand', dir: spot.dir },
+      ...this.vendorWait(ch),
       {
         t: 'do',
         fn: () => {
           this.banhmiUp = false;
+          // riders still waiting by the curb give up and ride on
+          for (const b of this.banhmiBikes.splice(0)) this.riderDone(b.variant, b.tag);
+
           // whoever is still on the way or at the cart goes back in
           for (const id of [...this.banhmi.taken]) {
             const c = id ? this.chars.get(id) : undefined;
@@ -4204,8 +4399,8 @@ export class Sim {
   private hutieuCustomers(now: number): void {
     if (!this.hutieuUp || !this.hutieuOn(now) || !this.hutieuStools.hasFree()) return;
     const r = Math.random();
-    if (r < PASSERBY_CHANCE) this.spawnPasserby(now);
-    else if (r < PASSERBY_CHANCE + RIDER_CHANCE && !this.dinerCall) this.dinerCall = { x: DINER_PARK.x, y: DINER_PARK.y };
+    if (r < PASSERBY_CHANCE) this.spawnPasserby(now, 'hutieu');
+    else if (r < PASSERBY_CHANCE + RIDER_CHANCE) this.callRider('hutieu', DINER_PARK);
   }
 
   /** Steps of a bowl at stool `i` for `ch` (who is standing at it): sits, orders, eats, pays, gets up. */
@@ -4256,22 +4451,26 @@ export class Sim {
   /** Debug: a customer for the cart now (if it's out with a free stool): walking up, or a rider called over. */
   hutieuGuestNow(kind: 'walk' | 'bike'): void {
     if (!this.hutieuUp || !this.hutieuStools.hasFree()) return;
-    if (kind === 'walk') this.spawnPasserby(this.now);
-    else this.dinerCall = { x: DINER_PARK.x, y: DINER_PARK.y };
+    if (kind === 'walk') this.spawnPasserby(this.now, 'hutieu');
+    else this.callRider('hutieu', DINER_PARK);
   }
 
-  /** A passer-by: walks in from one end of the sidewalk, eats at a stool, walks on to the other end. */
-  private spawnPasserby(now: number): void {
+  /**
+   * A passer-by: walks in from one end of the sidewalk and on to the other end, stopping at the stall `at` on the way:
+   * a bowl at the hủ tiếu stools, a glass at the tea stall, or a bánh mì to go (eaten on the way).
+   */
+  private spawnPasserby(now: number, at: 'hutieu' | 'tea' | 'banhmi'): void {
     const n = ++this.passerbySeq;
     const id = `npc:khach:${n}`;
-    const i = this.hutieuStools.reserve(id, Math.random);
+    const stall = at === 'tea' ? this.tea : at === 'banhmi' ? this.banhmi : this.hutieuStools;
+    const i = stall.reserve(id, Math.random);
     if (i < 0) return;
     const seed = 61_000 + n * 97;
     let appearance;
     try {
       appearance = { ...this.art.appearanceFromSeed(seed, { look: seed % 2 ? 'f' : 'm', sub: false }), lanyard: null };
     } catch {
-      this.hutieuStools.release(id);
+      stall.release(id);
       return;
     }
     const ch = new Character(this.npcInfo(id, tr('Passer-by'), seed % 2 ? 'f' : 'm', seed, now), appearance);
@@ -4279,43 +4478,58 @@ export class Sim {
     const west = TEA_SELLER_FROM_X;
     const east = (this.building.cols * COL_W + 19) * TILE;
     const fromWest = Math.random() < 0.5;
-    const seat = HUTIEU_STOOLS[i];
+    const seat = at === 'tea' ? TEA_SEATS[i] : at === 'banhmi' ? BANHMI_SPOTS[i] : HUTIEU_STOOLS[i];
     const pts = passerbyRouteIn(fromWest ? west : east, seat);
     ch.x = pts[0];
     ch.y = pts[1];
     ch.dir = fromWest ? 'right' : 'left';
-    ch.queue.push({ t: 'route', pts }, ...this.eatAtStool(ch, i), { t: 'route', pts: passerbyRouteOut(seat, fromWest ? east : west) }, { t: 'remove' });
+    const order = at === 'banhmi' ? pickOrder(ch.rng) : null;
+    const stop = order ? this.buyAtCart(ch, i, order) : at === 'tea' ? this.drinkAtStool(ch, i, false) : this.eatAtStool(ch, i);
+    ch.queue.push({ t: 'route', pts }, ...stop, { t: 'route', pts: passerbyRouteOut(seat, fromWest ? east : west), held: order?.held }, { t: 'remove' });
     this.extras.push(ch);
   }
 
-  /** A rider pulled over (the street parked the bike): gets off, eats at a stool, gets back on and rides off. */
-  dinerParked(variant: number, now: number): void {
+  /**
+   * A rider pulled over (the street parked the bike at the spot `tag`): at the hủ tiếu cart or the tea stall gets off,
+   * eats or drinks at a stool (at the tea, now and then a xe ôm driver who stays to chat), gets back on and rides off;
+   * at the bánh mì cart stays on the bike and waits for the vendor.
+   */
+  dinerParked(variant: number, tag: string, now: number): void {
+    this.bikeSpots.set(tag, Infinity);
+    if (tag.startsWith('banhmi:')) {
+      this.banhmiRider(variant, tag);
+      return;
+    }
+    const tea = tag === 'tea';
+    const stall = tea ? this.tea : this.hutieuStools;
     const id = `npc:khach-xe:${variant}`;
-    const i = this.hutieuUp ? this.hutieuStools.reserve(id, Math.random) : -1;
+    const i = (tea ? this.teaUp : this.hutieuUp) ? stall.reserve(id, Math.random) : -1;
     if (i < 0) {
-      this.dinersDone.push(variant);
+      this.riderDone(variant, tag);
       return;
     }
     const r = riderSeed(variant);
+    const xeom = tea && Math.random() < XEOM_CHANCE;
     let appearance;
     try {
       appearance = { ...this.art.appearanceFromSeed(r.seed, { look: r.look, sub: false }), accessory: 'cap' as const, accessoryColor: r.helmet, lanyard: null };
     } catch {
-      this.hutieuStools.release(id);
-      this.dinersDone.push(variant);
+      stall.release(id);
+      this.riderDone(variant, tag);
       return;
     }
-    const ch = new Character(this.npcInfo(id, tr('Passer-by'), r.look, r.seed, now), appearance);
+    const ch = new Character(this.npcInfo(id, xeom ? tr('Xe ôm driver') : tr('Passer-by'), r.look, r.seed, now), appearance);
     ch.crowd = true;
-    ch.x = DINER_PARK.x;
-    ch.y = DINER_PARK.y - 2;
+    const park = tea ? TEA_PARK : DINER_PARK;
+    ch.x = park.x;
+    ch.y = park.y - 2;
     ch.dir = 'right';
-    const seat = HUTIEU_STOOLS[i];
+    const seat = tea ? TEA_SEATS[i] : HUTIEU_STOOLS[i];
     ch.queue.push(
-      { t: 'route', pts: riderToStool(seat) },
-      ...this.eatAtStool(ch, i),
-      { t: 'route', pts: riderToBike(seat) },
-      { t: 'do', fn: () => this.dinersDone.push(variant) },
+      { t: 'route', pts: riderToStool(seat, park) },
+      ...(tea ? this.drinkAtStool(ch, i, xeom) : this.eatAtStool(ch, i)),
+      { t: 'route', pts: riderToBike(seat, park) },
+      { t: 'do', fn: () => this.riderDone(variant, tag) },
       { t: 'remove' },
     );
     this.extras.push(ch);
@@ -4838,7 +5052,12 @@ export class Sim {
     this.hutieuUp = false;
     this.hutieuOrders.clear();
     this.hutieuStools.clear();
-    this.dinerCall = null;
+    // riders called over: the calls are dropped, whoever waits on a bike at the curb rides on
+    this.dinerCalls.length = 0;
+    for (const b of this.banhmiBikes.splice(0)) this.dinersDone.push(b.variant);
+    this.bikeSpots.clear();
+    this.banhmiAway = false;
+
     // the officer is gone too (comes back if the street is still jammed)
     this.policeOnPost = false;
     // the dance too (the aunties walk in again, if it's still the hour)

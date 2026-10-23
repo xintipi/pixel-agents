@@ -61,8 +61,25 @@ export interface Vehicle {
   racer?: boolean;
   /** Last time this vehicle honked at a racing boy cutting past it (ms). */
   startled?: number;
-  /** Pulled over to eat at the hủ tiếu cart: parked with nobody on it while the rider eats. */
-  diner?: boolean;
+  /**
+   * Pulled over at a sidewalk stall (the call's tag: 'hutieu', 'tea', 'banhmi'): parked with nobody on it while the
+   * rider eats, or with the rider still on it when `dinerStays` (a bánh mì to go, handed over at the curb).
+   */
+  diner?: string;
+  dinerStays?: boolean;
+}
+
+/** How long a call for a rider to pull over waits for a fitting bike (ms). */
+export const DINER_CALL_MS = 120_000;
+
+/** A sidewalk stall wants a rider to pull over and park at (x, y) until `until` (ms); `stays`: without getting off. */
+
+export interface DinerCall {
+  x: number;
+  y: number;
+  until: number;
+  tag: string;
+  stays?: boolean;
 }
 
 /** Helmet colors of the riders (the renderer draws them; the sim dresses a rider who gets off the same way). */
@@ -231,10 +248,10 @@ export class Traffic {
   racerNow = false;
   /** Racing boys passing by since the sim last looked (the renderer empties it). */
   readonly racerEvents: RacerEvent[] = [];
-  /** A rider is wanted to pull over and park here (the hủ tiếu cart) until `until` (ms): the next fitting bike does. */
-  dinerCall: { x: number; y: number; until: number } | null = null;
-  /** Diners who just parked (the renderer passes them on to the sim): their bike's variant. */
-  readonly diners: number[] = [];
+  /** Riders wanted to pull over at the sidewalk stalls: the next fitting bike for each does. */
+  dinerCalls: DinerCall[] = [];
+  /** Diners who just parked (the renderer passes them on to the sim): their bike's variant and the call's tag. */
+  readonly diners: { variant: number; tag: string }[] = [];
   private lastRacerEvent = 0;
 
   /** A bike is at the repair stall being fixed. */
@@ -376,30 +393,30 @@ export class Traffic {
   }
 
   /**
-   * Someone hungry: the next eastbound rider alone (no load) coming up to the spot pulls over and parks there; they
-   * get off to eat (the sim walks them) and ride on when `dinerLeave` says so.
+   * Someone hungry: for each call, the next eastbound rider alone (no load) coming up to the spot pulls over and parks
+   * there; they get off to eat (the sim walks them), or wait on the bike, and ride on when `dinerLeave` says so.
    */
   private callDiner(now: number): void {
-    const park = this.dinerCall;
-    if (!park) return;
     // nobody came by in time (a quiet street): never mind
-    if (now > park.until) {
-      this.dinerCall = null;
-      return;
+    this.dinerCalls = this.dinerCalls.filter((c) => now <= c.until);
+    for (let i = 0; i < this.dinerCalls.length; i++) {
+      const park = this.dinerCalls[i];
+      const v = this.vehicles.find((o) => o.kind === 'bike' && o.dir > 0 && !o.owner && !o.phase && !o.racer && !o.pushing && !o.cargo && o.riders === 1 && park.x - o.x > 80 && park.x - o.x < 700);
+      if (!v) continue;
+      v.phase = 'arrive';
+      v.park = { x: park.x, y: park.y };
+      v.diner = park.tag;
+      v.dinerStays = park.stays;
+      this.dinerCalls.splice(i--, 1);
     }
-    const v = this.vehicles.find((o) => o.kind === 'bike' && o.dir > 0 && !o.owner && !o.phase && !o.racer && !o.pushing && !o.cargo && o.riders === 1 && park.x - o.x > 80 && park.x - o.x < 700);
-    if (!v) return;
-    v.phase = 'arrive';
-    v.park = { x: park.x, y: park.y };
-    v.diner = true;
-    this.dinerCall = null;
   }
 
   /** The diner riding `variant` is done eating: back on the bike and into the lane. */
   dinerLeave(variant: number): void {
     const v = this.vehicles.find((o) => o.diner && o.variant === variant && o.phase === 'parked');
     if (!v) return;
-    v.diner = false;
+    v.diner = undefined;
+    v.dinerStays = undefined;
     v.phase = 'leave';
     v.ty = v.laneY - 4;
     v.want = 40 + this.rng() * 14;
@@ -539,7 +556,10 @@ export class Traffic {
       } else {
         v.phase = 'parked';
         if (v.owner) this.parked.push(v.owner);
-        if (v.diner) this.diners.push(v.variant);
+        if (v.diner) this.diners.push({ variant: v.variant, tag: v.diner });
+        // stays on the bike: a beep to the vendor
+        if (v.diner && v.dinerStays) this.honk(v, now);
+
       }
     }
     if (v.phase === 'leave' && v.y === v.ty) v.phase = undefined;

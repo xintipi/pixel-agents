@@ -46,6 +46,22 @@ export const TEA_SELLER_SEAT: TeaSeat = { x: TEA_TABLE.x - 27, y: TEA_TABLE.y - 
 /** Ice cooler behind the seller (bottom center, px). */
 export const TEA_COOLER = { x: TEA_TABLE.x - 42, y: TEA_TABLE.y - 8 } as const;
 
+/** Where a rider who pulls over for a glass parks the bike: by the curb, west of the stall (bottom center, px). */
+export const TEA_PARK = { x: TEA_TABLE.x - 64, y: 32 * TILE + 14 } as const;
+
+/** Each second while the stall is set up with a free stool: the chance a passer-by sits down, or a rider pulls over. */
+export const TEA_PASSERBY_CHANCE = 0.006;
+const TEA_RIDER_CHANCE = 0.004;
+/** A glass lasts this long (ms). */
+export const TEA_DRINK_MS: readonly [number, number] = [14_000, 30_000];
+/** A rider who pulls over is now and then a xe ôm driver with no fares, who sits down to chat with the seller a while. */
+export const XEOM_CHANCE = 0.35;
+
+/** ...more riders at the hot midday, thirsty. */
+export function teaRiderChance(hour: number): number {
+  return hour >= 11 && hour < 14 ? 2 * TEA_RIDER_CHANCE : TEA_RIDER_CHANCE;
+}
+
 /** Stool base (px): the seated feet sit a little above it. */
 export const STOOL_FOOT_DY = 3;
 
@@ -160,7 +176,26 @@ export function orderLine(rng: () => number): string {
   return lines[Math.floor(rng() * lines.length)];
 }
 
+/** A customer getting up to go. */
+export function teaBye(rng: () => number): string {
+  const lines = [tr('Thanks, see you! 👋'), tr('How much for the tea? 💵'), tr('Ahh, much better 😌')];
+  return lines[Math.floor(rng() * lines.length)];
+}
+
+/** A xe ôm driver with no fares, to the seller. */
+export function xeomLine(rng: () => number): string {
+  const lines = [tr('Slow day, not a single fare 😮‍💨'), tr('Petrol went up again 😩'), tr('Another glass, put it on my tab 🧊'), tr('Three hours waiting, one fare 😩')];
+  return lines[Math.floor(rng() * lines.length)];
+}
+
+/** ...and her answer. */
+export function sellerChat(rng: () => number): string {
+  const lines = [tr('Slow for everyone these days 😅'), tr('Your tab is getting long, you know 😏'), tr('Drink up, it will pick up this afternoon 😄')];
+  return lines[Math.floor(rng() * lines.length)];
+}
+
 /** Sidewalk chat between customers. */
+
 export function chatLine(rng: () => number): string {
   const lines = [
     tr('It works on my machine… 🤷'),

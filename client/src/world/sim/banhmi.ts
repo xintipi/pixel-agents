@@ -41,7 +41,40 @@ export const BANHMI_SPOTS: readonly CartSpot[] = [
   { x: BANHMI_CART.x + 38, y: BANHMI_CART.y - 11, dir: 'left' },
 ];
 
+/** Riders buying to go stop by the curb east of the cart, two at a time, and stay on the bike (bottom center, px). */
+export const BANHMI_PARKS: readonly { x: number; y: number }[] = [
+  { x: BANHMI_CART.x + 70, y: 32 * TILE + 14 },
+  { x: BANHMI_CART.x + 108, y: 32 * TILE + 14 },
+];
+
+/** Each second while the cart is out: the chance a passer-by walks up to buy, or a rider pulls over (times the rush). */
+export const BANHMI_PASSERBY_CHANCE = 0.01;
+export const BANHMI_RIDER_CHANCE = 0.01;
+
+/** Everyone on the way to work at 7–8: twice the customers. */
+export function banhmiRush(hour: number): number {
+  return hour >= 7 && hour < 8 ? 2 : 1;
+}
+
+/** The vendor walks behind the cart to a rider at the curb (stands just ahead of the bike, facing it), and back. */
+export function vendorToBike(p: { x: number; y: number }): number[] {
+  const v = BANHMI_VENDOR_SPOT;
+  return [v.x, LANE_Y + 10, p.x + 20, LANE_Y + 10, p.x + 20, p.y - 6];
+}
+
+export function vendorFromBike(p: { x: number; y: number }): number[] {
+  const v = BANHMI_VENDOR_SPOT;
+  return [p.x + 20, LANE_Y + 10, v.x, LANE_Y + 10, v.x, v.y];
+}
+
+/** The vendor, when a rider stops by the curb. */
+export function vendorComing(rng: () => number): string {
+  const lines = [tr('Coming, coming! 🥖'), tr('One sec, I\x27ll bring it over! 🥖')];
+  return lines[Math.floor(rng() * lines.length)];
+}
+
 export function banhmiOpen(hour: number): boolean {
+
   return hour >= BANHMI_OPEN_H && hour < BANHMI_CLOSE_H;
 }
 

@@ -12,7 +12,16 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
-- **Fregueses no hủ tiếu.** O carrinho ganhou banquinhos de plástico: de vez em quando um pedestre chega, senta e come
+- **Fregueses da rua no trà đá e no bánh mì.** Como no hủ tiếu, agora não são só os agentes: no trà đá, de vez em
+  quando um pedestre senta para um copo e segue, e um motoqueiro encosta a moto no meio-fio, desce e bebe (mais no
+  calor do meio-dia); às vezes é um mototaxista (xe ôm) sem corrida, que fica um bom tempo reclamando do dia fraco com
+  a vendedora. No bánh mì, pedestres compram um para viagem e vão comendo pelo caminho, e motoqueiros param no meio-fio
+  sem descer da moto, buzinam, e o tio dá a volta no carrinho para entregar (até dois de cada vez; o dobro de
+  fregueses no rush das 7h às 8h). No console: `habblaud.world.debug.teaGuestNow('walk' | 'bike')` e
+  `banhmiGuestNow('walk' | 'bike')`.
+
+- **Fregueses no hủ tiếu.**
+ O carrinho ganhou banquinhos de plástico: de vez em quando um pedestre chega, senta e come
   uma tigela; um motoqueiro encosta a moto no meio-fio, desce para comer e segue viagem; e agentes à toa às vezes saem
   para comer ali (além de pedir da mesa). O tio só vai embora depois que o último freguês termina. No console:
   `habblaud.world.debug.hutieuGuestNow('walk' | 'bike')` e `hutieuOutNow()`.

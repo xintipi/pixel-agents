@@ -72,6 +72,10 @@ export interface WorldDebug {
   hutieuGuestNow(kind: 'walk' | 'bike'): void;
   /** Whoever is idle walks out to eat at the hủ tiếu cart now. Returns how many went. */
   hutieuOutNow(): number;
+  /** A customer from the street for the iced tea stall now: someone walking up ('walk') or a rider pulling over ('bike'). */
+  teaGuestNow(kind: 'walk' | 'bike'): void;
+  /** A customer from the street for the bánh mì cart now: someone walking up ('walk') or a rider stopping by the curb ('bike'). */
+  banhmiGuestNow(kind: 'walk' | 'bike'): void;
   /** Forces the after-lunch siesta on/off (idle agents nap, lights dim); null goes back to the clock (12:30–13:30). */
   siestaNow(on: boolean | null): void;
   /**
@@ -380,6 +384,9 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     hutieuNow: () => sim.hutieuNow(),
     hutieuGuestNow: (kind) => sim.hutieuGuestNow(kind),
     hutieuOutNow: () => sim.hutieuOutNow(),
+    teaGuestNow: (kind) => sim.teaGuestNow(kind),
+    banhmiGuestNow: (kind) => sim.banhmiGuestNow(kind),
+
 
     setWeather: (w) => {
       renderer.weatherOverride = w;
