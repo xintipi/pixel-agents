@@ -76,6 +76,7 @@ export type HeldItem = 'none' | 'coffee' | 'water' | 'papers' | 'laptop' | 'book
   | 'bouquet_white' // ...white lilies or daisies (cúc họa mi)
   | 'bouquet_yellow' // ...yellow chrysanthemums
   | 'hutieu' // bowl of hủ tiếu (night cart): the red-banded "rooster" bowl, white noodles, a shrimp, steam
+  | 'banhtrang' // bánh tráng nướng (night stand): grilled rice paper folded in half, egg and scallions, in a paper wrap
   | 'baton'; // traffic police baton: a short stick striped white and red (pose 'use': pointing the traffic on)
 
 export type HairStyle =

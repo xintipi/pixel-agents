@@ -46,6 +46,7 @@ import { STREET_H, STREET_Y } from '../layout/exterior';
 import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen } from './repair';
 import { TRASH_HANDOVER, trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './trash';
 import { LOA_LINE_MS, loaGroan, loaScript, loaWindow } from './loa';
+import { BanhTrangStand } from './banhtrang';
 import { BUN_CALL_MS, BUN_MAX_BUYERS, bunBikeAt, bunCall, bunOrder, bunRoute, bunThanks, bunTime } from './banhbao';
 import { SCRAP_CALL_MS, SCRAP_SALE_GAP_MS, scrapBikeAt, scrapCall, scrapPay, scrapRoute, scrapSell, scrapWindow } from './vechai';
 import {
@@ -356,6 +357,24 @@ export class Sim {
   private hutieuBowls = 0;
   /** Debug: the cart stays until this instant whatever the hour. */
   private hutieuForcedUntil = 0;
+  /** Night bánh tráng nướng stand (sim/banhtrang.ts): the auntie at her brazier, the kids, agents who walk out for one. */
+  readonly banhtrang = new BanhTrangStand({
+    now: () => this.now,
+    hourOf: (now) => this.hourOf(now),
+    blocked: () => this.visit || this.flooded,
+    extras: () => this.extras,
+    agents: () => this.chars.values(),
+    npc: (id, name, look, seed, patch) => this.streetNpc(id, name, look, seed, patch),
+    say: (ch, text) => this.social.say(ch, text, this.now),
+    free: (c) => {
+      if (c.leaving || c.mode !== 'idle' || c.outdoors || c.gathering || c.inside || (c.step && !this.interruptible(c.step))) return false;
+      this.clearPlan(c);
+      return true;
+    },
+    outing: (ch, out, held) => this.outingToEat(ch, out, held),
+    westX: () => TEA_SELLER_FROM_X,
+    eastX: () => (this.building.cols * COL_W + 19) * TILE,
+  });
   /** Traffic police (sim/police.ts), as the renderer's street says: an officer is wanted, which direction is held, bikes caught. */
   policeWanted = false;
   policeHold: 1 | -1 = 1;
@@ -1791,6 +1810,7 @@ export class Sim {
         this.flowers.release(id);
         this.dance.release(id);
         this.hutieuStools.release(id);
+        this.banhtrang.release(id);
         this.chars.delete(id);
       }
     }
@@ -1811,6 +1831,7 @@ export class Sim {
       this.updateFlowers(now);
       this.updateDance(now);
       this.updateHutieu(now);
+      this.banhtrang.tick(now);
       this.updatePolice(now);
       this.updateReception(now);
     }
@@ -2439,6 +2460,7 @@ export class Sim {
     this.flowers.release(ch.id);
     this.dance.release(ch.id);
     this.hutieuStools.release(ch.id);
+    this.banhtrang.release(ch.id);
     ch.danceLag = null;
     // out at the tea stall: whatever comes next starts by walking back in through the corridor door
     if (ch.outdoors) {
@@ -4603,6 +4625,33 @@ export class Sim {
     return true;
   }
 
+  /** A street character dressed from `seed` with `patch` on top (not yet in the world), or null if the art fails. */
+  private streetNpc(id: string, name: string, look: 'f' | 'm', seed: number, patch: Partial<Appearance>): Character | null {
+    try {
+      return new Character(this.npcInfo(id, name, look, seed, this.now), { ...this.art.appearanceFromSeed(seed, { look, sub: false }), lanyard: null, ...patch });
+    } catch {
+      return null;
+    }
+  }
+
+  /** An agent leaves the desk for `out` (from the corridor door, outside), comes back in and eats `held` at the desk. */
+  private outingToEat(ch: Character, out: Step[], held: HeldItem): void {
+    const rng = ch.rng;
+    const steps: Step[] = [];
+    this.pushLeave(ch, steps);
+    steps.push(...out, { t: 'do', fn: () => ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), held, trail: 'back' }) }, { t: 'do', fn: () => this.releaseTemp(ch) });
+    const home = this.spots.get(ch.homeSpot);
+    if (home) {
+      steps.push(
+        { t: 'go', tx: home.tx, ty: home.ty, held },
+        { t: 'enter', spot: home.id },
+        { t: 'act', pose: 'sit', held, ms: between(rng, 15_000, 30_000) },
+        { t: 'do', fn: () => (ch.nextOutingAt = this.now + idleSitMs(ch.rng, this.options().liveliness)) },
+      );
+    }
+    ch.queue.push(...steps);
+  }
+
   /** Month (1–12) for the flowers: the debug one, or the clock's. */
   monthOf(now: number): number {
     return this.monthOverride ?? new Date(now).getMonth() + 1;
@@ -5052,6 +5101,8 @@ export class Sim {
     this.hutieuUp = false;
     this.hutieuOrders.clear();
     this.hutieuStools.clear();
+    // and the bánh tráng stand (carried in again, if it's still the hour)
+    this.banhtrang.reset();
     // riders called over: the calls are dropped, whoever waits on a bike at the curb rides on
     this.dinerCalls.length = 0;
     for (const b of this.banhmiBikes.splice(0)) this.dinersDone.push(b.variant);

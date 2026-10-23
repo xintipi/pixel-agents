@@ -72,6 +72,12 @@ export interface WorldDebug {
   hutieuGuestNow(kind: 'walk' | 'bike'): void;
   /** Whoever is idle walks out to eat at the hủ tiếu cart now. Returns how many went. */
   hutieuOutNow(): number;
+  /** The night bánh tráng nướng stand comes now and stays 5 minutes (whatever the hour; normally 20:00–22:00). */
+  banhtrangNow(): boolean;
+  /** 2–3 neighborhood kids walk up to the bánh tráng stand now (once she's set up). Returns how many came. */
+  kidsNow(): number;
+  /** Whoever is idle walks out to buy a bánh tráng nướng now. Returns how many went. */
+  banhtrangOutNow(): number;
   /** A customer from the street for the iced tea stall now: someone walking up ('walk') or a rider pulling over ('bike'). */
   teaGuestNow(kind: 'walk' | 'bike'): void;
   /** A customer from the street for the bánh mì cart now: someone walking up ('walk') or a rider stopping by the curb ('bike'). */
@@ -385,6 +391,9 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     hutieuGuestNow: (kind) => sim.hutieuGuestNow(kind),
     hutieuOutNow: () => sim.hutieuOutNow(),
     teaGuestNow: (kind) => sim.teaGuestNow(kind),
+    banhtrangNow: () => sim.banhtrang.forceNow(sim.now),
+    kidsNow: () => sim.banhtrang.kidsNow(sim.now),
+    banhtrangOutNow: () => sim.banhtrang.agentsNow(),
     banhmiGuestNow: (kind) => sim.banhmiGuestNow(kind),
 
 
