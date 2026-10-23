@@ -94,6 +94,13 @@ export interface WorldDebug {
   /** A racing boy rides past right now (whatever the hour). */
   racerNow(): void;
   /**
+   * A city bus comes now (whatever the hour) and stops across the street (sim/bus.ts); `chase`: someone comes running
+   * after it, and the driver waits ('wait') or pulls away without them ('miss').
+   */
+  busNow(chase?: 'wait' | 'miss'): void;
+  /** `n` people waiting at the bus stop right away (default 3). Returns how many there are now. */
+  busRiders(n?: number): number;
+  /**
    * Floods the street now (true; up to three idle ones go out to look at it) or dries it (false); null goes back to the
    * weather (rain at rush hour fills it up over ~10 minutes, it drains over ~20). Returns how deep the water is (0–1).
    */
@@ -440,6 +447,15 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
 
     racerNow: () => {
       renderer.traffic.racerNow = true;
+    },
+
+    busNow: (chase) => {
+      renderer.traffic.busNow = true;
+      sim.busStop.chaseNext = chase ?? null;
+    },
+    busRiders: (n = 3) => {
+      sim.busStop.ridersNow(n, sim.now);
+      return sim.busStop.spots.taken.filter(Boolean).length;
     },
 
     rushNow: (on) => {

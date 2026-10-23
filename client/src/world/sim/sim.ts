@@ -40,7 +40,8 @@ import { RoomState } from './room-state';
 import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, spinDir, spinPhase, yawnPhase } from './shell';
 import { SpotRegistry } from './spots';
 import type { Step } from './steps';
-import { DINER_CALL_MS, PARKING, floodLine, riderSeed, type DinerCall, type RacerEvent } from './traffic';
+import { DINER_CALL_MS, PARKING, floodLine, riderSeed, rushLevel, type DinerCall, type RacerEvent } from './traffic';
+import { BusStop } from './busstop';
 import { racerReaction, type RacerWitness } from './racer';
 import { STREET_H, STREET_Y } from '../layout/exterior';
 import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen } from './repair';
@@ -398,6 +399,18 @@ export class Sim {
   pizzaTile: { tx: number; ty: number } | null = null;
   /** Extras who are not agents (the pizza delivery guy): drawn with the people, without an agent label. */
   readonly extras: Character[] = [];
+  /** The people at the bus stop across the street (sim/busstop.ts); the renderer passes the bus on (`busStop.bus`). */
+  readonly busStop: BusStop = new BusStop({
+    extras: this.extras,
+    appearance: (seed, look) => this.art.appearanceFromSeed(seed, { look, sub: false }),
+    npc: (id, name, look, seed, now) => this.npcInfo(id, name, look, seed, now),
+    say: (ch, text, now) => this.social.say(ch, text, now),
+    now: () => this.now,
+    hour: (now) => this.hourOf(now),
+    rush: (now) => rushLevel(this.hourOf(now), new Date(now).getDay()),
+    ends: () => ({ west: TEA_SELLER_FROM_X, east: (this.building.cols * COL_W + 19) * TILE }),
+    quiet: () => this.visit,
+  });
   /** The boss's next round (ms epoch; 0 = schedule on the first check). */
   private nextBossAt = 0;
   /** Next check of who the boss sees (a few times a second, not every frame). */
@@ -1777,6 +1790,7 @@ export class Sim {
     this.pets.update(this.petWorld, dt, now, now < this.discoUntil || this.newYear.phase === 'party');
     for (const e of this.extras) this.runExtra(e, dt, now);
     for (let i = this.extras.length - 1; i >= 0; i--) if (this.extras[i].gone) this.extras.splice(i, 1);
+    this.busStop.frame(now);
     if (now >= this.bossLookAt) {
       this.bossLookAt = now + 250;
       this.bossLooks(now);
@@ -1813,6 +1827,7 @@ export class Sim {
       this.updateHutieu(now);
       this.updatePolice(now);
       this.updateReception(now);
+      this.busStop.tick(now);
     }
   }
 
@@ -5062,6 +5077,8 @@ export class Sim {
     this.policeOnPost = false;
     // the dance too (the aunties walk in again, if it's still the hour)
     this.dance.clear();
+    // and the bus stop (people walk up again)
+    this.busStop.reset();
     this.dancersSent = 0;
     this.danceDay = '';
     this.lotteryBuyers.clear();

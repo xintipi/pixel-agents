@@ -157,7 +157,8 @@ export interface AreaLayout {
 /** Outdoor decorative element (tree, bush, lamp post...) drawn by the world itself. */
 export interface ExteriorProp {
   kind: 'tree' | 'pine' | 'bush' | 'flowers' | 'lamp' | 'bench' | 'rock' | 'hedge' | 'parasol' | 'totem' | 'paving' | 'tea_stool' | 'tea_table' | 'tea_cooler' | 'tea_stack' | 'banhmi_cart'
-    | 'repair_rack' | 'repair_sign' | 'repair_compressor' | 'repair_stool' | 'repair_basin' | 'trash_cart' | 'scrap_bike' | 'loudspeaker' | 'bun_bike' | 'flower_bike' | 'dance_speaker' | 'crossing_sign' | 'hutieu_cart';
+    | 'repair_rack' | 'repair_sign' | 'repair_compressor' | 'repair_stool' | 'repair_basin' | 'trash_cart' | 'scrap_bike' | 'loudspeaker' | 'bun_bike' | 'flower_bike' | 'dance_speaker' | 'crossing_sign' | 'hutieu_cart'
+    | 'bus_shelter' | 'bus_sign';
   /** World px: bottom center point (base). */
   x: number;
   y: number;

@@ -6,6 +6,7 @@ import type { ExteriorProp } from '../layout/types';
 import { treeLook, type TreeLook } from '../seasons';
 import { pixelText } from '../../art/pixelfont';
 import { FLOWER_KINDS, flowerInfo, type FlowerInfo } from '../sim/flowers';
+import { busShelterSprite, busSignSprite } from './bus';
 
 export interface PropSprite {
   canvas: HTMLCanvasElement;
@@ -1203,6 +1204,12 @@ export function propSprite(prop: ExteriorProp, month = 0): PropSprite {
       break;
     case 'loudspeaker':
       s = loudspeakerSprite();
+      break;
+    case 'bus_shelter':
+      s = busShelterSprite();
+      break;
+    case 'bus_sign':
+      s = busSignSprite();
       break;
     default:
       // 'paving' and other kinds drawn by the renderer itself
