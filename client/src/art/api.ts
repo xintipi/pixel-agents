@@ -201,8 +201,7 @@ export type FurnitureKind =
   | 'sink' // 1x1 sink with cabinet (against the north wall; use 'mirror' on the wall above).
   // --- reception
   | 'reception_desk' // 3x1 reception counter.
-  | 'bench' // 2x1 waiting bench (seat, facing down).
-  | 'altar'; // 2x1 low Thần Tài / Ông Địa altar on the floor, facing the camera (static decoration; the render makes the red lamps flicker).
+  | 'bench'; // 2x1 waiting bench (seat, facing down).
 
 export interface FurnitureDef {
   mount: 'floor' | 'wall';
@@ -276,7 +275,6 @@ export const FURNITURE: Readonly<Record<FurnitureKind, FurnitureDef>> = {
   sink: { mount: 'floor', footprint: { w: 1, h: 1 }, blocks: true },
   reception_desk: { mount: 'floor', footprint: { w: 3, h: 1 }, blocks: true },
   bench: { mount: 'floor', footprint: { w: 2, h: 1 }, blocks: false, seat: true },
-  altar: { mount: 'floor', footprint: { w: 2, h: 1 }, blocks: true },
 };
 
 export type FloorKind =

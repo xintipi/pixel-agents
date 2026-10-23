@@ -203,9 +203,21 @@ export function playVoice(ac: AudioContext, dest: AudioNode, kind: SoundKind, t:
       tone(ac, lp, 'sawtooth', 440, t, 0.035 * g, 0.01, 0.38);
       return;
     }
+    case 'power_off':
+      // the breaker trips: a dry "tạch" and the hum of the building dying out
+      noiseBurst(ac, out, t, o, { type: 'highpass', freq: 2200, peak: 0.12 * g, decay: 0.025 });
+      tone(ac, out, 'square', 1800, t, 0.05 * g, 0.001, 0.02, 600);
+      tone(ac, out, 'sawtooth', 100, t + 0.01, 0.05 * g, 0.01, 0.6, 40);
+      return;
+    case 'power_on':
+      // the power comes back: a click and the hum of the lights and the machines swelling up
+      noiseBurst(ac, out, t, o, { type: 'highpass', freq: 2600, peak: 0.08 * g, decay: 0.02 });
+      powerHum(ac, out, t + 0.05, g);
+      return;
     case 'robot_hum':
     case 'rain':
     case 'wind':
+    case 'generator':
       // beds: played as loops by the board (startBed)
       return;
     case 'arcade': {
@@ -424,6 +436,29 @@ function partyHorn(ac: AudioContext, out: AudioNode, t: number, o: VoiceOpts): v
   trem.stop(t + d + 0.05);
 }
 
+/** The power coming back: a low mains hum (with its harmonic) rising and settling in under a second. */
+function powerHum(ac: AudioContext, out: AudioNode, t: number, gain: number): void {
+  for (const [f, peak] of [
+    [100, 0.05],
+    [200, 0.025],
+  ] as const) {
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f * 0.6, t);
+    o.frequency.exponentialRampToValueAtTime(f, t + 0.35);
+    const lp = ac.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 500;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak * gain, t + 0.3);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+    o.connect(lp).connect(g).connect(out);
+    o.start(t);
+    o.stop(t + 1.15);
+  }
+}
+
 /** Distant thunder: a deep rumble that rolls in, grumbles and fades for a few seconds. */
 function thunder(ac: AudioContext, out: AudioNode, t: number, o: VoiceOpts): void {
   if (!o.noise) return;
@@ -473,7 +508,7 @@ export function makeLongNoise(ac: AudioContext, seconds = 2.5): AudioBuffer | nu
 }
 
 /** Starts the loop of a bed at volume ~0 (the board fades `level` to the level the world asks for). */
-export function startBed(ac: AudioContext, dest: AudioNode, kind: 'rain' | 'wind' | 'robot_hum', noise: AudioBuffer | null): Bed | null {
+export function startBed(ac: AudioContext, dest: AudioNode, kind: 'rain' | 'wind' | 'robot_hum' | 'generator', noise: AudioBuffer | null): Bed | null {
   const level = ac.createGain();
   level.gain.value = 0.0001;
   const t = ac.currentTime;
@@ -536,6 +571,36 @@ export function startBed(ac: AudioContext, dest: AudioNode, kind: 'rain' | 'wind
     a.start(t);
     lfo.start(t);
     lfo2.start(t);
+  } else if (kind === 'generator') {
+    // the generator outside: a small engine's putt-putt (a low pulse train, shaken by a slow wobble) and some rattle
+    const m = ac.createOscillator();
+    m.type = 'square';
+    m.frequency.value = 23;
+    const lp = ac.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 260;
+    const gm = ac.createGain();
+    gm.gain.value = 0.05;
+    const wob = ac.createOscillator();
+    wob.frequency.value = 1.3;
+    const wobG = ac.createGain();
+    wobG.gain.value = 1.5;
+    wob.connect(wobG).connect(m.frequency);
+    m.connect(lp).connect(gm).connect(level);
+    nodes.push(m, wob);
+    m.start(t);
+    wob.start(t);
+    const a = loop();
+    if (a) {
+      const bp = ac.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 900;
+      bp.Q.value = 1.2;
+      const gn = ac.createGain();
+      gn.gain.value = 0.012;
+      a.connect(bp).connect(gn).connect(level);
+      a.start(t);
+    }
   } else {
     // robot vacuum: a low motor hum and a soft brush whir
     const m = ac.createOscillator();

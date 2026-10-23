@@ -28,8 +28,6 @@ const LAMP_WARM: Rgb = [255, 236, 196];
 const STREET_WARM: Rgb = [255, 214, 150];
 const SCREEN_COOL: Rgb = [196, 222, 255];
 const ARCADE_GLOW: Rgb = [236, 190, 255];
-/** The Thần Tài altar's red lamps. */
-const ALTAR_RED: Rgb = [255, 170, 140];
 const FIREFLIES = 26;
 
 /** What the lighting needs from the renderer (satisfied by the Renderer itself). */
@@ -269,12 +267,14 @@ export class Lighting {
   /** Light (0..1) and coverage (assembly/teardown) of an area. */
   private areaLight(vis: AreaVis, now: number): { lit: number; cover: number } {
     const room = vis.room;
+    // power cut (sim/outage.ts): every light in the building goes with it
+    const power = 1 - this.sim.outageDark;
     if (room) {
       const cover = room.phase === 'building' || room.phase === 'dismantling' ? buildAnim(room.phase, room.progress(now)).floor : 1;
-      return { lit: room.light(now), cover };
+      return { lit: room.light(now) * power, cover };
     }
-    if (this.presenceLit(vis)) return { lit: this.coreLevel.get(vis.id) ?? 0, cover: 1 };
-    return { lit: 1, cover: 1 };
+    if (this.presenceLit(vis)) return { lit: (this.coreLevel.get(vis.id) ?? 0) * power, cover: 1 };
+    return { lit: power, cover: 1 };
   }
 
   /** Multiply color of an area on the map. */
@@ -285,7 +285,7 @@ export class Lighting {
       // a dark room stays neutral on the map: its darkening is the room shadow (renderer)
       c = mixRgb(WHITE, amb.inside, lit);
     } else if (vis.layout.kind === 'corridor') {
-      c = mixRgb(amb.inside, amb.dim, 0.18);
+      c = mixRgb(amb.inside, amb.dim, 0.18 + 0.82 * (1 - lit));
     } else {
       c = mixRgb(amb.dim, amb.inside, lit);
     }
@@ -322,7 +322,7 @@ export class Lighting {
   /** Everything that changes the map, in discrete steps (avoids redoing it every frame). */
   private lightKey(scene: LightScene, now: number): string {
     const a = this.ambient;
-    let k = `${Math.round(a.night * 200)}|${a.outside.join(',')}|${a.inside.join(',')}|${a.dim.join(',')}|${this.sim.building.cols}`;
+    let k = `${Math.round(a.night * 200)}|${a.outside.join(',')}|${a.inside.join(',')}|${a.dim.join(',')}|${this.sim.building.cols}|${Math.round(this.sim.outageDark * 24)}`;
     for (const vis of scene.areas.values()) {
       const { lit, cover } = this.areaLight(vis, now);
       k += `|${vis.id}:${Math.round(lit * 24)}:${Math.round(cover * 20)}`;
@@ -341,7 +341,8 @@ export class Lighting {
     m.fillRect(0, 0, this.map!.width, this.map!.height);
     // from here on, world coordinates
     m.setTransform(1 / MAP_SCALE, 0, 0, 1 / MAP_SCALE, -this.mapX / MAP_SCALE, -this.mapY / MAP_SCALE);
-    const corridorLit = rgbCss(mixRgb(amb.inside, amb.dim, 0.18));
+    const power = 1 - this.sim.outageDark;
+    const corridorLit = rgbCss(mixRgb(amb.inside, amb.dim, 0.18 + 0.82 * this.sim.outageDark));
     // corridor closures in empty slots (facade with windows to the north, low wall to the south)
     for (const sh of scene.shells) {
       if (scene.roomInSlot(sh.slot)) continue;
@@ -355,7 +356,7 @@ export class Lighting {
       const l = this.areaLight(vis, now);
       if (l.cover <= 0.01) continue;
       // how much light the area "radiates" (windows): rooms by their light, empty common areas in half-light
-      lit.set(vis, vis.room ? l.lit * l.cover : this.presenceLit(vis) ? 0.4 + 0.6 * l.lit : 1);
+      lit.set(vis, vis.room ? l.lit * l.cover : (this.presenceLit(vis) ? 0.4 + 0.6 * l.lit : 1) * power);
       const p = vis.px;
       const shade = vis.room ? vis.layout.shade : undefined;
       if (shade && l.cover >= 1) {
@@ -369,7 +370,7 @@ export class Lighting {
         m.fillRect(p.x, p.y, p.w, p.h);
       }
       // at night, the center of lit rooms is brighter than the corners (ceiling light)
-      const glow = (vis.room ? l.lit : this.presenceLit(vis) ? l.lit : vis.layout.kind === 'corridor' ? 0 : 1) * l.cover * n;
+      const glow = (vis.room ? l.lit : this.presenceLit(vis) ? l.lit : vis.layout.kind === 'corridor' ? 0 : power) * l.cover * n;
       if (glow > 0.05) {
         const r = shade ?? p;
         m.globalCompositeOperation = 'multiply';
@@ -389,7 +390,6 @@ export class Lighting {
     const street = haloSprite(STREET_WARM, 64);
     const cool = haloSprite(SCREEN_COOL, 48);
     const arcade = haloSprite(ARCADE_GLOW, 48);
-    const altarRed = haloSprite(ALTAR_RED, 48);
     const k = Math.min(1, (n - 0.12) / 0.5);
     const halo = (img: HTMLCanvasElement, cx: number, cy: number, w: number, h: number, a: number) => {
       if (a <= 0.01) return;
@@ -401,10 +401,9 @@ export class Lighting {
       // (night-watch light when nobody is there)
       const on = vis.room ? vis.room.lightOn && l >= 0.3 : true;
       if (!on) continue;
-      const a = vis.room ? k * l : k;
+      const a = vis.room ? k * l : k * power;
       for (const f of vis.furniture) {
         if (f.kind === 'floor_lamp') halo(lamp, f.ax, f.ay - 6, 92, 66, a);
-        else if (f.kind === 'altar') halo(altarRed, f.ax, f.ay - 4, 56, 34, 0.8 * a);
         else if (f.kind === 'vending_machine') halo(cool, f.ax, f.ay + 4, 52, 34, 0.9 * a);
         else if (f.kind === 'arcade') halo(arcade, f.ax, f.ay + 4, 44, 30, 0.8 * a);
       }
@@ -415,7 +414,7 @@ export class Lighting {
         halo(street, prop.x, prop.y - 30, 30, 24, 0.7 * k);
       } else if (prop.kind === 'totem') halo(cool, prop.x, prop.y - 4, 34, 22, 0.6 * k);
     }
-    this.paintWindowSpill(scene, lit, k, halo, street);
+    this.paintWindowSpill(scene, lit, k * power, halo, street);
     m.globalAlpha = 1;
     m.globalCompositeOperation = 'source-over';
     m.setTransform(1, 0, 0, 1, 0, 0);
@@ -459,11 +458,12 @@ export class Lighting {
   /** Additive glows: monitors, TV, machines, lamp post bulbs, headlights and fireflies. */
   drawGlows(ctx: CanvasRenderingContext2D, scene: LightScene, view: View, now: number): void {
     const n = this.ambient.night;
+    const out = this.sim.outageDark;
+    const power = 1 - out;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const cool = glowSprite('#7fb8ff', 48);
     const warm = glowSprite('#ffcf7a', 64);
-    const altarGlow = glowSprite('#ff5a3c', 48);
     const inView = (x: number, y: number, m: number) => x > view.x0 - m && x < view.x1 + m && y > view.y0 - m && y < view.y1 + m;
     for (const vis of scene.areas.values()) {
       const p = vis.px;
@@ -471,35 +471,32 @@ export class Lighting {
       const room = vis.room;
       const dark = room ? 1 - room.light(now) : 0;
       const k = Math.max(n, dark);
-      // siesta: in the dimmed rooms, whoever is still at it shows up lit by their screen
-      const siesta = room ? this.sim.siestaDim : 0;
+      // siesta and power cuts: in the dimmed rooms, whoever is still at it shows up lit by their (laptop) screen
+      const siesta = room ? Math.max(this.sim.siestaDim, out) : 0;
       if (k < 0.2 && siesta < 0.2) continue;
       for (const f of vis.furniture) {
         if (!inView(f.ax, f.ay, 40)) continue;
         if (f.kind === 'desk' || f.kind === 'desk_back') {
           const mode = scene.deskScreen(f, vis);
-          if (mode === 'off') continue;
-          // whoever works at night (or through the siesta) has their face lit by the screen
+          // power cut: the idle desktops go dark, the laptops of whoever is working carry on on the battery
+          if (mode === 'off' || (mode === 'idle' && out > 0.5)) continue;
+          // whoever works at night (or through the siesta, or the power cut) has their face lit by the screen
           const kd = mode === 'idle' ? k : Math.max(k, siesta);
           if (kd < 0.2) continue;
-          ctx.globalAlpha = (mode === 'idle' ? 0.2 : 0.35) * kd;
+          ctx.globalAlpha = Math.min(1, (mode === 'idle' ? 0.2 : 0.35 + 0.15 * out) * kd);
           ctx.drawImage(cool, Math.round(f.ax - 24), Math.round(f.ay - 34));
-        } else if (f.kind === 'floor_lamp' && n > 0.2 && (!room || room.lightOn)) {
+        } else if (f.kind === 'floor_lamp' && n > 0.2 && out < 0.5 && (!room || room.lightOn)) {
           // lit bulb (the halo on the ground is in the light map)
           const g = this.lampHead(f);
           ctx.globalAlpha = 0.5 * n;
           ctx.drawImage(warm, Math.round(g.x - 16), Math.round(g.y - 16), 32, 32);
-        } else if (f.kind === 'altar' && n > 0.2) {
-          // red glow of the altar lamps
-          ctx.globalAlpha = 0.45 * n;
-          ctx.drawImage(altarGlow, Math.round(f.ax - 20), Math.round(f.ay - 34), 40, 32);
         } else if (f.kind === 'vending_machine' || f.kind === 'arcade') {
-          ctx.globalAlpha = 0.25 * k;
+          ctx.globalAlpha = 0.25 * k * power;
           ctx.drawImage(cool, Math.round(f.ax - 24), Math.round(f.ay - 36));
         }
       }
       // wall TV on: bluish light in front of the screen
-      if (n > 0.2) {
+      if (n > 0.2 && out < 0.5) {
         for (const w of vis.wallItems) {
           if (w.kind !== 'tv' || !inView(w.cx, w.baseY, 60)) continue;
           ctx.globalAlpha = 0.3 * n;
@@ -507,6 +504,7 @@ export class Lighting {
         }
       }
     }
+    if (out > 0.2) this.drawFlashlights(ctx, view, out);
     this.drawSunbeams(ctx, scene, view);
     if (n > 0.2) {
       for (const prop of scene.exterior.props) {
@@ -518,6 +516,29 @@ export class Lighting {
       if (n > 0.6 && !this.reduced) this.drawFireflies(ctx, scene, view, now, (n - 0.6) / 0.4);
     }
     ctx.restore();
+  }
+
+  /**
+   * Power cut: whoever holds a phone has its flashlight on, a small cone of white light ahead of them (two cached glow
+   * sprites per person, no allocation).
+   */
+  private drawFlashlights(ctx: CanvasRenderingContext2D, view: View, out: number): void {
+    const beam = glowSprite('#fff6dc', 48);
+    const dot = glowSprite('#ffffff', 16);
+    for (const c of this.sim.chars.values()) {
+      if (c.held !== 'phone' || c.inside || c.gone || c.alpha < 0.5) continue;
+      if (c.x < view.x0 - 40 || c.x > view.x1 + 40 || c.y < view.y0 - 40 || c.y > view.y1 + 40) continue;
+      const dx = c.dir === 'left' ? -1 : c.dir === 'right' ? 1 : 0;
+      const dy = c.dir === 'up' ? -1 : c.dir === 'down' ? 1 : 0;
+      const hx = c.x + dx * 5;
+      const hy = c.y - (c.seated ? 12 : 16) + dy * 3;
+      ctx.globalAlpha = 0.9 * out;
+      ctx.drawImage(dot, Math.round(hx - 4), Math.round(hy - 4), 8, 8);
+      ctx.globalAlpha = 0.55 * out;
+      const w = dx ? 30 : 22;
+      const h = dx ? 18 : 26;
+      ctx.drawImage(beam, Math.round(hx + dx * 16 - w / 2), Math.round(hy + dy * 14 + (dy ? 0 : 4) - h / 2), w, h);
+    }
   }
 
   /**

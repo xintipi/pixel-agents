@@ -484,6 +484,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     },
     disco: () => (playback ? false : sim.toggleDisco(sim.now)),
     pizzaParty: () => (playback ? false : sim.pizzaParty(sim.now)),
+    outage: () => (playback ? false : sim.outageNow('overload', sim.now)),
     setWorkTree: (stage) => {
       sim.workTreeStage = stage;
     },

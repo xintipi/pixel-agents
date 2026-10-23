@@ -88,7 +88,7 @@ export class SoundBoard {
     const hidden = typeof document !== 'undefined' && document.hidden;
     const gain = this.scheduler.decide(kind, performance.now(), { hidden, gain: opts.gain });
     if (gain === null) return false;
-    if (BED_KINDS.has(kind)) return this.bed(ac, kind as 'rain' | 'wind' | 'robot_hum', gain);
+    if (BED_KINDS.has(kind)) return this.bed(ac, kind as 'rain' | 'wind' | 'robot_hum' | 'generator', gain);
     try {
       playVoice(ac, this.out, kind, ac.currentTime + 0.01, { gain, pan: opts.pan, count: opts.count, rng: Math.random, noise: this.noise });
       return true;
@@ -98,7 +98,7 @@ export class SoundBoard {
   }
 
   /** Keeps the loop of a bed at `gain` (starting it if needed); it fades out alone when the updates stop. */
-  private bed(ac: AudioContext, kind: 'rain' | 'wind' | 'robot_hum', gain: number): boolean {
+  private bed(ac: AudioContext, kind: 'rain' | 'wind' | 'robot_hum' | 'generator', gain: number): boolean {
     let cur = this.beds.get(kind);
     if (!cur) {
       const bed = this.out ? startBed(ac, this.out, kind, this.longNoise) : null;

@@ -27,11 +27,12 @@ import { petSprite, workTreeSprite } from './pets';
 import { drawDisco } from './disco';
 import { dockSprite, drawCountdown, drawFireworks, pizzaBoxSprite, robotSprite } from './fun';
 import { tr } from '../../../../shared/i18n';
-import { ALTAR_LAMPS } from '../../art/furniture/common';
 import { drawWeather, drawWeatherWindow, weatherFor, type Weather } from './weather';
 import { reducedMotion } from './github-fx';
 import type { Pet } from '../sim/pets';
 import { SIESTA_DIM } from '../sim/siesta';
+import { BREAKER_BOX, GENERATOR } from '../sim/outage';
+import { NOTICE_AT, drawBreakerBox, drawGenerator, drawLightningFlash, drawNotice } from './outage-fx';
 import { repairShopProps } from '../sim/repair';
 import { trashCartProps } from '../sim/trash';
 import { scrapBikeProps } from '../sim/vechai';
@@ -419,6 +420,7 @@ export class Renderer {
     if (this.traffic.flood > 0.02) this.drawFlood(now, vx0, vy0, vx1, vy1);
     const hour = this.lighting.update(now, daylightModeOf(opts), this.hourOverride, this.date);
     this.weather = this.weatherOverride ?? weatherFor(this.date);
+    this.sim.raining = this.weather === 'rain';
     this.hourNow = hour;
     const t = now;
 
@@ -444,6 +446,7 @@ export class Renderer {
       const anim = vis.room ? buildAnim(vis.room.phase, vis.room.progress(now)) : NO_ANIM;
       this.drawWalls(vis, anim, now, hour);
     }
+    this.drawOutageProps(now, visible);
     const view = { x0: vx0, y0: vy0, x1: vx1, y1: vy1 };
     // CI alarm: red tone on the floor (under furniture and characters)
     this.roomFx.drawFloor(ctx, this.sim, now, view);
@@ -588,11 +591,13 @@ export class Renderer {
     // ---- light: night, dark rooms, glows
     this.night = this.lighting.night;
     this.drawLighting(now, vx0, vy0, vx1, vy1);
+    // thunderstorm: the lightning flash over everything (sim/outage.ts)
+    if (now - this.sim.lightningAt < 1_000) drawLightningFlash(ctx, { x: vx0, y: vy0, w: vx1 - vx0, h: vy1 - vy0 }, { x: 0, y: 0, w: this.sim.building.cols * COL_W * TILE, h: BUILDING_H * TILE }, now - this.sim.lightningAt, reducedMotion());
     if (this.theme !== 'none') {
       for (const vis of this.areas.values()) {
         if (vis.room && vis.room.phase !== 'ready') continue;
         if (!visible(vis.px.x, vis.px.y, vis.px.w, vis.px.h)) continue;
-        drawSeasonalLights(ctx, this.theme, vis.layout, vis.room ? vis.room.light(now) : 1);
+        drawSeasonalLights(ctx, this.theme, vis.layout, (vis.room ? vis.room.light(now) : 1) * (1 - this.sim.outageDark));
       }
     }
     // New Year: the fireworks and the scoreboard glow over the night
@@ -899,8 +904,6 @@ export class Renderer {
         this.safe(() => this.art.drawScreen(ctx, { x: dx + r.x, y: dy + r.y, w: r.w, h: r.h }, mode, now, f.seed));
       } else if (f.kind === 'coffee_machine' && state === 1) {
         this.drawSteam(f.ax, dy + 2, now, f.seed);
-      } else if (f.kind === 'altar') {
-        this.drawAltarFx(f.ax, f.ay, now);
       } else if (f.kind === 'arcade' && s.rects?.screen) {
         // arcade duel: both machines show the match
         const seed = this.sim.social.arcadeSeed();
@@ -937,21 +940,6 @@ export class Renderer {
       const sy = Math.round(y - ph * 9);
       ctx.fillRect(sx, sy, 1, 2);
     }
-    ctx.globalAlpha = 1;
-  }
-
-  /**
-   * Thần Tài altar: the red lamps' bulbs flicker softly (time-based, no allocation).
-   */
-  private drawAltarFx(ax: number, ay: number, now: number): void {
-    const { ctx } = this;
-    const x0 = Math.round(ax);
-    const y0 = Math.round(ay);
-    ALTAR_LAMPS.forEach((p, i) => {
-      ctx.globalAlpha = 0.55 + 0.35 * Math.sin(now / 260 + i * 2.3) * Math.sin(now / 710 + i);
-      ctx.fillStyle = '#fff0c0';
-      ctx.fillRect(x0 + p.x - 1, y0 + p.y, 2, 1);
-    });
     ctx.globalAlpha = 1;
   }
 
@@ -1420,6 +1408,7 @@ export class Renderer {
       if (rain && riders.length) this.drawPoncho(car, car.x + car.dir * BIKE_SEATS.rider, car.y - RIDER_LIFT - 13, riders.length > 1);
     }
     this.ctx.drawImage(front.canvas, x, y);
+    if (car.racer) this.drawSpeedLines(car);
     // stalled in the flood: the rider walks beside the bike, pushing it by the handlebar
     const walker = riders[riders.length - 1];
     if (car.pushing && walker) {
@@ -1482,6 +1471,24 @@ export class Renderer {
     }
   }
 
+  /** A racing boy's wake: wind lines streaming off the back of the bike and a puff of exhaust, flickering. */
+  private drawSpeedLines(car: Vehicle): void {
+    if (car.speed < 60) return;
+    const { ctx } = this;
+    const back = car.x - car.dir * 16;
+    const flick = Math.floor(this.clock() / 70) % 3;
+    ctx.fillStyle = '#ffffff';
+    for (const [dy, len, a] of [[-22, 14, 0.55], [-14, 20, 0.45], [-6, 12, 0.5]] as const) {
+      ctx.globalAlpha = a;
+      const l = len + flick * 3;
+      ctx.fillRect(Math.round(car.dir > 0 ? back - l : back), Math.round(car.y + dy), l, 1);
+    }
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = '#c4c9d2';
+    ctx.fillRect(Math.round(back - car.dir * (4 + flick)), Math.round(car.y - 4), 3, 2);
+    ctx.globalAlpha = 1;
+  }
+
   /** Who rides a bike (passenger last, drawn first so the rider is in front): stable per vehicle, a helmet for each. */
   private bikeRiders(car: Vehicle): Appearance[] {
     // an agent's own bike: nobody on it while parked, the agent (helmet on) riding
@@ -1491,6 +1498,20 @@ export class Renderer {
     }
     let list = this.riders.get(car.variant);
     if (list) return list;
+    // a racing boy: black hoodie with a red stripe, spiky hair, no helmet (of course)
+    if (car.racer) {
+      list = [];
+      try {
+        for (let i = 0; i < car.riders; i++) {
+          const base = this.art.appearanceFromSeed(car.variant * 7 + i * 1013, { look: 'm', sub: false });
+          list.unshift({ ...base, top: i === 0 ? '#1d2230' : '#3a4150', topAccent: '#e8454a', topStyle: 'hoodie', hairStyle: 'spiky', accessory: 'none', lanyard: null });
+        }
+      } catch {
+        list = [];
+      }
+      this.riders.set(car.variant, list);
+      return list;
+    }
     if (this.riders.size > 200) this.riders.clear();
     list = [];
     try {
@@ -1526,6 +1547,9 @@ export class Renderer {
     this.sim.policeHold = this.traffic.police.hold;
     this.sim.policeCatches += this.traffic.police.catches;
     this.traffic.police.catches = 0;
+    // racing boys whizzing past: the sidewalks react
+    for (const e of this.traffic.racerEvents) this.sim.racerPassed(e, now);
+    this.traffic.racerEvents.length = 0;
     this.sim.flooded = this.traffic.flood > FLOODED;
     this.sim.repairBusy = this.traffic.repairing;
     for (const id of this.traffic.parked) this.sim.bikeParked.add(id);
@@ -1652,8 +1676,8 @@ export class Renderer {
     for (const vis of this.areas.values()) {
       const room = vis.room;
       if (!room || !vis.layout.shade) continue;
-      // siesta: the office lights dim a little
-      const light = room.light(now) * (1 - SIESTA_DIM * this.sim.siestaDim);
+      // siesta: the office lights dim a little; a power cut takes them all
+      const light = room.light(now) * (1 - SIESTA_DIM * this.sim.siestaDim) * (1 - this.sim.outageDark);
       const strength = (room.phase === 'building' ? 0.5 : 0.74) + 0.1 * n;
       // during assembly/teardown, the darkness follows the visible floor (the patio doesn't darken)
       const cover = room.phase === 'building' || room.phase === 'dismantling' ? buildAnim(room.phase, room.progress(now)).floor : 1;
@@ -1663,7 +1687,27 @@ export class Renderer {
       ctx.fillStyle = `rgba(8,12,36,${dark})`;
       ctx.fillRect(s.x, s.y, s.w, s.h);
     }
+    // power cut: the common areas (reception, pantry, lounge, restrooms, corridor) go dark too
+    const out = this.sim.outageDark;
+    if (out > 0.01) {
+      ctx.fillStyle = '#080c24';
+      ctx.globalAlpha = (0.62 + 0.18 * n) * out;
+      for (const vis of this.areas.values()) if (!vis.room) ctx.fillRect(vis.px.x, vis.px.y, vis.px.w, vis.px.h);
+      ctx.globalAlpha = 1;
+    }
     this.lighting.drawGlows(ctx, this, view, now);
+  }
+
+  /**
+   * Power cuts (sim/outage.ts): the breaker box on the corridor wall (lever down while the breaker is tripped), the
+   * power company's notice by the elevators on the day of a scheduled cut, and the generator on the sidewalk during it.
+   */
+  private drawOutageProps(now: number, visible: (x: number, y: number, w: number, h: number) => boolean): void {
+    const { ctx } = this;
+    const o = this.sim.outage;
+    if (visible(BREAKER_BOX.x - 6, BREAKER_BOX.y - 14, 12, 14)) drawBreakerBox(ctx, BREAKER_BOX.x, BREAKER_BOX.y, o?.cause === 'overload');
+    if (this.sim.outageNotice && visible(NOTICE_AT.x - 7, NOTICE_AT.y - 1, 14, 17)) drawNotice(ctx, NOTICE_AT.x, NOTICE_AT.y);
+    if (o?.cause === 'schedule' && visible(GENERATOR.x - 12, GENERATOR.y - 32, 32, 34)) drawGenerator(ctx, GENERATOR.x, GENERATOR.y, now, this.sim.generatorRunning, reducedMotion());
   }
 
   private safe(fn: () => void): void {

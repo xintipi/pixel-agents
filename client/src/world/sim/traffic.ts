@@ -57,7 +57,42 @@ export interface Vehicle {
   until?: number;
   /** Whistled off the far sidewalk by the traffic police (once is enough). */
   caught?: boolean;
+  /** A racing boy: way too fast, weaving through the traffic and over the center line, honking all the way. */
+  racer?: boolean;
+  /** Last time this vehicle honked at a racing boy cutting past it (ms). */
+  startled?: number;
 }
+
+/** A racing boy whizzing past, for the people on the sidewalks to react (`police`: right past the officer). */
+export interface RacerEvent {
+  x: number;
+  y: number;
+  at: number;
+  police?: boolean;
+}
+
+/**
+ * When racing boys ride, fitted into the street's day: mostly at night once the street empties (after the evening
+ * dance and the bánh bao bike, while the hủ tiếu cart is out), now and then in the quiet stretches between the rush
+ * hours; never at rush hour (the jam, the traffic police), over lunch and the siesta, late at night or at Tết.
+ * Each window: from, to (local hours) and the gap between two of them (s).
+ */
+export const RACER_WINDOWS: readonly { from: number; to: number; gap: readonly [number, number] }[] = [
+  { from: 10, to: 11.5, gap: [720, 1200] },
+  { from: 14, to: 16, gap: [720, 1200] },
+  { from: 21, to: 23.5, gap: [180, 360] },
+];
+/** How fast they ride (px/s). */
+const RACER_SPEED: readonly [number, number] = [150, 190];
+
+/** The racing window this hour is in, or null. */
+export function racerWindow(hour: number): (typeof RACER_WINDOWS)[number] | null {
+  return RACER_WINDOWS.find((w) => hour >= w.from && hour < w.to) ?? null;
+}
+/** They start weaving when the gap ahead drops below this (px). */
+const RACER_WEAVE_GAP = 60;
+/** A racing boy reports where they are this often (ms), for the sidewalk to react. */
+const RACER_EVENT_MS = 500;
 
 /**
  * Parking spots for the agents' bikes: on the near sidewalk, west of the stone path, clear of the lamp posts (the tea
@@ -180,6 +215,12 @@ export class Traffic {
   /** debug.repairNow: the next bike that can gets a flat right away, whatever the hour. */
   flatNow = false;
   readonly police: PoliceState = { wanted: false, forced: null, onPost: false, hold: 1, holdUntil: 0, walkers: false, catches: 0, jamFor: 0, calmFor: 0 };
+  /** When the next racing boy comes (ms; 0 = schedule); debug.racerNow sends one right away. */
+  nextRacerAt = 0;
+  racerNow = false;
+  /** Racing boys passing by since the sim last looked (the renderer empties it). */
+  readonly racerEvents: RacerEvent[] = [];
+  private lastRacerEvent = 0;
 
   /** A bike is at the repair stall being fixed. */
   get repairing(): boolean {
@@ -215,6 +256,7 @@ export class Traffic {
     else if (raining && this.level > 0.5) this.flood = Math.min(1, this.flood + dt / FLOOD_RISE_S);
     else this.flood = Math.max(0, this.flood - dt / FLOOD_DRAIN_S);
     for (const lane of env.lanes) this.spawn(now, lane, env);
+    this.racer(now, hour, env);
     this.flat(now, hour);
     this.policeStep(now, dt);
     this.move(now, dt, env);
@@ -247,6 +289,82 @@ export class Traffic {
   }
 
   /**
+   * Now and then a racing boy, in the street's racing windows (RACER_WINDOWS; never at Tết): enters on either side,
+   * alone or with a passenger, far faster than everyone else.
+   */
+  private racer(now: number, hour: number, env: TrafficEnv): void {
+    const w = racerWindow(hour);
+    if (!this.racerNow) {
+      if (!w || this.day.tet === 'holiday') {
+        this.nextRacerAt = 0;
+        return;
+      }
+      // the first one of a window comes a little after it opens
+      const [a, b] = w.gap;
+      if (!this.nextRacerAt) this.nextRacerAt = now + (a + this.rng() * (b - a)) * 500;
+      if (now < this.nextRacerAt) return;
+      this.nextRacerAt = now + (a + this.rng() * (b - a)) * 1000;
+      if (this.vehicles.some((v) => v.racer)) return;
+    }
+    this.racerNow = false;
+    const lane = env.lanes[Math.floor(this.rng() * env.lanes.length)];
+    if (!lane) return;
+    const want = RACER_SPEED[0] + this.rng() * (RACER_SPEED[1] - RACER_SPEED[0]);
+    const x = lane.dir > 0 ? env.x0 : env.x1;
+    const y = lane.y - 4;
+    this.vehicles.push({ kind: 'bike', x, y, dir: lane.dir, speed: want, want, laneY: lane.y, ty: y, variant: Math.floor(this.rng() * 1e6), riders: this.rng() < 0.25 ? 2 : 1, stuck: 0, sidewalk: 0, racer: true });
+  }
+
+  /**
+   * A racing boy's line: when someone is close ahead, swerve to wherever along its lane band or the center line has the
+   * most room ahead (never into an oncoming vehicle); the ones cut past honk; the sidewalks and the officer hear about it.
+   */
+  private race(v: Vehicle, dt: number, now: number, env: TrafficEnv): void {
+    const lead = this.leader(v, v.y);
+    if (lead && lead.gap < RACER_WEAVE_GAP && v.y === v.ty) {
+      const other = env.lanes.find((l) => l.dir !== v.dir);
+      const center = other ? Math.round((v.laneY + other.y) / 2) : v.laneY;
+      const ys: number[] = [];
+      for (let y = v.laneY - BAND_UP; y <= v.laneY + BAND_DOWN; y += 3) ys.push(y);
+      for (let y = center - 3; y <= center + 3; y += 3) ys.push(y);
+      let best = v.y;
+      let room = lead.gap;
+      for (const y of ys) {
+        if (!this.clear(v, y) || this.oncoming(v, y)) continue;
+        const g = this.leader(v, y)?.gap ?? Infinity;
+        if (g > room + 8) {
+          room = g;
+          best = y;
+        }
+      }
+      v.ty = best;
+    }
+    if (v.y !== v.ty) v.y += Math.sign(v.ty - v.y) * Math.min(Math.abs(v.ty - v.y), DRIFT * 5 * dt);
+    // whoever just got cut past honks (once in a while each)
+    for (const o of this.vehicles) {
+      if (o === v || o.racer || Math.abs(o.x - v.x) > 16 || Math.abs(o.y - v.y) > 14) continue;
+      if (now - (o.startled ?? -1e9) > 3_000 && this.rng() < 0.6) {
+        o.startled = now;
+        this.honk(o, now);
+      }
+    }
+    if (this.rng() < 1.5 * dt) this.honk(v, now);
+    if (now - this.lastRacerEvent >= RACER_EVENT_MS) {
+      this.lastRacerEvent = now;
+      const c = env.crossing;
+      const past = this.police.onPost && c && !v.caught && Math.abs(v.x - (c.x + c.w / 2)) < 30;
+      if (past) v.caught = true;
+      this.racerEvents.push({ x: v.x, y: v.y, at: now, police: !!past });
+      if (this.racerEvents.length > 16) this.racerEvents.shift();
+    }
+  }
+
+  /** An oncoming vehicle near `v`'s path at height `y` (a racing boy won't swerve head-on into it). */
+  private oncoming(v: Vehicle, y: number): boolean {
+    return this.vehicles.some((o) => o.dir !== v.dir && Math.abs(o.y - y) < (o.kind === 'car' ? CAR_WIDTH : SIDE_BY_SIDE) && (o.x - v.x) * v.dir > -10 && (o.x - v.x) * v.dir < 140);
+  }
+
+  /**
    * Every few minutes while the stall is open, one eastbound bike coming up to it gets a flat: the rider gets off and
    * pushes it there. One at a time.
    */
@@ -254,7 +372,7 @@ export class Traffic {
     if (!this.nextFlatAt) this.nextFlatAt = now + (30 + this.rng() * 60) * 1000;
     if (!this.flatNow && (now < this.nextFlatAt || !repairOpen(hour))) return;
     if (this.vehicles.some((v) => v.repair && v.phase)) return;
-    const v = this.vehicles.find((o) => o.kind === 'bike' && o.dir > 0 && !o.owner && !o.phase && !o.pushing && !o.cargo && o.riders === 1 && REPAIR_SPOT.x - o.x > 50 && REPAIR_SPOT.x - o.x < 220);
+    const v = this.vehicles.find((o) => o.kind === 'bike' && o.dir > 0 && !o.owner && !o.racer && !o.phase && !o.pushing && !o.cargo && o.riders === 1 && REPAIR_SPOT.x - o.x > 50 && REPAIR_SPOT.x - o.x < 220);
     if (!v) return;
     v.phase = 'arrive';
     v.park = REPAIR_SPOT;
@@ -298,7 +416,7 @@ export class Traffic {
   private stopGap(v: Vehicle, env: TrafficEnv): number {
     const c = env.crossing;
     const p = this.police;
-    if (!c || !p.onPost || (!p.walkers && p.hold !== v.dir) || onSidewalk(v) || v.phase === 'parked') return Infinity;
+    if (!c || !p.onPost || v.racer || (!p.walkers && p.hold !== v.dir) || onSidewalk(v) || v.phase === 'parked') return Infinity;
     const line = v.dir > 0 ? c.x - STOP_BACK : c.x + c.w + STOP_BACK;
     const ahead = (line - v.x) * v.dir - HALF[v.kind];
     return ahead < 0 ? Infinity : ahead;
@@ -327,7 +445,7 @@ export class Traffic {
         v.phase = 'leave';
         v.ty = v.laneY;
       }
-      if (v.kind === 'bike' && !v.owner && !v.pushing && v.riders === 1 && this.flood > 0.6 && !onSidewalk(v) && this.rng() < 0.012 * dt) v.pushing = true;
+      if (v.kind === 'bike' && !v.owner && !v.racer && !v.pushing && v.riders === 1 && this.flood > 0.6 && !onSidewalk(v) && this.rng() < 0.012 * dt) v.pushing = true;
       if (v.pushing && !v.repair && this.flood < 0.2) v.pushing = false;
       const lead = this.leader(v, v.y);
       const gap = lead ? lead.gap : Infinity;
@@ -345,7 +463,7 @@ export class Traffic {
       const stop = this.stopGap(v, env);
       if (stop < Infinity) target = Math.min(target, Math.max(0, stop - 1) * GAP_GAIN);
       // at rush hour someone always brakes for no reason: the stop-and-go waves start here
-      if (l > 0.3 && this.rng() < 0.25 * l * dt) target *= 0.3;
+      if (l > 0.3 && !v.racer && this.rng() < 0.25 * l * dt) target *= 0.3;
       v.speed = target < v.speed ? Math.max(target, v.speed - BRAKE * dt) : Math.min(target, v.speed + ACCEL[v.kind] * dt);
       let step = v.speed * dt;
       if (gap - step < 1) step = Math.max(0, gap - 1);
@@ -353,6 +471,7 @@ export class Traffic {
       v.x += v.dir * step;
       v.stuck = v.speed < want * 0.35 ? v.stuck + dt : 0;
       if (v.owner || v.phase) this.ride(v, dt, now);
+      else if (v.racer) this.race(v, dt, now, env);
       else if (v.kind === 'bike' && !v.pushing) this.steer(v, dt, env);
       if (v.stuck > 1 && !v.owner && !v.phase && this.rng() < 0.12 * dt) this.honk(v, now);
       else if (v.kind === 'bike' && l > 0.5 && this.rng() < 0.015 * dt) this.honk(v, now);

@@ -35,7 +35,7 @@ import { PtyPanel } from './pty';
 import { TimelapsePlayer } from './timelapse';
 import { Toasts } from './toasts';
 import { AchievementsPanel } from './achievements-panel';
-import { isDiscoShortcut, KonamiDetector } from './konami';
+import { isDiscoShortcut, KonamiDetector, OUTAGE_WORD } from './konami';
 import { CostBurnWatch, costAlertUsd, costBurnText, setCostDisplay } from './cost';
 import { UpdateToaster } from './version';
 import { TopBar } from './topbar';
@@ -408,6 +408,17 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
     if (on === undefined) return;
     sound.disco(on);
     toasts.push({ id: `disco:${Date.now()}`, level: 'info', text: on ? tr('🪩 Disco! (Shift + D again turns it off)') : tr('Disco is over. Back to work!'), at: ctx.now() });
+  });
+  // Typing "cupdien" in the office: the breaker trips for fun (a power cut, purely visual; sim/outage.ts). From the third
+  // letter on, the keys don't reach the shortcuts (the "p" of "cupdien" doesn't jump to a permission request).
+  const cupdien = new KonamiDetector(OUTAGE_WORD);
+  addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target) || inCity()) return;
+    const typed = cupdien.push(e.key);
+    if (cupdien.progress >= 3 || typed) e.preventDefault();
+    if (!typed) return;
+    const on = world.outage?.();
+    if (on) toasts.push({ id: `cupdien:${Date.now()}`, level: 'info', text: tr('⚡ Click! Someone tripped the breaker…'), at: ctx.now() });
   });
   addEventListener('keydown', (e) => onKey(e));
 

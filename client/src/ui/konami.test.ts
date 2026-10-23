@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KonamiDetector } from './konami';
+import { KonamiDetector, OUTAGE_WORD } from './konami';
 
 const type = (k: KonamiDetector, text: string) => [...text].map((c) => k.push(c));
 
@@ -17,6 +17,18 @@ describe('código da disco', () => {
     expect(type(k, 'ddisco').at(-1)).toBe(true);
     expect(type(k, 'disxco').some(Boolean)).toBe(false);
     expect(type(k, 'disc').some(Boolean)).toBe(false);
+  });
+});
+
+describe('cúp điện ("cupdien")', () => {
+  it('recognizes the word on its last letter, with its progress along the way', () => {
+    const k = new KonamiDetector(OUTAGE_WORD);
+    expect(type(k, 'cupdie').some(Boolean)).toBe(false);
+    expect(k.progress).toBe(6);
+    expect(k.push('n')).toBe(true);
+    expect(k.progress).toBe(0);
+    expect(type(k, 'xcupdien').at(-1)).toBe(true);
+    expect(type(k, 'disco').some(Boolean)).toBe(false);
   });
 });
 

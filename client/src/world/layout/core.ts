@@ -44,8 +44,6 @@ export function layoutReception(): AreaLayout {
 
   b.furn('plant_tall', 1, 2, 'monstera', { order: 0.2 });
   b.furn('plant_tall', 14, 4, 'ficus', { order: 0.21 });
-  // Thần Tài altar on the floor in the north-east corner, facing the way in (low: it sits under the painting)
-  b.furn('altar', 13, 2, undefined, { order: 0.25 });
   b.furn('reception_desk', 9, 5, undefined, { order: 0.4 });
   b.furn('plant_small', 12, 5, 'flower', { order: 0.45 });
   b.furn('filing_cabinet', 8, 5, undefined, { order: 0.42 });

@@ -153,7 +153,11 @@ export type SoundCueKind =
   | 'bird'
   // the street: a motorbike's "tin tin" and a car's longer horn
   | 'horn_bike'
-  | 'horn_car';
+  | 'horn_car'
+  // power cuts (sim/outage.ts): the breaker's "tạch", the hum of the power coming back, the generator outside (a bed)
+  | 'power_off'
+  | 'power_on'
+  | 'generator';
 
 export interface SoundCue {
   kind: SoundCueKind;
@@ -217,6 +221,8 @@ export interface WorldApi {
   celebrate?(roomId: string, text: string, agentId?: string): void;
   /** (Optional, additive) Disco (type "disco"): turns on for ~30 s, or off if already playing. Returns whether it is on. */
   disco?(): boolean;
+  /** (Optional, additive) Power cut (type "cupdien"): the breaker trips, purely visual. Returns whether it started. */
+  outage?(): boolean;
   /** (Optional, additive) Pizza party: the delivery guy brings the boxes to the pantry. Returns whether it came. */
   pizzaParty?(): boolean;
   /** (Optional, additive) Reception work tree: the stage (0 sprout … 4 blooming); null goes back to the normal pot. */

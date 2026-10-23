@@ -7,6 +7,7 @@ import { DEFAULT_WORLD_OPTIONS } from '../api';
 import type { Character } from './character';
 import { BANHMI_CART } from './banhmi';
 import { SHELL_DONE_TOOL, Sim } from './sim';
+import { BREAKER_TILE, GENERATOR_DARK, GENERATOR_DELAY_MS, OVERLOAD_COOLDOWN_MS, scheduledCut, stormStrike } from './outage';
 
 const theme: RoomTheme = {
   carpet: '#4f6d8f',
@@ -1189,5 +1190,122 @@ describe('espera de shell', () => {
     expect(ana.mode).toBe('shell');
     expect(ana.shellCount).toBe(1);
     expect(ana.pose).toBe('wait');
+  });
+});
+
+describe('cúp điện (sim/outage.ts)', () => {
+  /** The first day from T0 on with a scheduled cut (local midnight). */
+  const cutDay = (): { day: number; cut: { start: number; end: number } } => {
+    for (let i = 0; i < 60; i++) {
+      const d = new Date(T0);
+      const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i);
+      const cut = scheduledCut(day);
+      if (cut) return { day: day.getTime(), cut };
+    }
+    throw new Error('no cut in 60 days');
+  };
+
+  it('quá tải: many working at once trip the breaker, the idle one runs to the box, flips it and the power is back', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.hourOverride = 17;
+    const workers = ['ana', 'bia', 'caio', 'davi', 'enzo'].map((id) => agent(id, '/a', 'working'));
+    sim.applySnapshot(snap([room('/a', 0)], [...workers, agent('ivo', '/a', 'idle', { statusSince: T0 })]), clock.now);
+    const ivo = sim.chars.get('ivo')!;
+    ivo.nextOutingAt = Number.MAX_SAFE_INTEGER;
+    run(sim, clock, 20, () => ivo.atSpot === ivo.homeSpot && !ivo.step && !ivo.queue.length);
+    // right after the office opens: no overload (the cooldown counts from then)
+    run(sim, clock, 30);
+    expect(sim.outage).toBeNull();
+    sim.lastOverloadAt = clock.now - 2 * OVERLOAD_COOLDOWN_MS;
+    run(sim, clock, 180, () => !!sim.outage);
+    expect(sim.outage?.cause).toBe('overload');
+    run(sim, clock, 1);
+    expect(sim.outageDark).toBeGreaterThan(0.9);
+    // whoever works keeps typing on the battery
+    expect(sim.chars.get('ana')!.pose).toBe('type');
+    run(sim, clock, 25, () => ivo.tx === BREAKER_TILE.tx && ivo.ty === BREAKER_TILE.ty && ivo.pose === 'use');
+    expect(sim.outage?.fixer).toBe('ivo');
+    expect(ivo.pose).toBe('use');
+    run(sim, clock, 3, () => !sim.outage);
+    expect(sim.outage).toBeNull();
+    expect(ivo.sayText).toContain('⚡');
+    run(sim, clock, 3);
+    expect(sim.outageDark).toBe(0);
+    // and he goes back to his desk
+    run(sim, clock, 30, () => ivo.atSpot === ivo.homeSpot);
+    expect(ivo.atSpot).toBe(ivo.homeSpot);
+    // the cooldown: no second overload right away
+    run(sim, clock, 60);
+    expect(sim.outage).toBeNull();
+  });
+
+  it('cúp điện theo lịch: the notice in the morning, the cut at the hour, the generator after a while, the power back at the end', () => {
+    const { day, cut } = cutDay();
+    const sim = newSim();
+    const clock = { now: day + 12 * 3_600_000 };
+    sim.hourOverride = 8;
+    sim.applySnapshot(snap([room('/a', 0)], [agent('ana', '/a', 'idle', { statusSince: clock.now }), agent('bia', '/a', 'working')]), clock.now);
+    const ana = sim.chars.get('ana')!;
+    ana.nextOutingAt = Number.MAX_SAFE_INTEGER;
+    const said: string[] = [];
+    const say = sim.social.say.bind(sim.social);
+    sim.social.say = (ch, text, now, ms) => (said.push(text), say(ch, text, now, ms));
+    run(sim, clock, 30, () => ana.atSpot === ana.homeSpot && !ana.step && !ana.queue.length);
+    run(sim, clock, 300, () => said.some((t) => t.includes('🔌')));
+    expect(said.some((t) => t.includes('🔌'))).toBe(true);
+    expect(sim.outageNotice).toBe(true);
+    expect(sim.outage).toBeNull();
+    sim.hourOverride = cut.start + 0.5 / 60;
+    run(sim, clock, 2, () => !!sim.outage);
+    expect(sim.outage?.cause).toBe('schedule');
+    run(sim, clock, 1);
+    expect(sim.outageDark).toBeGreaterThan(0.9);
+    expect(sim.generatorRunning).toBe(false);
+    run(sim, clock, GENERATOR_DELAY_MS / 1000 + 3);
+    expect(sim.generatorRunning).toBe(true);
+    expect(Math.abs(sim.outageDark - GENERATOR_DARK)).toBeLessThan(0.05);
+    run(sim, clock, (cut.end - cut.start) * 3600, () => !sim.outage);
+    expect(sim.outage).toBeNull();
+    expect(sim.generatorRunning).toBe(false);
+    // once a day: still in the window (the hour is pinned), it doesn't come back
+    run(sim, clock, 5);
+    expect(sim.outage).toBeNull();
+  });
+
+  it('mưa giông: on a rainy day the strike of the hour flashes and (sometimes) takes the power; never on a dry day', () => {
+    const { day } = cutDay();
+    let at: { h: number; minute: number } | null = null;
+    for (let h = 0; h < 24 && !at; h++) {
+      const s = stormStrike(new Date(day), h);
+      if (s && s.cutMs) at = { h, minute: s.minute };
+    }
+    expect(at).not.toBeNull();
+    if (!at) return;
+    const sim = newSim();
+    const clock = { now: day + 12 * 3_600_000 };
+    sim.hourOverride = at.h + (at.minute + 0.5) / 60;
+    sim.applySnapshot(snap([room('/a', 0)], [agent('ana', '/a', 'idle', { statusSince: clock.now })]), clock.now);
+    run(sim, clock, 3);
+    expect(sim.outage).toBeNull();
+    sim.raining = true;
+    run(sim, clock, 2, () => !!sim.outage);
+    expect(sim.outage?.cause).toBe('storm');
+    expect(clock.now - sim.lightningAt).toBeLessThan(2_000);
+  });
+
+  it('visit: no outages (the timing is not real), not even by debug', () => {
+    const { day, cut } = cutDay();
+    const visit = new Sim(art, () => ({ ...DEFAULT_WORLD_OPTIONS, liveliness: 'calm' }), null, { visit: true });
+    const clock = { now: day + 12 * 3_600_000 };
+    visit.hourOverride = cut.start + 0.5 / 60;
+    visit.raining = true;
+    visit.lastOverloadAt = -1e15;
+    const workers = ['ana', 'bia', 'caio', 'davi', 'enzo', 'ivo'].map((id) => agent(id, '/a', 'working'));
+    visit.applySnapshot(snap([room('/a', 0)], workers), clock.now);
+    run(visit, clock, 60);
+    expect(visit.outage).toBeNull();
+    expect(visit.outageNow('overload', clock.now)).toBe(false);
+    expect(visit.outageDark).toBe(0);
   });
 });

@@ -40,7 +40,9 @@ import { RoomState } from './room-state';
 import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, spinDir, spinPhase, yawnPhase } from './shell';
 import { SpotRegistry } from './spots';
 import type { Step } from './steps';
-import { PARKING, floodLine } from './traffic';
+import { PARKING, floodLine, type RacerEvent } from './traffic';
+import { racerReaction, type RacerWitness } from './racer';
+import { STREET_H, STREET_Y } from '../layout/exterior';
 import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen } from './repair';
 import { trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './trash';
 import { LOA_LINE_MS, loaGroan, loaScript, loaWindow } from './loa';
@@ -102,6 +104,26 @@ import {
   wayBack,
 } from './tea';
 import { lunchTime, SIESTA_WAKE_SPREAD_MS, siestaLevel, siestaTime } from './siesta';
+import {
+  BREAKER_BOX,
+  BREAKER_TILE,
+  GENERATOR,
+  OVERLOAD_AUTO_MS,
+  OVERLOAD_MAX_MS,
+  OVERLOAD_REACT_MS,
+  OVERLOAD_WORKER_FIX_MS,
+  OVERLOAD_WORKERS,
+  approachLevel,
+  cutClock,
+  generatorOn,
+  noticeUp,
+  outageLevel,
+  overloadTrips,
+  scheduledCut,
+  stormStrike,
+  type Outage,
+  type OutageCause,
+} from './outage';
 import { BANHMI_SPOTS, BANHMI_VENDOR_SPOT, banhmiOpen, cartAt, pickOrder, vendorLine, vendorReply, vendorRouteIn, vendorRouteOut } from './banhmi';
 import { EXIT_RADIUS, NO_INTENT, stepFree, tileAt, VISITOR_LANYARD, type VisitorIntent } from './visitor';
 import { tr } from '../../../../shared/i18n';
@@ -306,6 +328,29 @@ export class Sim {
   private siestaTarget = 0;
   /** End of the siesta: when each sleeper wakes up (staggered, not everyone at once). */
   private readonly siestaWakes = new Map<string, number>();
+  /**
+   * Power outage (sim/outage.ts): the cut going on (null = power on), how dark it is (0–1, smoothed; read by the
+   * lighting), the last lightning flash, the notice on the wall and the generator outside. Purely visual.
+   */
+  outage: Outage | null = null;
+  outageDark = 0;
+  private outageTarget = 0;
+  /** It rains outside today (the renderer's weather says): thunderstorms can strike. */
+  raining = false;
+  /** When the last lightning struck (ms epoch; the renderer flashes the sky). */
+  lightningAt = -1e12;
+  /** The scheduled cut's paper notice is on the reception wall (the day of a cut, until the power is back). */
+  outageNotice = false;
+  /** The generator on the sidewalk is running (scheduled cut, after a short while). */
+  generatorRunning = false;
+  /** Last overload (or when the office opened: no overload right after the page loads); 0 = not yet set. */
+  lastOverloadAt = 0;
+  /** Since when enough people have been working together to trip the breaker (0 = not now). */
+  private overloadSince = 0;
+  /** The day's scheduled cut already happened / the notice was mentioned / the hour's strike already fell. */
+  private cutDone = '';
+  private noticeSaid = '';
+  private strikeDone = '';
   /** Pizza party: until when and the table tile (for the dog to beg). */
   pizzaUntil = 0;
   pizzaTile: { tx: number; ty: number } | null = null;
@@ -1036,6 +1081,219 @@ export class Sim {
     return this.siestaOn || this.siestaWakes.has(ch.id);
   }
 
+  // ------------------------------------------------------------------ power outages (sim/outage.ts)
+
+  /**
+   * Power outages, once a second: the scheduled cut (its notice in the morning), the thunderstorm's lightning on rainy
+   * days and the breaker tripping when too many work at once. Never in visits (the timing isn't real), during the disco
+   * or the New Year party. Purely visual: what the agents really do is untouched.
+   */
+  private updateOutage(now: number): void {
+    if (this.visit) return;
+    if (!this.lastOverloadAt) this.lastOverloadAt = now;
+    const blocked = now < this.discoUntil || this.newYear.phase === 'party';
+    const o = this.outage;
+    if (o) {
+      if (blocked || now >= o.until) this.endOutage(now, !blocked);
+      else if (o.cause === 'overload') this.sendFixer(o, now);
+    }
+    const d = new Date(now);
+    const hour = this.hourOf(now);
+    const day = dayKey(now);
+    const cut = scheduledCut(d);
+    this.outageNotice = noticeUp(cut, hour);
+    if (!blocked && !this.outage) {
+      // the scheduled cut: someone mentions the notice in the morning; at the hour, the power goes
+      if (cut && this.outageNotice && hour < cut.start - 0.25 && this.noticeSaid !== day) {
+        const ch = this.calmAtDesk();
+        if (ch) {
+          this.noticeSaid = day;
+          this.social.say(ch, tr('Power cut at {0} today, charge your laptops! 🔌', [cutClock(cut.start)]), now);
+        }
+      }
+      if (cut && hour >= cut.start && hour < cut.end && this.cutDone !== day) {
+        this.cutDone = day;
+        this.startOutage('schedule', now, (cut.end - hour) * 3_600_000);
+      }
+    }
+    // thunderstorm: at most one strike an hour, at the minute the date picks
+    if (!blocked && this.raining) {
+      const strike = stormStrike(d, hour);
+      const key = `${day}:${Math.floor(hour)}`;
+      if (strike && this.strikeDone !== key && hour * 60 - Math.floor(hour) * 60 >= strike.minute && hour * 60 - Math.floor(hour) * 60 < strike.minute + 1) {
+        this.strikeDone = key;
+        this.lightning(now, strike.cutMs);
+      }
+    }
+    // overload: enough people working together for a while, past the cooldown, with a little luck
+    let workers = 0;
+    for (const ch of this.chars.values()) if (ch.mode === 'work' && !ch.leaving) workers++;
+    if (workers < OVERLOAD_WORKERS) this.overloadSince = 0;
+    else if (!this.overloadSince) this.overloadSince = now;
+    if (!blocked && !this.outage && overloadTrips(workers, this.overloadSince ? now - this.overloadSince : 0, now - this.lastOverloadAt, Math.random())) {
+      this.startOutage('overload', now, OVERLOAD_AUTO_MS);
+    }
+    this.outageTarget = outageLevel(this.outage, now);
+    this.generatorRunning = generatorOn(this.outage, now);
+    if (this.outage?.cause === 'schedule') this.outageNotice = true;
+  }
+
+  /** Debug / the secret word: an outage of this cause right now (the current one ends first). Returns whether it started. */
+  outageNow(cause: OutageCause, now: number): boolean {
+    if (this.visit || now < this.discoUntil || this.newYear.phase === 'party') return false;
+    if (this.outage) this.endOutage(now, false);
+    if (cause === 'storm') this.lightning(now, 30_000);
+    else this.startOutage(cause, now, cause === 'schedule' ? 5 * 60_000 : OVERLOAD_AUTO_MS);
+    this.generatorRunning = generatorOn(this.outage, now);
+    if (cause === 'schedule') this.outageNotice = true;
+    return true;
+  }
+
+  /** Debug: the power comes back now. */
+  outageEnd(now: number): void {
+    this.endOutage(now, true);
+    this.generatorRunning = false;
+  }
+
+  /** The power goes: "tạch", the lights snap off; idle agents react. */
+  private startOutage(cause: OutageCause, now: number, ms: number): void {
+    this.outage = { cause, start: now, until: now + ms, fixer: null };
+    if (cause === 'overload') this.lastOverloadAt = now;
+    this.outageTarget = outageLevel(this.outage, now);
+    this.sound('power_off', BREAKER_BOX.x, BREAKER_BOX.y);
+    this.outageReact(cause, now);
+  }
+
+  /** The power is back (`cheer`: with the hum and a "Có điện rồi!"; false: quietly, e.g. the disco took over). */
+  private endOutage(now: number, cheer: boolean, by?: Character): void {
+    if (!this.outage) return;
+    this.outage = null;
+    this.outageTarget = 0;
+    if (!cheer) return;
+    this.sound('power_on', BREAKER_BOX.x, BREAKER_BOX.y);
+    let spoke = !!by;
+    for (const ch of this.chars.values()) {
+      if (ch === by || ch.leaving || ch.inside || ch.mode !== 'idle' || ch.pose === 'sleep') continue;
+      if (!spoke && ch.rng() < 0.8) {
+        spoke = true;
+        this.social.say(ch, tr('The power is back! 🎉'), now);
+      } else if (ch.rng() < 0.6) {
+        ch.chatEmoji = '🎉';
+        ch.chatUntil = now + 1_600;
+      }
+    }
+  }
+
+  /** A lightning strike close by: the flash and the thunder; with `cutMs`, it takes the power along. */
+  private lightning(now: number, cutMs: number): void {
+    this.lightningAt = now;
+    this.sound('thunder', this.building.cols * COL_W * TILE * 0.5, GENERATOR.y);
+    if (cutMs > 0 && !this.outage) this.startOutage('storm', now, cutMs);
+    else if (!this.outage) {
+      // just the scare: idle agents jump
+      for (const ch of this.chars.values()) {
+        if (ch.leaving || ch.inside || ch.mode !== 'idle' || ch.pose === 'sleep' || ch.rng() < 0.4) continue;
+        ch.chatEmoji = '😱';
+        ch.chatUntil = now + 1_400;
+      }
+    }
+  }
+
+  /**
+   * The lights go out: idle agents (awake, at their desk with nothing planned) jump — "Ồ!" — and then some take out
+   * the phone flashlight, some go fan themselves by a window until the power is back. Whoever works, waits or watches
+   * a shell carries on with the laptop battery (the lighting lights their face).
+   */
+  private outageReact(cause: OutageCause, now: number): void {
+    let spoke = false;
+    const line = cause === 'schedule' ? tr('There it goes, right on schedule 🙄') : cause === 'overload' ? tr('Uh-oh, the breaker tripped!') : tr('Whoa, that lightning was close! 😱');
+    for (const ch of this.chars.values()) {
+      if (ch.leaving || ch.inside || ch.outdoors || ch.mode !== 'idle' || ch.pose === 'sleep') continue;
+      if (!spoke && ch.rng() < 0.6) {
+        spoke = true;
+        this.social.say(ch, line, now);
+      } else {
+        ch.chatEmoji = cause === 'storm' || ch.rng() < 0.5 ? '😱' : '😮';
+        ch.chatUntil = now + 1_800;
+      }
+      if (ch.atSpot !== ch.homeSpot || ch.step || ch.queue.length || ch.gathering) continue;
+      const r = ch.rng();
+      const dark = () => !this.outage;
+      if (r < 0.45) {
+        // phone flashlight, right there at the desk
+        ch.queue.push({ t: 'act', pose: ch.seated ? 'sit' : 'stand', ms: 500 + ch.rng() * 1_200 }, { t: 'until', cond: dark, minMs: 1_500, maxMs: 15 * 60_000, pose: 'read', held: 'phone' });
+      } else if (r < 0.75) {
+        // hot without the air conditioning: to a window, fanning themselves
+        const s = this.spots.findFree('window', { by: ch.id, rng: ch.rng, near: { tx: ch.tx, ty: ch.ty } });
+        if (!s || !this.reserveTemp(ch, s)) continue;
+        const steps: Step[] = [];
+        this.pushLeave(ch, steps);
+        steps.push(
+          { t: 'go', tx: s.tx, ty: s.ty, fx: s.x, fy: s.y, dir: s.dir },
+          { t: 'do', fn: () => ((ch.chatEmoji = '🥵'), (ch.chatUntil = this.now + 2_500)) },
+          { t: 'until', cond: dark, minMs: 2_000, maxMs: 15 * 60_000, pose: 'talk', dir: s.dir },
+        );
+        ch.queue.push(...steps);
+        this.pushHome(ch, 'none');
+      }
+    }
+  }
+
+  /**
+   * Overload: after a moment in the dark, the idle coworker closest to the breaker box runs to it, flips it and grumbles;
+   * the power comes back. Nobody idle: after a few seconds someone who was working goes. Nobody at all: it resets by
+   * itself (`until`).
+   */
+  private sendFixer(o: Outage, now: number): void {
+    if (o.fixer || now - o.start < OVERLOAD_REACT_MS) return;
+    const workers = now - o.start >= OVERLOAD_WORKER_FIX_MS;
+    let best: Character | null = null;
+    let bestD = Infinity;
+    for (const c of this.chars.values()) {
+      if (c.leaving || c.inside || c.outdoors || c.gathering || c.pose === 'sleep') continue;
+      if (c.mode !== 'idle' && !(workers && c.mode === 'work')) continue;
+      if (c.step && !this.interruptible(c.step)) continue;
+      const d = Math.abs(c.tx - BREAKER_TILE.tx) + Math.abs(c.ty - BREAKER_TILE.ty) + (c.mode === 'idle' ? 0 : 1000);
+      if (d < bestD) {
+        bestD = d;
+        best = c;
+      }
+    }
+    if (!best) return;
+    const c = best;
+    this.interrupt(c);
+    if (c.step) return;
+    o.fixer = c.id;
+    o.until = Math.max(o.until, o.start + OVERLOAD_MAX_MS);
+    const steps: Step[] = [];
+    this.pushLeave(c, steps);
+    steps.push(
+      { t: 'go', tx: BREAKER_TILE.tx, ty: BREAKER_TILE.ty, fx: BREAKER_BOX.x, fy: BREAKER_TILE.ty * TILE + FOOT_DY - 2, dir: 'up', run: true },
+      { t: 'act', pose: 'use', ms: 1_400, dir: 'up' },
+      {
+        t: 'do',
+        fn: () => {
+          if (this.outage !== o) return;
+          const lines = [tr('Who plugged in the kettle?! ⚡'), tr('Back on! Go easy on the power, folks ⚡'), tr("Who's running the AC and the microwave at once?! ⚡")];
+          this.social.say(c, lines[Math.floor(c.rng() * lines.length)], this.now);
+          this.endOutage(this.now, true, c);
+        },
+      },
+      { t: 'act', pose: 'stand', ms: 1_200, dir: 'down' },
+    );
+    c.queue.push(...steps);
+    this.pushHome(c, 'none');
+  }
+
+  /** Someone idle, awake, in the building and not already talking (to mention something), or null. */
+  private calmAtDesk(): Character | null {
+    for (const ch of this.chars.values()) {
+      if (ch.leaving || ch.inside || ch.mode !== 'idle' || ch.pose === 'sleep' || ch.sayUntil > this.now) continue;
+      return ch;
+    }
+    return null;
+  }
+
   /**
    * New Year: in the last 5 min of Dec 31 (and of Tết eve) the countdown; in the 10 min after
    * midnight, a party in every room (banner, confetti, everyone celebrating) and fireworks outside.
@@ -1492,6 +1750,7 @@ export class Sim {
       }
     }
     if (this.siestaDim !== this.siestaTarget) this.siestaDim = Math.abs(this.siestaTarget - this.siestaDim) < 0.01 ? this.siestaTarget : this.siestaDim + (this.siestaTarget - this.siestaDim) * Math.min(1, dt * 2);
+    this.outageDark = approachLevel(this.outageDark, this.outageTarget, dt);
     if (now >= this.nextHousekeeping) {
       this.nextHousekeeping = now + 1000;
       this.housekeeping(now);
@@ -1515,6 +1774,7 @@ export class Sim {
   /** Low-frequency checks (parent leaving, ownerless rooms, shrink building). */
   private housekeeping(now: number): void {
     this.updateSiesta(now);
+    this.updateOutage(now);
     for (const ch of this.chars.values()) {
       if (ch.info.kind === 'sub' && !ch.leaving) this.refreshMode(ch);
       // foreground command went past 10 s (or the wait ended): switches mode without a new snapshot
@@ -2193,7 +2453,7 @@ export class Sim {
     }
     if (ch.atSpot !== ch.homeSpot) return this.planGoHome(ch, now);
     ch.arriving = false;
-    if (ch.mode === 'idle' && !this.longIdle(ch, now) && !this.siestaNap(ch)) {
+    if (ch.mode === 'idle' && !this.longIdle(ch, now) && !this.siestaNap(ch) && !this.outage) {
       if (!ch.nextOutingAt) ch.nextOutingAt = now + idleSitMs(ch.rng, this.options().liveliness);
       if (now >= ch.nextOutingAt) {
         if (this.planOuting(ch, now)) return true;
@@ -3716,6 +3976,54 @@ export class Sim {
     officer.dir = g.dir;
     // the palm up to stop one side, the baton pointing the other side on
     officer.setPose(g.pose, g.pose === 'use' ? 'baton' : 'none');
+  }
+
+  /** Last time each character reacted to a racing boy (no shouting at every pass). */
+  private readonly racerShock = new Map<string, number>();
+
+  /**
+   * A racing boy whizzing past (the renderer's street says): whoever is out on a sidewalk close by shouts or gasps
+   * (each now and then), and the officer at the post whistles after them in vain.
+   */
+  racerPassed(e: RacerEvent, now: number): void {
+    const officer = this.extras.find((x) => x.id === POLICE_ID);
+    if (e.police && officer && this.policeOnPost) this.social.say(officer, tr('Tweet! Hey you, stop right there! 👮'), now);
+    for (const ch of this.people()) {
+      if (ch === officer || ch.inside || Math.abs(ch.x - e.x) > 80) continue;
+      // only people out on a sidewalk (or the curb): the near one by the building, the far one across the street
+      const near = ch.y > STREET_Y - 48 && ch.y < STREET_Y + 10;
+      const far = ch.y > STREET_Y + STREET_H - 4 && ch.y < STREET_Y + STREET_H + 48;
+      if (!near && !far) continue;
+      if (now - (this.racerShock.get(ch.id) ?? -1e9) < 25_000 || ch.sayUntil > now) continue;
+      const who = this.racerWitness(ch);
+      if (!who) continue;
+      this.racerShock.set(ch.id, now);
+      // the street's characters always say their piece; agents sometimes just gasp
+      if (who !== 'agent' || ch.rng() < 0.5) this.social.say(ch, racerReaction(who, ch.rng), now);
+      else {
+        ch.chatEmoji = '😱';
+        ch.chatUntil = now + 1_500;
+      }
+    }
+    if (this.racerShock.size > 64) this.racerShock.clear();
+  }
+
+  /** Who this is, for the racing boy reactions (null: someone who doesn't react, like the dance group or the boss). */
+  private racerWitness(ch: Character): RacerWitness | null {
+    if (this.chars.has(ch.id)) return 'agent';
+    const byId: Readonly<Record<string, RacerWitness>> = {
+      [TEA_SELLER_ID]: 'tea',
+      [BANHMI_VENDOR_ID]: 'banhmi',
+      [LOTTERY_SELLER_ID]: 'lottery',
+      [MECHANIC_ID]: 'mechanic',
+      [SCRAP_ID]: 'scrap',
+      [FLOWER_ID]: 'flowers',
+      [HUTIEU_UNCLE_ID]: 'hutieu',
+      [HUTIEU_BOY_ID]: 'hutieuBoy',
+      [BUN_ID]: 'bun',
+      [TRASH_ID]: 'trash',
+    };
+    return byId[ch.id] ?? null;
   }
 
   /** Someone (not the officer) is walking on the crossing (rect in px): the traffic waits for them. */

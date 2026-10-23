@@ -71,10 +71,20 @@ export interface WorldDebug {
   /** Forces the after-lunch siesta on/off (idle agents nap, lights dim); null goes back to the clock (12:30–13:30). */
   siestaNow(on: boolean | null): void;
   /**
+   * Power cut now (purely visual): 'schedule' (the power company's cut, ~5 min, the generator outside kicks in after
+   * 20 s), 'overload' (the breaker trips; someone runs to the box in the corridor) or 'storm' (lightning, ~30 s).
+   * Returns whether it started (not in a visit, the disco or the New Year party).
+   */
+  outageNow(cause: 'schedule' | 'overload' | 'storm'): boolean;
+  /** Ends the power cut now (the power comes back, with the cheer). */
+  outageEnd(): void;
+  /**
    * Forces rush hour on the street (motorbikes, jams, horns) on/off; null goes back to the clock (7:00–8:30, 17:00–18:45).
    * Returns the vehicles on the street right now, by kind.
    */
   rushNow(on: boolean | null): { car: number; bike: number };
+  /** A racing boy rides past right now (whatever the hour). */
+  racerNow(): void;
   /**
    * Floods the street now (true; up to three idle ones go out to look at it) or dries it (false); null goes back to the
    * weather (rain at rush hour fills it up over ~10 minutes, it drains over ~20). Returns how deep the water is (0–1).
@@ -411,6 +421,12 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
     teaNow: () => sim.teaNow(),
     siestaNow: (on) => {
       sim.siestaOverride = on;
+    },
+    outageNow: (cause) => sim.outageNow(cause, sim.now),
+    outageEnd: () => sim.outageEnd(sim.now),
+
+    racerNow: () => {
+      renderer.traffic.racerNow = true;
     },
 
     rushNow: (on) => {

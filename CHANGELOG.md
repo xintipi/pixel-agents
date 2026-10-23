@@ -12,6 +12,15 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Racing boy.** De vez em quando passa um garoto de moto (moletom preto, cabelo espetado, sem capacete) muito mais
+  rápido que todo mundo, costurando entre as motos e por cima da faixa do meio, buzinando, com o rastro de vento atrás;
+  quem ele corta buzina de volta. Os horários encaixam no dia da rua: à noite (21h–23h30, depois da dança e do bánh
+  bao, com o carrinho de hủ tiếu na calçada) e às vezes nos intervalos calmos do dia (10h–11h30, 14h–16h); nunca na
+  hora do rush, no almoço, na sesta, de madrugada ou no Tết. Cada um na calçada reage do seu jeito, e só quem está lá
+  naquela hora: a moça do trà đá, o mecânico, a vendedora de bilhetes, a compradora de recicláveis, a vendedora de
+  flores, o tio do hủ tiếu (preocupado com o caldo) e o menino (que acha a moto o máximo), e os agentes. No console:
+  `habblaud.world.debug.racerNow()`.
+
 - **Guarda de trânsito no engarrafamento (CSGT).** Quando a rua lota na hora do rush, um guarda de farda amarela, calça
   verde-oliva e quepe com faixa vermelha e brasão vai até o meio da faixa de pedestres e organiza o trânsito de verdade:
   um sentido de cada vez (o outro espera na linha antes da faixa), os dois quando alguém está atravessando, e quem sobe
@@ -117,14 +126,23 @@ do meio (0.**3**.0).
   ninguém (nem o cachorro) vem acordar; as luzes das salas baixam um pouco. Quem está trabalhando de verdade continua
   digitando, com a luz da tela no rosto. No fim, cada um acorda no seu tempo, boceja e se espreguiça. No console:
   `habblaud.world.debug.siestaNow(true)`.
-- **Altar de Thần Tài na recepção.** Num canto da recepção, o altarzinho vermelho e dourado do Deus da Fortuna e de
-  Ông Địa, com frutas, incenso e as lâmpadas vermelhas piscando de leve (à noite, com um brilho avermelhado). É só
-  decoração: ninguém vai rezar lá.
 - **Recepcionista.** Das 7h30 às 18h uma recepcionista de blazer azul-marinho, coque e crachá fica atrás do balcão
   da recepção: digita, atende o telefone ("Habblaud xin nghe…"), arruma papéis, come na mesa no almoço e cochila na
   sesta. Dá bom-dia a quem chega e tchau a quem vai embora (um balão a cada 20 s, no máximo), sorri para quem passa
   e se endireita com uma reverência quando o chefe faz a ronda. Chega e vai embora pelo elevador. No console:
   `habblaud.world.debug.receptionistNow()`.
+- **Cúp điện.** De vez em quando o prédio fica sem luz: as salas apagam (de dia, penumbra; à noite, quase breu), quem
+  está trabalhando de verdade continua no laptop com a luz da tela no rosto, e quem está à toa leva um susto, acende a
+  lanterna do celular ou vai se abanar na janela, e comemora quando a luz volta ("Có điện rồi! 🎉"). Três causas:
+  - **Corte programado** (uns 1–2 dias por semana, sorteados pela data): de manhã aparece o aviso colado na recepção
+    e alguém lembra de carregar o laptop; na hora, falta luz por 3–8 minutos, e depois de 20 s o gerador amarelo no
+    gramado pega, sacudindo e soltando fumaça, e acende o prédio pela metade.
+  - **Sobrecarga**: com 5 ou mais agentes trabalhando ao mesmo tempo, o disjuntor do corredor às vezes cai (no máximo
+    uma vez a cada 20 minutos); um colega corre até a caixa, religa e reclama de quem ligou a chaleira.
+  - **Temporal**: em dia de chuva, raios clareiam o céu com trovão, e às vezes a luz cai por 15–60 s.
+  Com os sons do escritório ligados: o "tạch", o zumbido voltando e o ronco do gerador. Nada disso acontece numa
+  visita, na disco ou na virada de ano. Digitar `cupdien` no escritório derruba o disjuntor; no console:
+  `habblaud.world.debug.outageNow('schedule' | 'overload' | 'storm')` e `outageEnd()`.
 - **Mais temas de festa.** Tema do escritório agora é uma lista, com Trung thu (Festival do Meio do Outono: lanternas
   de estrela e de carpa, bolos lunares, a lua cheia nas janelas, a cabeça do leão e orelhas de coelho), Valentine,
   Dia da Mulher (8/3 e 20/10), Dia do Programador (256º dia do ano), Dia Nacional (30/4 e 2/9) e Dia das Crianças

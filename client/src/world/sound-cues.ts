@@ -13,6 +13,7 @@ import { FIREWORK_RISE, FIREWORK_TUBES, fireworkBurst } from './fireworks';
 import { rectPx, slotRect } from './layout/geometry';
 import type { Weather } from './render/weather';
 import type { Horn } from './sim/traffic';
+import { GENERATOR } from './sim/outage';
 
 /** Re-evaluates who is typing every this many ms. */
 const KEYS_TICK_MS = 160;
@@ -26,8 +27,8 @@ const SFX_STALE_MS = 1_500;
 const SFX_GAIN: Partial<Record<SoundCue['kind'], number>> = { door: 0.7, flush: 0.8, tap: 0.7, coffee: 0.8, yawn: 0.8, bark: 0.9, meow: 0.9, robot_start: 0.8, robot_dock: 0.8 };
 /** At most one horn this often (ms): a rush-hour jam honks a lot, and it shouldn't drown the rest (global cap). */
 const HORN_GAP_MS = 650;
-/** Heard even off screen (quieter): the doorbell of the pizza delivery. */
-const SFX_OFFSCREEN: ReadonlySet<SoundCue['kind']> = new Set(['pizza']);
+/** Heard even off screen (quieter): the doorbell of the pizza delivery, the power going and coming back, a close thunderclap. */
+const SFX_OFFSCREEN: ReadonlySet<SoundCue['kind']> = new Set(['pizza', 'power_off', 'power_on', 'thunder']);
 
 interface ViewRect {
   x0: number;
@@ -125,6 +126,8 @@ export class SoundCues {
     this.bedsAt = now;
     const robot = this.sim.pets.robot;
     if (robot.dockTile && robot.state !== 'charge' && this.inView(robot.x, robot.y, view, 32)) emit({ kind: 'robot_hum', gain: near * 0.7, pan: this.pan(robot.x, view) });
+    // the generator outside during a scheduled power cut: loud next to it, a far putt-putt otherwise
+    if (this.sim.generatorRunning) emit({ kind: 'generator', gain: this.inView(GENERATOR.x, GENERATOR.y, view, 48) ? near * 0.8 : 0.25, pan: this.pan(GENERATOR.x, view) });
     const env = this.env?.();
     if (!env) return;
     const outside = this.outsideShare(view);

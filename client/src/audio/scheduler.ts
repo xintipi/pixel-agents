@@ -13,7 +13,7 @@ export const SOUND_CATEGORIES: readonly SoundCategory[] = ['alerts', 'keys', 'el
  * Beds: continuous sounds (rain, wind, the robot's hum). The world keeps sending their level while they last; the
  * board holds one loop per kind and fades it out when the updates stop. They don't count towards the per-second cap.
  */
-export const BED_KINDS: ReadonlySet<SoundKind> = new Set<SoundKind>(['rain', 'wind', 'robot_hum']);
+export const BED_KINDS: ReadonlySet<SoundKind> = new Set<SoundKind>(['rain', 'wind', 'robot_hum', 'generator']);
 
 export const CATEGORY_OF: Readonly<Record<SoundKind, SoundCategory>> = {
   chime: 'alerts',
@@ -45,6 +45,9 @@ export const CATEGORY_OF: Readonly<Record<SoundKind, SoundCategory>> = {
   bird: 'weather',
   horn_bike: 'weather',
   horn_car: 'weather',
+  power_off: 'life',
+  power_on: 'life',
+  generator: 'life',
 };
 
 /** Minimum interval (ms) between two sounds on the same channel. */
@@ -78,6 +81,9 @@ export const MIN_GAP_MS: Readonly<Record<SoundKind, number>> = {
   bird: 700,
   horn_bike: 450,
   horn_car: 450,
+  power_off: 1_500,
+  power_on: 1_500,
+  generator: 0,
 };
 
 /** The bell and the pop share the same channel (one doesn't trample the other). */
@@ -111,6 +117,9 @@ const CHANNEL: Readonly<Record<SoundKind, string>> = {
   bird: 'bird',
   horn_bike: 'horn',
   horn_car: 'horn',
+  power_off: 'power',
+  power_on: 'power',
+  generator: 'generator',
 };
 
 /** Global cap: at most this many sounds per second (the alert bell always gets through). */
@@ -123,7 +132,7 @@ export interface SoundSettings {
   keys: boolean;
   elevator: boolean;
   social: boolean;
-  /** Pets, robot vacuum, bathroom, coffee machine, pizza, yawns, parties and the garbage cart's bell. */
+  /** Pets, robot vacuum, bathroom, coffee machine, pizza, yawns, parties, the garbage cart's bell and power cuts. */
   life: boolean;
   /** Rain, wind, thunder and birds outside, and the horns on the street. */
   weather: boolean;
