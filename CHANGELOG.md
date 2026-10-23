@@ -12,7 +12,16 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
-- **Bác bảo vệ ca đêm.** Depois das 22h, um guarda noturno de uniforme cáqui-oliva, quepe e lanterna entra pela
+- **Ponto de ônibus na rua.** Na calçada do outro lado agora há um ponto de ônibus de Sài Gòn: abrigo com banco, painel
+  de propaganda e a placa azul com as linhas 08, 19 e 150. Das 5h30 às 21h passa um ônibus verde a cada 15–20 minutos
+  (mais seguido na hora do rush): ele dá seta, encosta no meio-fio e abre as portas por uns 10 segundos; os carros
+  esperam atrás e as motos desviam buzinando. Quem está esperando (no banco, no celular ou olhando a rua) embarca,
+  alguns descem e vão embora. De vez em quando alguém chega correndo ("Chờ với chú ơiii!"): às vezes o motorista
+  espera, às vezes vai embora sem ele, que reclama e espera o próximo. No console: `habblaud.world.debug.busNow()` (ou
+  `busNow('wait')` / `busNow('miss')`) e `busRiders(n)`.
+
+- **Bác bảo vệ ca đêm.**
+ Depois das 22h, um guarda noturno de uniforme cáqui-oliva, quepe e lanterna entra pela
   calçada e faz a ronda pelo corredor e pelas salas onde ainda há agentes na mesa: para ao lado de cada um, manda ir
   dormir ("Khuya rồi, về ngủ đi con 🌙") e o agente responde ("Cho con thêm một commit nữa thôi bác ơi! 😅"); quem
   cochila na mesa ele deixa dormir. Por volta das 23h ele baixa a porta de aço de enrolar (cửa cuốn) sobre a fachada de

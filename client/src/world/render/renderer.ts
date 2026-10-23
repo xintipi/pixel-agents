@@ -46,6 +46,8 @@ import { banhtrangProps, coalsAt } from '../sim/banhtrang';
 import { drawCharcoalSmoke, drawCoalGlow } from './banhtrang-fx';
 import { loaProps } from '../sim/loa';
 import { DINER_CALL_MS, FLOODED, PARKING, RIDER_HELMETS, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
+import { busStopProps, type BusAt } from '../sim/bus';
+import { drawBus } from './bus';
 import { countBadge, fallbackIcon } from './shell-sprites';
 import { decorateElevator, drawSeasonalLights, drawSeasonalWindow, seasonalCostume, seasonalFurniture } from './seasonal';
 import { buildAreaVis, furnitureSprites, opaqueBounds, paintShell, toWallVis, WALL_MARGIN, wallItemOrigin, wallSprites, type AreaVis, type FurnVis, type WallVis } from './scene';
@@ -133,6 +135,8 @@ export class Renderer {
   private builtAssetsVersion = 0;
   /** Street traffic: cars, and the motorbikes of rush hour. */
   readonly traffic = new Traffic();
+  /** The city bus as the stop sees it (sim/bus.ts), this frame. */
+  private busAt: BusAt | null = null;
   /** Motorbike riders' looks, by vehicle variant. */
   private riders = new Map<number, Appearance[]>();
   /** Looks of the agents riding (or owning a parked) bike, by character id. */
@@ -545,9 +549,11 @@ export class Renderer {
     for (const prop of banhtrangProps(this.sim.banhtrang.stand(), this.sim.banhtrang.up)) if (visible(prop.x - 20, prop.y - 30, 40, 34)) push(K.Prop, prop.y, prop, null, 1);
     // the ward loudspeaker's pole (loa phường), always there
     for (const prop of loaProps()) if (visible(prop.x - 16, prop.y - 64, 32, 68)) push(K.Prop, prop.y, prop, null, 1);
+    // the bus stop across the street (shelter and sign post), always there
+    for (const prop of busStopProps()) if (visible(prop.x - 32, prop.y - 58, 64, 60)) push(K.Prop, prop.y, prop, null, 1);
     // morning bánh mì cart: rides along with the vendor, parked east of the tea stall
     for (const prop of banhmiCartProps(this.sim.banhmiCart())) if (visible(prop.x - 24, prop.y - 36, 48, 40)) push(K.Prop, prop.y, prop, null, 1);
-    for (const car of this.traffic.vehicles) if (visible(car.x - 32, car.y - 36, 64, 40)) push(K.Car, car.y, car, null, 1);
+    for (const car of this.traffic.vehicles) if (visible(car.x - 46, car.y - 46, 92, 50)) push(K.Car, car.y, car, null, 1);
     for (const car of this.xeOm()) if (visible(car.x - 24, car.y - 28, 48, 32)) push(K.Car, car.y, car, null, 1);
     this.petBoxes.clear();
     for (const pet of this.sim.pets.pets) if (visible(pet.x - 16, pet.y - 20, 32, 24)) push(K.Pet, pet.depth(), pet, null, 1);
@@ -1391,6 +1397,11 @@ export class Renderer {
   }
 
   private drawCar(car: Vehicle): void {
+    if (car.bus) {
+      drawBus(this.ctx, car, this.clock(), this.night, !!this.busAt?.doorsOpen);
+      this.wetWheels(car, 40);
+      return;
+    }
     if (car.kind === 'car') {
       const s = carSprite(car.variant, car.dir < 0);
       this.ctx.drawImage(s.canvas, Math.round(car.x - s.ax), Math.round(car.y - s.ay));
@@ -1560,7 +1571,10 @@ export class Renderer {
     this.traffic.police.onPost = this.sim.policeOnPost;
     this.traffic.police.walkers = this.sim.policeOnPost && this.sim.onCrossing(cw.x - 4, cw.x + cw.w + 4, ext.streetY, ext.streetY + ext.streetH);
     // last frame's weather: this frame's is worked out further down
+    // the bus stop: the people still getting on or off hold the bus; the stop sees where the bus is
+    this.traffic.busHold = this.sim.busStop.hold;
     this.traffic.step(now, dt, env, hour, d.getDay(), this.weather === 'rain', this.streetDay());
+    this.busAt = this.sim.busStop.bus = this.traffic.busAt(now);
     this.sim.policeWanted = this.traffic.police.wanted;
     this.sim.policeHold = this.traffic.police.hold;
     this.sim.policeCatches += this.traffic.police.catches;

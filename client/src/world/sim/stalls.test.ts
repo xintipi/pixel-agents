@@ -16,6 +16,7 @@ const art = { appearanceFromSeed: () => appearance, roomTheme: () => theme } as 
 function morning(hour: number): { sim: Sim; step: (s: number, until: () => boolean) => void } {
   const sim = new Sim(art, () => ({ ...DEFAULT_WORLD_OPTIONS, liveliness: 'calm' }), null);
   sim.hourOverride = hour;
+  sim.streetCustomers = false;
   const clock = { now: T0 };
   sim.applySnapshot({ rev: 1, serverTime: T0, rooms: [], agents: [], accounts: [], meta: { demo: true, sources: [], startedAt: T0, version: 't' } }, clock.now);
   const step = (seconds: number, until: () => boolean) => {

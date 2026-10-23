@@ -97,6 +97,7 @@ describe('customers at the hủ tiếu stools', () => {
   function evening(agents: AgentInfo[] = []): { sim: Sim; step: (s: number, until: () => boolean) => void } {
     const sim = new Sim(art, () => ({ ...DEFAULT_WORLD_OPTIONS, liveliness: 'calm' }), null);
     sim.hourOverride = 19;
+    sim.streetCustomers = false;
     const clock = { now: T0 };
     sim.applySnapshot({ ...snap(), agents, rooms: agents.length ? snap().rooms : [] }, clock.now);
     const step = (seconds: number, until: () => boolean) => {
@@ -147,7 +148,10 @@ describe('customers at the hủ tiếu stools', () => {
     const { sim, step } = evening([snap().agents[0]]);
     const ana = sim.chars.get('ana')!;
     step(20, () => false);
-    expect(sim.hutieuOutNow()).toBe(1);
+    // random passers-by may have every stool for a while: she goes as soon as one is free
+    let went = 0;
+    step(180, () => (went = sim.hutieuOutNow()) > 0);
+    expect(went).toBe(1);
     let ate = false;
     step(200, () => {
       if (ana.outdoors && ana.seated && ana.held === 'hutieu') ate = true;

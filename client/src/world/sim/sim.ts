@@ -40,7 +40,8 @@ import { RoomState } from './room-state';
 import { countShells, latestShellDone, shellLabel, shellStage, shellWaitSince, spinDir, spinPhase, yawnPhase } from './shell';
 import { SpotRegistry } from './spots';
 import type { Step } from './steps';
-import { DINER_CALL_MS, PARKING, floodLine, riderSeed, type DinerCall, type RacerEvent } from './traffic';
+import { DINER_CALL_MS, PARKING, floodLine, riderSeed, rushLevel, type DinerCall, type RacerEvent } from './traffic';
+import { BusStop } from './busstop';
 import { racerReaction, type RacerWitness } from './racer';
 import { STREET_H, STREET_Y } from '../layout/exterior';
 import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen } from './repair';
@@ -346,7 +347,10 @@ export class Sim {
    */
   readonly dinerCalls: Omit<DinerCall, 'until'>[] = [];
   readonly dinersDone: number[] = [];
+  /** Passers-by and riders stop at the sidewalk stalls on their own (the tests turn it off to count exactly who's there). */
+  streetCustomers = true;
   /** Parking spots of riders called over (tag -> held until, ms; Infinity while a bike is parked there). */
+
   private readonly bikeSpots = new Map<string, number>();
   /** Riders waiting on the bike by the bánh mì cart for the vendor to bring it over. */
   private readonly banhmiBikes: { variant: number; tag: string }[] = [];
@@ -418,6 +422,18 @@ export class Sim {
   pizzaTile: { tx: number; ty: number } | null = null;
   /** Extras who are not agents (the pizza delivery guy): drawn with the people, without an agent label. */
   readonly extras: Character[] = [];
+  /** The people at the bus stop across the street (sim/busstop.ts); the renderer passes the bus on (`busStop.bus`). */
+  readonly busStop: BusStop = new BusStop({
+    extras: this.extras,
+    appearance: (seed, look) => this.art.appearanceFromSeed(seed, { look, sub: false }),
+    npc: (id, name, look, seed, now) => this.npcInfo(id, name, look, seed, now),
+    say: (ch, text, now) => this.social.say(ch, text, now),
+    now: () => this.now,
+    hour: (now) => this.hourOf(now),
+    rush: (now) => rushLevel(this.hourOf(now), new Date(now).getDay()),
+    ends: () => ({ west: TEA_SELLER_FROM_X, east: (this.building.cols * COL_W + 19) * TILE }),
+    quiet: () => this.visit,
+  });
   /** The boss's next round (ms epoch; 0 = schedule on the first check). */
   private nextBossAt = 0;
   /** Night security guard and the entrance's roll-up shutter (sim/guard.ts). */
@@ -1817,6 +1833,7 @@ export class Sim {
     this.pets.update(this.petWorld, dt, now, now < this.discoUntil || this.newYear.phase === 'party');
     for (const e of this.extras) this.runExtra(e, dt, now);
     for (let i = this.extras.length - 1; i >= 0; i--) if (this.extras[i].gone) this.extras.splice(i, 1);
+    this.busStop.frame(now);
     if (now >= this.bossLookAt) {
       this.bossLookAt = now + 250;
       this.bossLooks(now);
@@ -1857,6 +1874,7 @@ export class Sim {
       this.updatePolice(now);
       this.updateReception(now);
       this.guard.update(now);
+      this.busStop.tick(now);
     }
   }
 
@@ -3217,7 +3235,7 @@ export class Sim {
    * for a glass, or a rider is called over to pull up (more at the hot midday), sometimes a xe ôm driver to chat.
    */
   private teaCustomers(now: number): void {
-    if (!this.teaUp || this.flooded || !this.tea.hasFree()) return;
+    if (!this.streetCustomers || !this.teaUp || this.flooded || !this.tea.hasFree()) return;
     const r = Math.random();
     if (r < TEA_PASSERBY_CHANCE) this.spawnPasserby(now, 'tea');
     // the scrap buyer stops by the curb right there: not while she's around
@@ -3378,7 +3396,7 @@ export class Sim {
    * walks up and buys one to go, or a rider is called over to stop by the curb and wait on the bike for the vendor.
    */
   private banhmiCustomers(now: number): void {
-    if (!this.banhmiUp || this.flooded) return;
+    if (!this.streetCustomers || !this.banhmiUp || this.flooded) return;
     const r = Math.random() / banhmiRush(this.hourOf(now));
     if (r < BANHMI_PASSERBY_CHANCE) {
       if (this.banhmi.hasFree()) this.spawnPasserby(now, 'banhmi');
@@ -4442,7 +4460,7 @@ export class Sim {
    * called over to pull up and park (the street finds one), to sit and eat a bowl.
    */
   private hutieuCustomers(now: number): void {
-    if (!this.hutieuUp || !this.hutieuOn(now) || !this.hutieuStools.hasFree()) return;
+    if (!this.streetCustomers || !this.hutieuUp || !this.hutieuOn(now) || !this.hutieuStools.hasFree()) return;
     const r = Math.random();
     if (r < PASSERBY_CHANCE) this.spawnPasserby(now, 'hutieu');
     else if (r < PASSERBY_CHANCE + RIDER_CHANCE) this.callRider('hutieu', DINER_PARK);
@@ -5136,6 +5154,8 @@ export class Sim {
     this.policeOnPost = false;
     // the dance too (the aunties walk in again, if it's still the hour)
     this.dance.clear();
+    // and the bus stop (people walk up again)
+    this.busStop.reset();
     this.dancersSent = 0;
     this.danceDay = '';
     this.lotteryBuyers.clear();

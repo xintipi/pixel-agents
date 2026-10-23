@@ -38,7 +38,7 @@ export interface LightScene {
   readonly exterior: ExteriorLayout;
   readonly shells: readonly SlotShell[];
   readonly shellWindows: readonly WallVis[];
-  readonly cars: readonly { x: number; y: number; dir: 1 | -1; kind: 'car' | 'bike'; phase?: string }[];
+  readonly cars: readonly { x: number; y: number; dir: 1 | -1; kind: 'car' | 'bike'; phase?: string; bus?: string }[];
   roomInSlot(slot: number): RoomState | undefined;
   deskScreen(f: FurnVis, area: AreaVis): ScreenMode;
 }
@@ -625,11 +625,13 @@ export class Lighting {
         ctx.drawImage(tail, Math.round(car.x - car.dir * 11 - 3), Math.round(car.y - 10), 6, 6);
         continue;
       }
-      const front = car.x + car.dir * 28;
+      // a bus is longer (sim/bus.ts)
+      const half = car.bus ? 41 : 28;
+      const front = car.x + car.dir * half;
       ctx.globalAlpha = 0.55 * n;
       ctx.drawImage(beam, Math.round(front + (car.dir > 0 ? 0 : -56)), Math.round(car.y - 20), 56, 18);
       ctx.globalAlpha = 0.8 * n;
-      ctx.drawImage(tail, Math.round(car.x - car.dir * 28 - 4), Math.round(car.y - 16), 8, 8);
+      ctx.drawImage(tail, Math.round(car.x - car.dir * half - 4), Math.round(car.y - 16), 8, 8);
     }
   }
 

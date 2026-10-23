@@ -10,6 +10,7 @@
 // Pure (no DOM): the renderer steps and draws it, the sound cues drain the horns.
 import { tr } from '../../../../shared/i18n';
 import { TILE } from '../constants';
+import { BUS_CLOSE_MS, BUS_DOOR_MS, BUS_DWELL_MS, BUS_HALF, BUS_HOLD_MAX_MS, BUS_PARK, BUS_ROUTES, BUS_SPEED, BUS_STOP_X, busGapMs, busRuns, type BusAt } from './bus';
 import { REPAIR_SPOT, repairOpen } from './repair';
 
 export type VehicleKind = 'car' | 'bike';
@@ -67,6 +68,12 @@ export interface Vehicle {
    */
   diner?: string;
   dinerStays?: boolean;
+  /** A city bus (sim/bus.ts; a long 'car'): its route number. It pulls over at the stop once (`served`). */
+  bus?: string;
+  served?: boolean;
+  /** Bus: when it stopped at the curb, and when the doors started closing (ms). */
+  since?: number;
+  closing?: number;
 }
 
 /** How long a call for a rider to pull over waits for a fitting bike (ms). */
@@ -181,6 +188,10 @@ export interface PoliceState {
 
 /** Half the length (px) of each kind, bumper to bumper. */
 const HALF: Readonly<Record<VehicleKind, number>> = { car: 29, bike: 13 };
+/** ...of this vehicle (a bus is longer than a car). */
+function half(v: Vehicle): number {
+  return v.bus ? BUS_HALF : HALF[v.kind];
+}
 /** Bikes spread across their lane: this far above/below the lane line (px), room enough to squeeze past a car. */
 const BAND_UP = 15;
 const BAND_DOWN = 6;
@@ -253,6 +264,11 @@ export class Traffic {
   /** Diners who just parked (the renderer passes them on to the sim): their bike's variant and the call's tag. */
   readonly diners: { variant: number; tag: string }[] = [];
   private lastRacerEvent = 0;
+  /** When the next city bus comes (ms; 0 = schedule); debug.busNow sends one right away, whatever the hour. */
+  nextBusAt = 0;
+  busNow = false;
+  /** The stop (the sim says): someone is still getting on or off, or running for the bus and the driver waits. */
+  busHold = false;
 
   /** A bike is at the repair stall being fixed. */
   get repairing(): boolean {
@@ -288,6 +304,7 @@ export class Traffic {
     else if (raining && this.level > 0.5) this.flood = Math.min(1, this.flood + dt / FLOOD_RISE_S);
     else this.flood = Math.max(0, this.flood - dt / FLOOD_DRAIN_S);
     for (const lane of env.lanes) this.spawn(now, lane, env);
+    this.busSpawn(now, hour, env);
     this.racer(now, hour, env);
     this.callDiner(now);
     this.flat(now, hour);
@@ -312,7 +329,7 @@ export class Traffic {
     const x = lane.dir > 0 ? env.x0 : env.x1;
     const y = kind === 'car' ? lane.y : lane.y - BAND_UP + Math.round(this.rng() * (BAND_UP + BAND_DOWN));
     // the entry is still taken by the tail of a queue: try again on a later frame
-    if (this.vehicles.some((o) => o.dir === lane.dir && blocks(kind, y, o) && Math.abs(o.x - x) < HALF[o.kind] + HALF[kind] + MIN_GAP)) return;
+    if (this.vehicles.some((o) => o.dir === lane.dir && blocks(kind, y, o) && Math.abs(o.x - x) < half(o) + HALF[kind] + MIN_GAP)) return;
     const slow = 1 - 0.3 * l;
     const want = (kind === 'car' ? 40 + this.rng() * 28 : 46 + this.rng() * 26) * slow;
     const riders = this.rng() < 0.3 ? 2 : 1;
@@ -481,7 +498,7 @@ export class Traffic {
     const p = this.police;
     if (!c || !p.onPost || v.racer || (!p.walkers && p.hold !== v.dir) || onSidewalk(v) || v.phase === 'parked') return Infinity;
     const line = v.dir > 0 ? c.x - STOP_BACK : c.x + c.w + STOP_BACK;
-    const ahead = (line - v.x) * v.dir - HALF[v.kind];
+    const ahead = (line - v.x) * v.dir - half(v);
     return ahead < 0 ? Infinity : ahead;
   }
 
@@ -500,6 +517,7 @@ export class Traffic {
     // through deep water everyone crawls; now and then a bike's engine drowns and the rider gets off to push
     const wade = 1 - 0.55 * this.flood;
     for (const v of this.vehicles) {
+      if (v.bus) this.busStep(v, now, dt);
       if (v.phase === 'parked') continue;
       if (v.phase === 'repair') {
         if (now < (v.until ?? 0)) continue;
@@ -545,7 +563,8 @@ export class Traffic {
   private ride(v: Vehicle, dt: number, now: number): void {
     if (v.y !== v.ty) {
       const y = v.y + Math.sign(v.ty - v.y) * Math.min(Math.abs(v.ty - v.y), DRIFT * 1.6 * dt);
-      if (v.phase !== 'leave' || this.clear(v, y)) v.y = y;
+      // a bus blinking to pull out gets let in after a few seconds (it's a bus)
+      if (v.phase !== 'leave' || this.clear(v, y) || (v.bus && now - (v.closing ?? now) > BUS_CLOSE_MS + 3_000)) v.y = y;
     }
     if (v.phase === 'arrive' && v.park && v.y === v.park.y && (v.park.x - v.x) * v.dir <= 1) {
       v.x = v.park.x;
@@ -565,6 +584,75 @@ export class Traffic {
     if (v.phase === 'leave' && v.y === v.ty) v.phase = undefined;
   }
 
+  /**
+   * A city bus's next run: every 15–20 minutes in service hours (more often at rush hour; never on the first days of
+   * Tết), one at a time, entering at the east end on the westbound lane, by the far sidewalk where the stop is.
+   */
+  private busSpawn(now: number, hour: number, env: TrafficEnv): void {
+    if (!this.busNow) {
+      if (!busRuns(hour) || this.day.tet === 'holiday') {
+        this.nextBusAt = 0;
+        return;
+      }
+      // the first one comes somewhere within a gap
+      if (!this.nextBusAt) this.nextBusAt = now + busGapMs(this.level, this.rng) * this.rng();
+      if (now < this.nextBusAt) return;
+    }
+    const lane = env.lanes.find((l) => l.dir < 0);
+    if (!lane) return;
+    if (this.vehicles.some((v) => v.bus)) {
+      this.busNow = false;
+      this.nextBusAt = now + busGapMs(this.level, this.rng);
+      return;
+    }
+    const x = lane.dir > 0 ? env.x0 : env.x1;
+    // the entry is still taken by the tail of a queue: try again on a later frame
+    if (this.vehicles.some((o) => o.dir === lane.dir && blocks('car', lane.y, o) && Math.abs(o.x - x) < half(o) + BUS_HALF + MIN_GAP)) return;
+    const variant = Math.floor(this.rng() * 1e6);
+    this.vehicles.push({ kind: 'car', x, y: lane.y, dir: lane.dir, speed: BUS_SPEED, want: BUS_SPEED, laneY: lane.y, ty: lane.y, variant, riders: 1, stuck: 0, sidewalk: 0, bus: BUS_ROUTES[variant % BUS_ROUTES.length] });
+    this.busNow = false;
+    this.nextBusAt = now + busGapMs(this.level, this.rng);
+  }
+
+  /**
+   * The bus at the stop: coming up to it, it signals and pulls over to the curb; stopped, the doors open for a while
+   * (longer while the stop holds it: people getting on and off, someone running for it), close, and it pulls out.
+   * The bikes stuck behind it honk.
+   */
+  private busStep(v: Vehicle, now: number, dt: number): void {
+    if (!v.phase && !v.served && (v.x - BUS_PARK.x) * -v.dir > 0 && (v.x - BUS_PARK.x) * -v.dir < 160) {
+      v.phase = 'arrive';
+      v.park = BUS_PARK;
+      return;
+    }
+    if (v.phase !== 'parked') return;
+    if (v.since === undefined) v.since = now;
+    const open = now - v.since;
+    if (v.closing === undefined && open >= BUS_DOOR_MS + BUS_DWELL_MS && (!this.busHold || open >= BUS_HOLD_MAX_MS)) v.closing = now;
+    if (v.closing !== undefined && now - v.closing >= BUS_CLOSE_MS) {
+      v.phase = 'leave';
+      v.served = true;
+      v.park = undefined;
+      v.ty = v.laneY;
+      v.want = BUS_SPEED;
+      return;
+    }
+    // whoever is stuck right behind it leans on the horn
+    if (this.rng() < 0.6 * dt) {
+      const o = this.vehicles.find((b) => b !== v && b.dir === v.dir && b.stuck > 0.5 && (b.x - v.x) * v.dir < 0 && (v.x - b.x) * v.dir < BUS_HALF + 60);
+      if (o) this.honk(o, now);
+    }
+  }
+
+  /** The bus as the stop sees it (null: no bus on the street). */
+  busAt(now: number): BusAt | null {
+    const v = this.vehicles.find((o) => o.bus);
+    if (!v || !v.bus) return null;
+    const phase = v.phase === 'arrive' ? 'pulling' : v.phase === 'parked' ? 'stopped' : v.phase === 'leave' || v.served ? 'leaving' : 'coming';
+    const doorsOpen = phase === 'stopped' && v.since !== undefined && now - v.since >= BUS_DOOR_MS && v.closing === undefined;
+    return { phase, x: v.x, route: v.bus, doorsOpen };
+  }
+
   /** Bikes weave through the jam and, westbound, ride the far sidewalk for a stretch. */
   private steer(v: Vehicle, dt: number, env: TrafficEnv): void {
     const police = this.police.onPost && env.crossing ? env.crossing.x + env.crossing.w / 2 : null;
@@ -580,7 +668,7 @@ export class Traffic {
         const back = v.laneY - BAND_UP + Math.round(this.rng() * (BAND_UP + BAND_DOWN));
         if (this.clear(v, back)) v.ty = back;
       }
-    } else if (police === null && v.stuck > 1.5 && v.dir < 0 && this.level > 0.5 && this.rng() < 0.6 * dt) {
+    } else if (police === null && v.stuck > 1.5 && v.dir < 0 && this.level > 0.5 && Math.abs(v.x - BUS_STOP_X) > 110 && this.rng() < 0.6 * dt) {
       const walk = env.sidewalkY + 6 + Math.round(this.rng() * 10);
       if (this.clear(v, walk)) {
         v.ty = walk;
@@ -604,7 +692,7 @@ export class Traffic {
       if (o === v || o.dir !== v.dir || !blocks(v.kind, y, o)) continue;
       const ahead = (o.x - v.x) * v.dir;
       if (ahead <= 0) continue;
-      const gap = ahead - HALF[o.kind] - HALF[v.kind];
+      const gap = ahead - half(o) - half(v);
       if (gap < best) best = gap;
     }
     return best === Infinity ? null : { gap: best };
@@ -612,7 +700,7 @@ export class Traffic {
 
   /** Room at height `y` beside `v`: nobody overlapping it there, ahead or behind. */
   private clear(v: Vehicle, y: number): boolean {
-    return !this.vehicles.some((o) => o !== v && o.dir === v.dir && blocks(v.kind, y, o) && Math.abs(o.x - v.x) < HALF[o.kind] + HALF[v.kind] + MIN_GAP);
+    return !this.vehicles.some((o) => o !== v && o.dir === v.dir && blocks(v.kind, y, o) && Math.abs(o.x - v.x) < half(o) + half(v) + MIN_GAP);
   }
 
   private honk(v: Vehicle, now: number): void {
