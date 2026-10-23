@@ -13,6 +13,7 @@ import type { RoomState } from '../sim/room-state';
 import type { Sim } from '../sim/sim';
 import { buildAnim } from './anim';
 import { ambientAt, ambientDistance, approachAmbient, effectiveHour, isNeutral, mixRgb, rgbCss, sunbeamAt, WHITE, type Ambient, type DaylightMode, type Rgb } from './daylight';
+import { drawMothSwarm, HUTIEU_BULB, LAMP_BULB_DY } from './moths';
 import { glowSprite } from './props';
 import { furnitureSprites, wallItemOrigin, wallSprites, type AreaVis, type FurnVis, type WallVis } from './scene';
 
@@ -514,6 +515,7 @@ export class Lighting {
       }
       this.drawHeadlights(ctx, scene, view, n);
       if (n > 0.6 && !this.reduced) this.drawFireflies(ctx, scene, view, now, (n - 0.6) / 0.4);
+      if (n > 0.55 && !this.reduced) this.drawMoths(ctx, scene, now, (n - 0.55) / 0.45, inView);
     }
     ctx.restore();
   }
@@ -621,6 +623,18 @@ export class Lighting {
       ctx.drawImage(beam, Math.round(front + (car.dir > 0 ? 0 : -56)), Math.round(car.y - 20), 56, 18);
       ctx.globalAlpha = 0.8 * n;
       ctx.drawImage(tail, Math.round(car.x - car.dir * 28 - 4), Math.round(car.y - 16), 8, 8);
+    }
+  }
+
+  /** Moths fluttering around the lamp post bulbs and the hủ tiếu cart's bulb in view (moths.ts). */
+  private drawMoths(ctx: CanvasRenderingContext2D, scene: LightScene, now: number, k: number, inView: (x: number, y: number, m: number) => boolean): void {
+    for (const prop of scene.exterior.props) {
+      if (prop.kind !== 'lamp' || !inView(prop.x, prop.y + LAMP_BULB_DY, 16)) continue;
+      drawMothSwarm(ctx, prop.x, prop.y + LAMP_BULB_DY, now, k, { count: 4 + ((prop.x + prop.y) & 1), scale: 1, head: 4 });
+    }
+    const cart = this.sim.hutieuCart();
+    if (cart && inView(cart.x + HUTIEU_BULB.dx, cart.y + HUTIEU_BULB.dy, 12)) {
+      drawMothSwarm(ctx, cart.x + HUTIEU_BULB.dx, cart.y + HUTIEU_BULB.dy, now, k, { count: 2, scale: 0.6, head: 0 });
     }
   }
 

@@ -207,6 +207,8 @@ export interface WorldApi {
    * store snapshot is applied as the initial load.
    */
   setPlayback?(p: WorldPlayback | null): void;
+  /** (Optional, additive) How dark the world's sky is now (0 day … 1 night; follows the clock, forced hour and timelapse). */
+  nightLevel?(): number;
   /** (Optional, additive) Ambient sounds: keyboards of visible workers, elevator, wheels. */
   onSound?(cb: (cue: SoundCue) => void): () => void;
   /**
