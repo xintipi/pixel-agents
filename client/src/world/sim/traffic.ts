@@ -55,6 +55,8 @@ export interface Vehicle {
   /** A flat tire: pushed to the repair stall, fixed there until `until` (ms), then rides on. */
   repair?: boolean;
   until?: number;
+  /** Whistled off the far sidewalk by the traffic police (once is enough). */
+  caught?: boolean;
 }
 
 /**
@@ -77,6 +79,41 @@ export interface TrafficEnv {
   lanes: readonly { y: number; dir: 1 | -1 }[];
   /** Top of the far sidewalk (px), below the westbound lane. */
   sidewalkY: number;
+  /** The zebra crossing (px), where the traffic police stand and hold the traffic. */
+  crossing?: { x: number; w: number };
+}
+
+/** Traffic police (sim/police.ts): wanted once the street has been jammed this long (s)... */
+const JAM_S = 8;
+/** ...and sent home after this long (s) with the street flowing again (or when the rush is over). */
+const CALM_S = 40;
+/** A jam: at least this many vehicles on the street at rush hour; flowing again: fewer than this. */
+const JAM_VEHICLES = 30;
+const CALM_VEHICLES = 20;
+/** Each direction gets this long (ms) before the officer turns to the other one. */
+export const POLICE_PHASE_MS = 12_000;
+/** The held direction stops this far (px) before the crossing. */
+const STOP_BACK = 10;
+/** Bikes on the far sidewalk this close (px) to the officer get whistled back down. */
+const CATCH_R = 200;
+
+/** The traffic police as the street sees them. */
+export interface PoliceState {
+  /** The street is jammed enough to want an officer (the sim sends one, or calls them back). */
+  wanted: boolean;
+  /** debug.policeNow: true = wanted now, false = not, null = the street decides. */
+  forced: boolean | null;
+  /** The officer is standing at the crossing (the sim says): only then is the traffic held. */
+  onPost: boolean;
+  /** Which direction is held now (1 = eastbound, -1 = westbound) and until when (ms). */
+  hold: 1 | -1;
+  holdUntil: number;
+  /** Someone is walking on the crossing (the renderer says): both directions wait. */
+  walkers: boolean;
+  /** Bikes whistled off the sidewalk since the sim last looked (it empties it). */
+  catches: number;
+  jamFor: number;
+  calmFor: number;
 }
 
 /** Half the length (px) of each kind, bumper to bumper. */
@@ -142,6 +179,7 @@ export class Traffic {
   nextFlatAt = 0;
   /** debug.repairNow: the next bike that can gets a flat right away, whatever the hour. */
   flatNow = false;
+  readonly police: PoliceState = { wanted: false, forced: null, onPost: false, hold: 1, holdUntil: 0, walkers: false, catches: 0, jamFor: 0, calmFor: 0 };
 
   /** A bike is at the repair stall being fixed. */
   get repairing(): boolean {
@@ -178,6 +216,7 @@ export class Traffic {
     else this.flood = Math.max(0, this.flood - dt / FLOOD_DRAIN_S);
     for (const lane of env.lanes) this.spawn(now, lane, env);
     this.flat(now, hour);
+    this.policeStep(now, dt);
     this.move(now, dt, env);
     this.vehicles = this.vehicles.filter((v) => v.x >= env.x0 - 20 && v.x <= env.x1 + 20);
     while (this.horns.length && (now - this.horns[0].at > HORN_STALE_MS || this.horns.length > MAX_HORNS)) this.horns.shift();
@@ -225,6 +264,46 @@ export class Traffic {
     this.nextFlatAt = now + (150 + this.rng() * 150) * 1000;
   }
 
+  /**
+   * Is the street jammed (rush hour, a bunch of vehicles crawling for a while)? Then an officer is wanted, until the rush
+   * is over or the street has flowed for a while. With the officer at the post, the directions take turns.
+   */
+  private policeStep(now: number, dt: number): void {
+    const p = this.police;
+    // the bikes rarely come to a dead stop here: a jam is a street packed solid at rush hour (or a bunch crawling)
+    let stuck = 0;
+    let busy = 0;
+    for (const v of this.vehicles) {
+      if (v.phase || v.owner) continue;
+      busy++;
+      if (v.stuck > 1) stuck++;
+    }
+    const jammed = this.level > 0.6 && (busy >= JAM_VEHICLES || stuck >= 6);
+    p.jamFor = jammed ? p.jamFor + dt : Math.max(0, p.jamFor - dt);
+    p.calmFor = busy < CALM_VEHICLES && stuck < 3 ? p.calmFor + dt : 0;
+    if (p.forced !== null) p.wanted = p.forced;
+    else if (!p.wanted && p.jamFor >= JAM_S) p.wanted = true;
+    else if (p.wanted && (this.level < 0.3 || p.calmFor >= CALM_S)) p.wanted = false;
+    if (!p.onPost) {
+      p.holdUntil = 0;
+      return;
+    }
+    if (now >= p.holdUntil) {
+      p.hold = p.hold === 1 ? -1 : 1;
+      p.holdUntil = now + POLICE_PHASE_MS;
+    }
+  }
+
+  /** Room (px) before the officer's stop line for `v`, or Infinity if it may go (its turn, or already past the line). */
+  private stopGap(v: Vehicle, env: TrafficEnv): number {
+    const c = env.crossing;
+    const p = this.police;
+    if (!c || !p.onPost || (!p.walkers && p.hold !== v.dir) || onSidewalk(v) || v.phase === 'parked') return Infinity;
+    const line = v.dir > 0 ? c.x - STOP_BACK : c.x + c.w + STOP_BACK;
+    const ahead = (line - v.x) * v.dir - HALF[v.kind];
+    return ahead < 0 ? Infinity : ahead;
+  }
+
   /** What a lone rider carries, if anything: the season's load first, else now and then something everyday. */
   private cargo(): Cargo | undefined {
     const r = this.rng();
@@ -262,11 +341,15 @@ export class Traffic {
       }
       // pulling out of a spot: slowly until back on the road
       if (v.phase === 'leave' && v.y !== v.ty) target = Math.min(target, 22);
+      // the traffic police hold this direction: brake for the stop line before the crossing
+      const stop = this.stopGap(v, env);
+      if (stop < Infinity) target = Math.min(target, Math.max(0, stop - 1) * GAP_GAIN);
       // at rush hour someone always brakes for no reason: the stop-and-go waves start here
       if (l > 0.3 && this.rng() < 0.25 * l * dt) target *= 0.3;
       v.speed = target < v.speed ? Math.max(target, v.speed - BRAKE * dt) : Math.min(target, v.speed + ACCEL[v.kind] * dt);
       let step = v.speed * dt;
       if (gap - step < 1) step = Math.max(0, gap - 1);
+      if (stop - step < 0) step = Math.max(0, stop);
       v.x += v.dir * step;
       v.stuck = v.speed < want * 0.35 ? v.stuck + dt : 0;
       if (v.owner || v.phase) this.ride(v, dt, now);
@@ -298,13 +381,20 @@ export class Traffic {
 
   /** Bikes weave through the jam and, westbound, ride the far sidewalk for a stretch. */
   private steer(v: Vehicle, dt: number, env: TrafficEnv): void {
+    const police = this.police.onPost && env.crossing ? env.crossing.x + env.crossing.w / 2 : null;
     if (onSidewalk(v)) {
       v.sidewalk -= v.speed * dt;
+      // the officer saw that: a whistle, and back down to the road right away
+      if (police !== null && !v.caught && Math.abs(v.x - police) < CATCH_R) {
+        v.caught = true;
+        v.sidewalk = 0;
+        this.police.catches++;
+      }
       if (v.sidewalk <= 0) {
         const back = v.laneY - BAND_UP + Math.round(this.rng() * (BAND_UP + BAND_DOWN));
         if (this.clear(v, back)) v.ty = back;
       }
-    } else if (v.stuck > 1.5 && v.dir < 0 && this.level > 0.5 && this.rng() < 0.6 * dt) {
+    } else if (police === null && v.stuck > 1.5 && v.dir < 0 && this.level > 0.5 && this.rng() < 0.6 * dt) {
       const walk = env.sidewalkY + 6 + Math.round(this.rng() * 10);
       if (this.clear(v, walk)) {
         v.ty = walk;

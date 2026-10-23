@@ -10,7 +10,7 @@ import type { ExteriorProp } from '../layout/types';
 
 /** Opening hours (local, fractional): before and after, the stools are stacked and the seller is gone. */
 export const TEA_OPEN_H = 6.5;
-export const TEA_CLOSE_H = 21.5;
+export const TEA_CLOSE_H = 18.5;
 
 /** Corridor tile in front of the west glass gap: where the outing leaves the walk grid. */
 export const TEA_DOOR = { tx: 1, ty: CORRIDOR_Y + WEST_GAP_ROW } as const;

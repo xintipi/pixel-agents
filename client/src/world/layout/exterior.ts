@@ -7,6 +7,12 @@ import type { ExteriorProp, FloorPatch, TileRect, WallItemPlacement, WallSegment
 
 export const EXTERIOR_WALL: WallStyle = { base: '#cfc8bd', trim: '#8a8174', pattern: 'brick', exterior: true };
 
+/** Zebra crossing band (px): as wide as the stone path from the entrance, centered on it. */
+export const CROSSWALK = { x: -3 * TILE - 8, w: 3 * TILE } as const;
+/** The street (px): top edge and height (two lanes). */
+export const STREET_Y = (BUILDING_H + 4) * TILE;
+export const STREET_H = 5 * TILE;
+
 export interface ExteriorLayout {
   /** Bounds of the drawn area (tiles). */
   bounds: TileRect;
@@ -98,7 +104,7 @@ export function layoutExterior(cols: number): ExteriorLayout {
   const streetY = px(south + 4);
   const streetH = px(5);
   // zebra crossing as wide as the stone path from the entrance (centered on it), and its sign by the curb
-  const crosswalk = { x: px(-3) - 8, w: px(3) };
+  const crosswalk = { ...CROSSWALK };
   props.push({ kind: 'crossing_sign', x: crosswalk.x + crosswalk.w + 7, y: streetY - 2, seed: 3 });
   return {
     bounds,

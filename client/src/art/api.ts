@@ -74,7 +74,9 @@ export type HeldItem = 'none' | 'coffee' | 'water' | 'papers' | 'laptop' | 'book
   | 'banhbao' // bánh bao: a round white steamed bun, a wisp of steam (night seller)
   | 'bouquet_pink' // bunch of flowers wrapped in kraft paper (flower bike): peach blossoms or lotus
   | 'bouquet_white' // ...white lilies or daisies (cúc họa mi)
-  | 'bouquet_yellow'; // ...yellow chrysanthemums
+  | 'bouquet_yellow' // ...yellow chrysanthemums
+  | 'hutieu' // bowl of hủ tiếu (night cart): the red-banded "rooster" bowl, white noodles, a shrimp, steam
+  | 'baton'; // traffic police baton: a short stick striped white and red (pose 'use': pointing the traffic on)
 
 export type HairStyle =
   | 'short' | 'buzz' | 'spiky' | 'side_part' | 'curly' | 'afro' | 'bob' | 'long' | 'ponytail' | 'bun' | 'pigtails'
@@ -144,7 +146,7 @@ export interface CharacterFrameRequest {
   /** For poses that can be standing or seated (raise_hand, read, talk). */
   seated?: boolean;
   /** Seasonal accessory; absent keeps the original look. */
-  costume?: 'santa' | 'witch' | 'pumpkin' | 'vampire' | 'khandong' | 'nonla' | 'lion' | 'bunny' | `${string}:${string}`;
+  costume?: 'santa' | 'witch' | 'pumpkin' | 'vampire' | 'khandong' | 'nonla' | 'csgt' | 'lion' | 'bunny' | `${string}:${string}`;
 }
 
 export type FurnitureKind =
@@ -200,7 +202,7 @@ export type FurnitureKind =
   // --- reception
   | 'reception_desk' // 3x1 reception counter.
   | 'bench' // 2x1 waiting bench (seat, facing down).
-  | 'altar'; // 2x1 low Thần Tài / Ông Địa altar on the floor, facing the camera. state bit 0 = incense lit (glowing tips; the render adds the smoke), bit 1 = Vía Thần Tài (extra gold and fruit). Use: character to the SOUTH, facing up.
+  | 'altar'; // 2x1 low Thần Tài / Ông Địa altar on the floor, facing the camera (static decoration; the render makes the red lamps flicker).
 
 export interface FurnitureDef {
   mount: 'floor' | 'wall';
@@ -274,7 +276,7 @@ export const FURNITURE: Readonly<Record<FurnitureKind, FurnitureDef>> = {
   sink: { mount: 'floor', footprint: { w: 1, h: 1 }, blocks: true },
   reception_desk: { mount: 'floor', footprint: { w: 3, h: 1 }, blocks: true },
   bench: { mount: 'floor', footprint: { w: 2, h: 1 }, blocks: false, seat: true },
-  altar: { mount: 'floor', footprint: { w: 2, h: 1 }, blocks: true, states: 4 },
+  altar: { mount: 'floor', footprint: { w: 2, h: 1 }, blocks: true },
 };
 
 export type FloorKind =

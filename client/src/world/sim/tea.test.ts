@@ -7,8 +7,10 @@ describe('tea stall', () => {
   it('opens in the morning and packs up at night', () => {
     expect(teaOpen(6)).toBe(false);
     expect(teaOpen(7)).toBe(true);
-    expect(teaOpen(21)).toBe(true);
-    expect(teaOpen(22)).toBe(false);
+    expect(teaOpen(18)).toBe(true);
+    // in front of an office: packs up once the office crowd has gone home
+    expect(teaOpen(18.5)).toBe(false);
+    expect(teaOpen(21)).toBe(false);
   });
 
   it('reserves each stool once, one per person, and frees them on release', () => {

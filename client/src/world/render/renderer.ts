@@ -27,7 +27,7 @@ import { petSprite, workTreeSprite } from './pets';
 import { drawDisco } from './disco';
 import { dockSprite, drawCountdown, drawFireworks, pizzaBoxSprite, robotSprite } from './fun';
 import { tr } from '../../../../shared/i18n';
-import { ALTAR_INCENSE, ALTAR_LAMPS } from '../../art/furniture/common';
+import { ALTAR_LAMPS } from '../../art/furniture/common';
 import { drawWeather, drawWeatherWindow, weatherFor, type Weather } from './weather';
 import { reducedMotion } from './github-fx';
 import type { Pet } from '../sim/pets';
@@ -37,6 +37,7 @@ import { trashCartProps } from '../sim/trash';
 import { scrapBikeProps } from '../sim/vechai';
 import { flowerBikeProps, flowerInfo, type FlowerInfo } from '../sim/flowers';
 import { danceSpeakerProps } from '../sim/danvu';
+import { hutieuCartProps } from '../sim/hutieu';
 import { crosswalkClearsDash, drawCrosswalk } from './crosswalk';
 import { bunBikeProps } from '../sim/banhbao';
 import { loaProps } from '../sim/loa';
@@ -527,6 +528,7 @@ export class Renderer {
     for (const prop of scrapBikeProps(this.sim.scrapBike())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of flowerBikeProps(this.sim.flowerBike(), this.sim.flowerKind)) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of danceSpeakerProps(this.sim.danceUp())) if (visible(prop.x - 12, prop.y - 32, 24, 34)) push(K.Prop, prop.y, prop, null, 1);
+    for (const prop of hutieuCartProps(this.sim.hutieuCart())) if (visible(prop.x - 24, prop.y - 36, 48, 40)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of bunBikeProps(this.sim.bunBike())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     // the ward loudspeaker's pole (loa phường), always there
     for (const prop of loaProps()) if (visible(prop.x - 16, prop.y - 64, 32, 68)) push(K.Prop, prop.y, prop, null, 1);
@@ -859,7 +861,6 @@ export class Renderer {
   private furnState(f: FurnVis, now: number): number {
     if (f.kind === 'coffee_machine') return (this.sim.machineUntil.get(f.id) ?? 0) > now ? 1 : 0;
     if (f.kind === 'toilet_stall') return this.sim.stallBusy.has(f.id) ? 1 : 0;
-    if (f.kind === 'altar') return this.sim.altarState(now);
     return 0;
   }
 
@@ -899,7 +900,7 @@ export class Renderer {
       } else if (f.kind === 'coffee_machine' && state === 1) {
         this.drawSteam(f.ax, dy + 2, now, f.seed);
       } else if (f.kind === 'altar') {
-        this.drawAltarFx(f.ax, f.ay, now, (state & 1) === 1);
+        this.drawAltarFx(f.ax, f.ay, now);
       } else if (f.kind === 'arcade' && s.rects?.screen) {
         // arcade duel: both machines show the match
         const seed = this.sim.social.arcadeSeed();
@@ -940,10 +941,9 @@ export class Renderer {
   }
 
   /**
-   * Thần Tài altar: the red lamps' bulbs flicker softly and, with incense lit, a thin wavy smoke trail rises from each
-   * stick tip and fades (time-based, no allocation).
+   * Thần Tài altar: the red lamps' bulbs flicker softly (time-based, no allocation).
    */
-  private drawAltarFx(ax: number, ay: number, now: number, lit: boolean): void {
+  private drawAltarFx(ax: number, ay: number, now: number): void {
     const { ctx } = this;
     const x0 = Math.round(ax);
     const y0 = Math.round(ay);
@@ -952,18 +952,6 @@ export class Renderer {
       ctx.fillStyle = '#fff0c0';
       ctx.fillRect(x0 + p.x - 1, y0 + p.y, 2, 1);
     });
-    if (lit) {
-      // gray-lilac reads on both the light wall and the dark niche
-      ctx.fillStyle = '#b9b2c6';
-      ALTAR_INCENSE.forEach((p, i) => {
-        for (let k = 0; k < 8; k++) {
-          const ph = ((now / 2800 + k / 8 + i * 0.37) % 1 + 1) % 1;
-          ctx.globalAlpha = 0.8 * (1 - ph);
-          const sx = Math.round(x0 + p.x + Math.sin(ph * 7 + now / 900 + i * 1.7) * (0.5 + ph * 2.5));
-          ctx.fillRect(sx, Math.round(y0 + p.y - 1 - ph * 18), 1, 2);
-        }
-      });
-    }
     ctx.globalAlpha = 1;
   }
 
@@ -1526,10 +1514,18 @@ export class Renderer {
     const ext = this.exterior;
     const d = this.date;
     const hour = d.getHours() + d.getMinutes() / 60;
-    const env: TrafficEnv = { x0: b.x * TILE - 40, x1: (b.x + b.w) * TILE + 40, lanes: ext.lanes, sidewalkY: ext.streetY + ext.streetH };
+    const env: TrafficEnv = { x0: b.x * TILE - 40, x1: (b.x + b.w) * TILE + 40, lanes: ext.lanes, sidewalkY: ext.streetY + ext.streetH, crossing: ext.crosswalk };
     this.bikeTrips(env);
+    // traffic police: the officer at the post holds the traffic; both directions wait while someone is on the crossing
+    const cw = ext.crosswalk;
+    this.traffic.police.onPost = this.sim.policeOnPost;
+    this.traffic.police.walkers = this.sim.policeOnPost && this.sim.onCrossing(cw.x - 4, cw.x + cw.w + 4, ext.streetY, ext.streetY + ext.streetH);
     // last frame's weather: this frame's is worked out further down
     this.traffic.step(now, dt, env, hour, d.getDay(), this.weather === 'rain', this.streetDay());
+    this.sim.policeWanted = this.traffic.police.wanted;
+    this.sim.policeHold = this.traffic.police.hold;
+    this.sim.policeCatches += this.traffic.police.catches;
+    this.traffic.police.catches = 0;
     this.sim.flooded = this.traffic.flood > FLOODED;
     this.sim.repairBusy = this.traffic.repairing;
     for (const id of this.traffic.parked) this.sim.bikeParked.add(id);

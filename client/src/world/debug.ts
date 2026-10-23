@@ -60,10 +60,14 @@ export interface WorldDebug {
   pizzaParty(): boolean;
   /** Sends the boss on a round now (whatever the hour). */
   bossNow(): boolean;
+  /** The receptionist walks in to the reception desk now and stays ~10 minutes (whatever the hour; normally 7:30–18:00). */
+  receptionistNow(): boolean;
   /** The flower bike comes by now (with the month's flowers). */
   flowersNow(): boolean;
   /** The evening dance starts now, for 3 minutes (whatever the hour). */
   danceNow(): boolean;
+  /** The night hủ tiếu cart comes now and stays 5 minutes (whatever the hour). */
+  hutieuNow(): boolean;
   /** Forces the after-lunch siesta on/off (idle agents nap, lights dim); null goes back to the clock (12:30–13:30). */
   siestaNow(on: boolean | null): void;
   /**
@@ -76,6 +80,8 @@ export interface WorldDebug {
    * weather (rain at rush hour fills it up over ~10 minutes, it drains over ~20). Returns how deep the water is (0–1).
    */
   floodNow(on: boolean | null): number;
+  /** Traffic police: true = rush hour and an officer at the crossing now, false = sent home, null = the street decides. */
+  policeNow(on: boolean | null): boolean;
   setHour(hour: number | null): void;
   /** Centers the camera on a point (tiles) with optional zoom, without animation. */
   lookAt(tx: number, ty: number, zoom?: number): void;
@@ -87,8 +93,6 @@ export interface WorldDebug {
   wanderNow(): void;
   /** Sends whoever is idle at the desk to the iced tea stall now (while it's set up). Returns how many went. */
   teaNow(): number;
-  /** Sends someone idle to light incense and bow at the reception's Thần Tài altar now. Returns whether someone went. */
-  altarNow(): boolean;
   /** Sends whoever is idle at the desk to the bánh mì cart now (mornings, while it's parked). Returns how many went. */
   banhmiNow(): number;
   /** Opens the repair stall now (for a few minutes, whatever the hour) and gives the next westbound bike a flat. */
@@ -356,8 +360,10 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
 
     pizzaParty: () => sim.pizzaParty(sim.now),
     bossNow: () => sim.bossPatrol(sim.now),
+    receptionistNow: () => sim.receptionistNow(),
     flowersNow: () => sim.flowersNow(),
     danceNow: () => sim.danceNow(),
+    hutieuNow: () => sim.hutieuNow(),
 
     setWeather: (w) => {
       renderer.weatherOverride = w;
@@ -414,6 +420,13 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
       return count;
     },
 
+    policeNow: (on) => {
+      renderer.traffic.police.forced = on;
+      // a jam needs traffic: full rush hour while the officer is forced out
+      renderer.traffic.forced = on ? true : null;
+      return renderer.traffic.police.wanted || !!on;
+    },
+
     floodNow: (on) => {
       renderer.traffic.floodForced = on;
       if (on) {
@@ -423,7 +436,6 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
       return renderer.traffic.flood;
     },
 
-    altarNow: () => sim.altarNow(),
 
     banhmiNow: () => sim.banhmiNow(),
 

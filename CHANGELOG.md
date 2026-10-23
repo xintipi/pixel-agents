@@ -12,6 +12,18 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Guarda de trânsito no engarrafamento (CSGT).** Quando a rua lota na hora do rush, um guarda de farda amarela, calça
+  verde-oliva e quepe com faixa vermelha e brasão vai até o meio da faixa de pedestres e organiza o trânsito de verdade:
+  um sentido de cada vez (o outro espera na linha antes da faixa), os dois quando alguém está atravessando, e quem sobe
+  na calçada do outro lado leva apito e volta para a rua. Quando a rua volta a andar (ou o rush acaba), ele vai embora.
+  No console: `habblaud.world.debug.policeNow(true)`.
+
+- **Hủ tiếu gõ à noite.** Das 18h30 às 23h, quando a barraquinha de trà đá já fechou, o tio de regata branca estaciona
+  o carrinho de madeira (vitrine, panela de caldo fumegando, lâmpada pendurada) em frente ao prédio, e o menino
+  ajudante anda pela calçada batendo os pauzinhos de bambu ("cốc cốc cốc"). Um agente à toa na mesa às vezes pede uma
+  tigela e o menino a leva até a mesa, entrando pela porta do corredor; o agente come ali mesmo. No console:
+  `habblaud.world.debug.hutieuNow()`.
+
 - **Bicicleta de flores (xe hoa dạo).** Duas vezes por dia (8h e 15h30) a vendedora empurra a bicicleta carregada com as
   flores do mês (pessegueiro no Tết, lírios brancos em abril, lótus no verão, crisântemos amarelos no outono, cúc họa
   mi no inverno) e para alguns minutos em frente ao prédio; de vez em quando um agente à toa sai, compra um buquê e põe
@@ -93,7 +105,8 @@ do meio (0.**3**.0).
   As faixas são CC0, de OMF-Games no OpenGameArt (créditos em `client/public/assets/music/CREDITS.md`).
 - **Trà đá na calçada.** Na calçada em frente ao prédio tem uma barraquinha de chá gelado vietnamita: mesinha baixa
   com a garrafa térmica, banquinhos de plástico vermelhos e azuis, a caixa de gelo e a vendedora de chapéu cônico,
-  que chega a pé de manhã (6h30) e vai embora à noite (21h30), quando os banquinhos ficam empilhados. Quem está à toa
+  que chega a pé de manhã (6h30) e vai embora às 18h30, quando o pessoal do escritório já foi para casa (os banquinhos
+  ficam empilhados). Quem está à toa
   às vezes sai pela fachada de vidro do corredor, desce o caminho de pedra, pede um copo e fica conversando; se o
   agente volta a trabalhar, larga o copo e volta pelo mesmo caminho. No console: `habblaud.world.debug.teaNow()`.
 - **Carrinho de bánh mì de manhã.** Das 6h30 às 9h30 o vendedor empurra pela calçada um carrinho azul com toldo
@@ -105,10 +118,13 @@ do meio (0.**3**.0).
   digitando, com a luz da tela no rosto. No fim, cada um acorda no seu tempo, boceja e se espreguiça. No console:
   `habblaud.world.debug.siestaNow(true)`.
 - **Altar de Thần Tài na recepção.** Num canto da recepção, o altarzinho vermelho e dourado do Deus da Fortuna e de
-  Ông Địa, com frutas, lâmpadas vermelhas e incenso. Quando um agente fica mais de 2 minutos esperando você aprovar
-  algo, um colega à toa às vezes vai lá, acende o incenso (sobe a fumacinha), faz três reverências e pede pela
-  aprovação; de manhã, alguém acende o incenso do dia. No dia de Vía Thần Tài (10º dia do Tết) o altar ganha
-  lanternas e lingotes de ouro. No console: `habblaud.world.debug.altarNow()`.
+  Ông Địa, com frutas, incenso e as lâmpadas vermelhas piscando de leve (à noite, com um brilho avermelhado). É só
+  decoração: ninguém vai rezar lá.
+- **Recepcionista.** Das 7h30 às 18h uma recepcionista de blazer azul-marinho, coque e crachá fica atrás do balcão
+  da recepção: digita, atende o telefone ("Habblaud xin nghe…"), arruma papéis, come na mesa no almoço e cochila na
+  sesta. Dá bom-dia a quem chega e tchau a quem vai embora (um balão a cada 20 s, no máximo), sorri para quem passa
+  e se endireita com uma reverência quando o chefe faz a ronda. Chega e vai embora pelo elevador. No console:
+  `habblaud.world.debug.receptionistNow()`.
 - **Mais temas de festa.** Tema do escritório agora é uma lista, com Trung thu (Festival do Meio do Outono: lanternas
   de estrela e de carpa, bolos lunares, a lua cheia nas janelas, a cabeça do leão e orelhas de coelho), Valentine,
   Dia da Mulher (8/3 e 20/10), Dia do Programador (256º dia do ano), Dia Nacional (30/4 e 2/9) e Dia das Crianças

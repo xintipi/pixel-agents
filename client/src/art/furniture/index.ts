@@ -126,7 +126,7 @@ function build(kind: FurnitureKind, variant: string | undefined, state: number, 
     case 'bench':
       return C.bench();
     case 'altar':
-      return C.altar(state);
+      return C.altar();
   }
 }
 

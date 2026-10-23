@@ -1300,6 +1300,18 @@ function drawItem(dc: Dc, x: number, y: number): void {
     case 'noodles':
       b.stamp(BOWL, x - 1, y, { s: '#eef2f7', n: '#f3e2b3', h: '#5fb35a', B: '#3f78c4', b: '#f7f5f0' }, side);
       break;
+    case 'baton':
+      // a short stick striped white and red: along the arm from the side, upright in the hand from the front
+      for (let i = 0; i < 7; i++) {
+        const c = Math.floor(i / 2) % 2 === 0 ? '#f4f6f8' : '#d9342b';
+        if (side) b.set(x - 2 + i, y + 1, c);
+        else b.set(x + 1, y - 4 + i, c);
+      }
+      break;
+    case 'hutieu':
+      // the red-banded "rooster" bowl, white rice noodles, a pink shrimp on top
+      b.stamp(BOWL, x - 1, y, { s: '#eef2f7', n: '#f7f3ea', h: '#f08a6a', B: '#c9363b', b: '#f7f5f0' }, side);
+      break;
     case 'pizza':
       b.stamp(SLICE, x - 1, y, { b: '#d99a45', c: '#f3cf5c', p: '#c4402f' }, side);
       break;
@@ -1586,6 +1598,18 @@ function drawCostume(dc: Dc, costume: CharacterFrameRequest['costume']): void {
     b.rect(x + 2, y, 10, 1, '#d23c48');
     for (const dy of [2, 4]) b.hline(x + 1, x + 12, y + dy, '#e3b24c');
     b.set(x + 6, y + 1, '#ffe08a');
+  } else if (costume === 'csgt') {
+    // Traffic police peaked cap (mũ kê-pi CSGT): pale-gold crown, red band, the gold badge with a red center, black visor.
+    b.rect(x + 2, y - 2, 10, 1, '#e8d491');
+    b.rect(x + 1, y - 1, 12, 3, '#d8c27a');
+    b.hline(x + 1, x + 12, y - 1, '#e8d491');
+    b.rect(x, y + 2, 14, 2, '#c9363b');
+    b.hline(x, x + 13, y + 3, '#9e2328');
+    b.rect(x + 6, y - 1, 2, 3, '#f2c94c');
+    b.set(x + 6, y, '#d9342b');
+    b.set(x + 7, y, '#d9342b');
+    b.rect(x + 1, y + 4, 12, 1, '#1d2230');
+    b.hline(x + 3, x + 9, y + 4, '#3a4150');
   } else if (costume === 'nonla') {
     // Nón lá: conical straw hat.
     b.rect(x + 6, y - 3, 2, 1, '#f0dca0');

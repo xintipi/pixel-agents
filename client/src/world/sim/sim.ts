@@ -63,6 +63,24 @@ import {
   flowerWindow,
   type FlowerKind,
 } from './flowers';
+import {
+  HUTIEU_MAX_BOWLS,
+  HUTIEU_ORDER_CHANCE,
+  HUTIEU_ORDER_MS,
+  HUTIEU_PICKUP,
+  HUTIEU_UNCLE_SPOT,
+  boyCall,
+  boyDeliver,
+  boyWalk,
+  hutieuCartAt,
+  hutieuOpen,
+  hutieuOrder,
+  hutieuThanks,
+  nextBeat,
+  uncleRouteIn,
+  uncleRouteOut,
+} from './hutieu';
+import { policeArrive, policeCatch, policeGesture, policeRouteIn, policeRouteOut, policeWhistle } from './police';
 import { DANCE_WALK_Y, DANCERS, DANCER_GAP_MS, DANCER_SLOTS, DANCE_JOIN_CHANCE, JOIN_SLOTS, danceMove, danceTime, dancerLine, dancerRouteIn, dancerRouteOut, joinLine } from './danvu';
 import { DRAW_H, ROUND_GAP_MIN, buyerLine, buyerSpot, loseLine, lotteryOpen, roundLegs, sellerCall, sellerThanks, winLine, wins } from './lottery';
 import {
@@ -87,7 +105,23 @@ import { lunchTime, SIESTA_WAKE_SPREAD_MS, siestaLevel, siestaTime } from './sie
 import { BANHMI_SPOTS, BANHMI_VENDOR_SPOT, banhmiOpen, cartAt, pickOrder, vendorLine, vendorReply, vendorRouteIn, vendorRouteOut } from './banhmi';
 import { EXIT_RADIUS, NO_INTENT, stepFree, tileAt, VISITOR_LANYARD, type VisitorIntent } from './visitor';
 import { tr } from '../../../../shared/i18n';
-import { ALTAR_CHANCE, INCENSE_MS, altarState, cooldownOver, dayKey, morningDue, prayerLine, waitingLong } from './altar';
+import { dayKey } from '../../../../shared/timeline';
+import {
+  BOSS_RANGE,
+  GREET_EXPIRE_MS,
+  GREET_RANGE,
+  PASS_RANGE,
+  RECEPTIONIST_ID,
+  RECEPTION_DESK_SPOT,
+  RECEPTION_DESK_LIFT,
+  SMILE_COOLDOWN_MS,
+  byeLine,
+  canGreet,
+  deskAct,
+  helloLine,
+  phoneLine,
+  receptionOpen,
+} from './reception';
 import { BOSS_FIRST_MS, BOSS_GAP_MS, BOSS_LINGER_MS, BOSS_LOOK_MS, arrivalLine, bossHours, catchLine, inSight, patrolOrder } from './boss';
 
 /**
@@ -147,6 +181,11 @@ const SCRAP_ID = 'npc:ve-chai';
 const FLOWER_ID = 'npc:hoa';
 /** Id prefix of the dance group's aunties (extras). */
 const DANCER_ID = 'npc:danvu:';
+/** Ids of the night hủ tiếu uncle and his boy (extras). */
+const HUTIEU_UNCLE_ID = 'npc:hutieu';
+const HUTIEU_BOY_ID = 'npc:hutieu-go';
+/** Id of the traffic police officer at the crossing (extra). */
+const POLICE_ID = 'npc:csgt';
 const BUN_ID = 'npc:banh-bao';
 /** The garbage cart's bell rings every this many ms while she's out. */
 const TRASH_BELL_MS = 2_600;
@@ -247,6 +286,18 @@ export class Sim {
   private nextDancerAt = 0;
   /** Debug: the dance goes on until this instant whatever the hour. */
   private danceForcedUntil = 0;
+  /** Night hủ tiếu cart (sim/hutieu.ts): the cart is parked; orders waiting (agent id -> when); bowls served tonight. */
+  hutieuUp = false;
+  readonly hutieuOrders = new Map<string, number>();
+  private hutieuBowls = 0;
+  /** Debug: the cart stays until this instant whatever the hour. */
+  private hutieuForcedUntil = 0;
+  /** Traffic police (sim/police.ts), as the renderer's street says: an officer is wanted, which direction is held, bikes caught. */
+  policeWanted = false;
+  policeHold: 1 | -1 = 1;
+  policeCatches = 0;
+  /** The officer is at the post (the renderer tells the street, which then holds the traffic). */
+  policeOnPost = false;
   /** Siesta (sim/siesta.ts): forced by debug (true/false); null = the clock's. */
   siestaOverride: boolean | null = null;
   /** Siesta going on (checked once a second) and how dim the office is for it (0–1, smoothed; read by the lighting). */
@@ -289,6 +340,12 @@ export class Sim {
   repairBusy = false;
   /** debug.repairNow keeps the stall open until then, whatever the hour. */
   private repairForcedUntil = 0;
+  /**
+   * The receptionist (sim/reception.ts): her next spawn snaps to the desk (page load, back from a hidden tab); the
+   * greetings due (arrivals and goodbyes); when she last spoke and smiled; whether she already stood up for this boss
+   * round; debug.receptionistNow keeps her in until then.
+   */
+  private readonly reception = { snap: true, due: [] as { id: string; bye: boolean; at: number }[], saidAt: 0, smiledAt: 0, bossSeen: false, forcedUntil: 0 };
   private trashDoneOn = '';
   private nextTrashBellAt = 0;
   /** Scrap buyer (sim/vechai.ts): the last window she came in (day + index), the next loudspeaker call. */
@@ -304,10 +361,6 @@ export class Sim {
   private bunDoneOn = '';
   private nextBunCallAt = 0;
   private readonly bunBuyers = new Set<string>();
-  /** Thần Tài altar (sim/altar.ts): incense lit until; last prayer for a waiting agent; day of the morning incense. */
-  altarLitUntil = 0;
-  private altarPrayedAt = 0;
-  private altarMorningDay = '';
   /** Morning bánh mì cart: who holds each spot at the glass case (sim/banhmi.ts). */
   readonly banhmi = new Stall(BANHMI_SPOTS.length);
   /** The cart is parked and selling. */
@@ -1034,80 +1087,187 @@ export class Sim {
     this.effects.push(e);
   }
 
-  // =================================================================== Thần Tài altar (sim/altar.ts)
+  // =================================================================== the receptionist (sim/reception.ts)
 
-  /**
-   * Runs once a second. In the morning, the first one free lights the day's incense; when an agent has been waiting on
-   * the user for a long time, now and then (office-wide cooldown) an idle coworker goes to light incense and bow for
-   * luck. Not in visits: nothing there has real timing.
-   */
-  private updateAltar(now: number): void {
-    if (this.visit) return;
-    if (morningDue(this.hourOf(now), now, this.altarMorningDay)) {
-      if (this.sendToAltar('morning')) this.altarMorningDay = dayKey(now);
-      return;
-    }
-    if (!cooldownOver(this.altarPrayedAt, now)) return;
-    let waiter: Character | undefined;
-    for (const c of this.chars.values()) if (!c.leaving && waitingLong(c.mode, c.info.status, c.info.statusSince, now)) waiter = c;
-    if (!waiter || waiter.rng() >= ALTAR_CHANCE) return;
-    if (this.sendToAltar('wait', waiter.roomId)) this.altarPrayedAt = now;
+  /** A main agent arrives or heads home: the receptionist greets them (or says goodbye) once they come by. */
+  private receptionDue(ch: Character, bye: boolean): void {
+    if (this.visit || ch.info.kind !== 'main') return;
+    const due = this.reception.due;
+    for (let i = due.length - 1; i >= 0; i--) if (due[i].id === ch.id) due.splice(i, 1);
+    due.push({ id: ch.id, bye, at: this.now });
   }
 
-  /** Idle at the desk with nothing planned: free to go to the altar. `force` (debug) also takes whoever is strolling. */
-  private altarFree(c: Character, force: boolean): boolean {
-    if (c.leaving || c.mode !== 'idle' || c.gathering || c.inside || c.outdoors || c.pose === 'sleep' || !c.homeSpot) return false;
-    if (force) return !c.step || this.interruptible(c.step);
-    return !c.step && !c.queue.length && c.atSpot === c.homeSpot;
-  }
-
-  /**
-   * Sends an idle coworker (from room `prefer`, if there is one) to the altar: walks over, lights the incense (the
-   * smoke starts), says a little prayer, bows three times and goes back. Returns whether someone went.
-   */
-  private sendToAltar(why: 'wait' | 'morning', prefer?: string, force = false): boolean {
-    const spot = this.spots.ofKind('altar').find((s) => this.spots.isFree(s.id));
-    if (!spot) return false;
-    let who: Character | undefined;
-    for (const c of this.chars.values()) {
-      if (!this.altarFree(c, force)) continue;
-      if (!who || (prefer && c.roomId === prefer && who.roomId !== prefer)) who = c;
-    }
-    if (!who) return false;
-    const ch = who;
-    if (force) this.clearPlan(ch);
-    if (!this.reserveTemp(ch, spot)) return false;
-    const rng = ch.rng;
-    const steps: Step[] = [];
-    this.pushLeave(ch, steps);
-    steps.push(
-      { t: 'go', tx: spot.tx, ty: spot.ty, fx: spot.x, fy: spot.y, dir: spot.dir },
-      { t: 'act', pose: 'use', ms: 1500, dir: spot.dir },
-      {
-        t: 'do',
-        fn: () => {
-          this.altarLitUntil = this.now + INCENSE_MS;
-          this.social.say(ch, prayerLine(rng, why), this.now);
-        },
-      },
-    );
-    // three bows: head down, back up
-    for (let i = 0; i < 3; i++) steps.push({ t: 'act', pose: 'sulk', ms: 700, dir: spot.dir }, { t: 'act', pose: 'stand', ms: 500, dir: spot.dir });
-    steps.push({ t: 'do', fn: () => this.spots.release(spot.id, ch.id) });
-    ch.queue.push(...steps);
-    this.pushHome(ch, 'none');
+  /** Debug: the receptionist comes in now (and stays a while) whatever the hour. Returns false if she's already there. */
+  receptionistNow(): boolean {
+    if (this.extras.some((e) => e.id === RECEPTIONIST_ID && !e.leaving)) return false;
+    this.reception.forcedUntil = this.now + 10 * 60_000;
     return true;
   }
 
-  /** Debug: someone idle goes to light incense at the altar right now (ignores the wait and the cooldown). */
-  altarNow(): boolean {
-    if (this.visit) return false;
-    return this.sendToAltar('wait', undefined, true);
+  /**
+   * The receptionist's day, once a second: in at opening, out at closing; at the desk, the greetings (one bubble per
+   * cooldown), the smile at whoever walks past, standing up straight for the boss and the next little thing to do.
+   */
+  private updateReception(now: number): void {
+    const r = this.reception;
+    const hour = this.hourOf(now);
+    const open = receptionOpen(hour) || now < r.forcedUntil;
+    let rc = this.extras.find((e) => e.id === RECEPTIONIST_ID);
+    if (open && !rc) {
+      rc = this.spawnReceptionist(now, r.snap || this.visit) ?? undefined;
+      if (!rc) return;
+    }
+    r.snap = false;
+    for (let i = r.due.length - 1; i >= 0; i--) if (now - r.due[i].at > GREET_EXPIRE_MS || !this.chars.has(r.due[i].id)) r.due.splice(i, 1);
+    if (!rc || rc.leaving || rc.arriving) return;
+    if (!open) {
+      this.receptionistLeave(rc);
+      return;
+    }
+    const awake = rc.pose !== 'sulk';
+    // the boss walks by: awake if she was dozing, standing up straight with a little bow (once a round)
+    const boss = this.extras.find((e) => e.id === BOSS_ID && !e.inside && e.alpha > 0.5);
+    if (!boss) r.bossSeen = false;
+    else if (!r.bossSeen && inSight(rc, boss, BOSS_RANGE)) {
+      r.bossSeen = true;
+      this.receptionistDo(rc, { t: 'act', pose: 'stand', dir: this.receptionistFacing(rc, boss), ms: 3_000 });
+      rc.chatEmoji = '🙇';
+      rc.chatUntil = now + 2_000;
+      return;
+    }
+    // greetings: whoever is due and close by, one bubble per cooldown (not while dozing)
+    if (awake && canGreet(r.saidAt, now) && rc.sayUntil <= now) {
+      const area = this.building.core.find((a) => a.id === RECEPTION_ID)?.rect;
+      for (let i = 0; i < r.due.length; i++) {
+        const d = r.due[i];
+        const c = this.chars.get(d.id);
+        if (!c || c.inside || c.alpha < 0.5 || now < c.hiddenUntil || d.bye !== c.leaving) continue;
+        const inArea = !!area && c.tx >= area.x && c.tx < area.x + area.w && c.ty >= area.y && c.ty < area.y + area.h;
+        if (!inArea && !inSight(rc, c, GREET_RANGE)) continue;
+        r.due.splice(i, 1);
+        r.saidAt = now;
+        this.receptionistDo(rc, { t: 'act', pose: 'raise_hand', dir: this.receptionistFacing(rc, c), ms: 1_800 });
+        this.social.say(rc, d.bye ? byeLine(hour, rc.rng) : helloLine(hour, rc.rng), now);
+        return;
+      }
+    }
+    // a smile at whoever walks past the counter
+    if (awake && canGreet(r.smiledAt, now, SMILE_COOLDOWN_MS) && rc.chatUntil <= now && rc.sayUntil <= now) {
+      for (const c of this.chars.values()) {
+        if (c.inside || c.alpha < 0.5 || c.pose !== 'walk' || !inSight(rc, c, PASS_RANGE)) continue;
+        rc.chatEmoji = '😊';
+        rc.chatUntil = now + 1_500;
+        r.smiledAt = now;
+        break;
+      }
+    }
+    if (rc.step || rc.queue.length) return;
+    const a = deskAct(rc.rng, { lunch: lunchTime(hour), siesta: this.siestaOn });
+    rc.queue.push({ t: 'act', pose: a.pose, held: a.held, dir: 'down', ms: a.ms, icon: a.doze ? 'zzz' : undefined });
+    if (a.phone && rc.sayUntil <= now) this.social.say(rc, phoneLine(rc.rng), now);
   }
 
-  /** Altar sprite state for the renderer: incense lit and Vía Thần Tài decorations. */
-  altarState(now: number): number {
-    return altarState(this.altarLitUntil, now);
+  /** Drops what she was doing for this (a greeting, the bow for the boss). */
+  private receptionistDo(rc: Character, step: Step): void {
+    rc.step = null;
+    rc.queue.length = 0;
+    if (rc.icon === 'zzz') rc.setIcon(null, 0, this.now);
+    rc.queue.push(step);
+  }
+
+  /** Turned toward someone, but never with her back to the room (she stays behind the counter). */
+  private receptionistFacing(rc: Character, to: Character): Dir {
+    const d = dirOf(to.x - rc.x, to.y - rc.y, 'down');
+    return d === 'up' ? (to.x < rc.x ? 'left' : 'right') : d;
+  }
+
+  /** Closing time: she walks to the elevator and goes home. */
+  private receptionistLeave(rc: Character): void {
+    rc.leaving = true;
+    rc.step = null;
+    rc.queue.length = 0;
+    rc.setIcon(null, 0, this.now);
+    const el = this.elevators[1] ?? this.elevators[0];
+    const spot = el ? this.spots.get(el.spotId) : undefined;
+    if (!el || !spot) {
+      rc.queue.push({ t: 'remove' });
+      return;
+    }
+    rc.queue.push(
+      { t: 'go', tx: spot.tx, ty: spot.ty, fx: spot.tx * TILE + FOOT_DX, fy: spot.ty * TILE + FOOT_DY - 2, dir: 'up' },
+      { t: 'elevIn', elev: el.index, phase: 0 },
+      { t: 'remove' },
+    );
+  }
+
+  /**
+   * The receptionist: navy blazer and skirt over a white blouse, hair in a bun, gold earrings and a name badge. Steps
+   * out of the elevator and walks to the counter, or (`snap`: page load, back from a hidden tab, a visit) is already there.
+   */
+  private spawnReceptionist(now: number, snap: boolean): Character | null {
+    const desk = this.coreTile(RECEPTION_ID, RECEPTION_DESK_SPOT.lx, RECEPTION_DESK_SPOT.ly);
+    const el = this.elevators[1] ?? this.elevators[0];
+    const spot = el ? this.spots.get(el.spotId) : undefined;
+    if (!desk || (!snap && (!el || !spot))) return null;
+    let appearance: Appearance;
+    try {
+      const base = this.art.appearanceFromSeed(2010, { look: 'f', sub: false });
+      appearance = {
+        ...base,
+        hair: '#231c1e',
+        hairStyle: 'bun',
+        top: '#24477e',
+        topAccent: '#f6f4ee',
+        topStyle: 'jacket',
+        bottom: '#24477e',
+        bottomStyle: 'skirt',
+        shoes: '#1d2230',
+        accessory: 'earrings',
+        accessoryColor: '#f2c94c',
+        lanyard: '#c9363b',
+      };
+    } catch {
+      return null;
+    }
+    const info: AgentInfo = {
+      id: RECEPTIONIST_ID,
+      kind: 'main',
+      provider: 'claude',
+      roomId: RECEPTION_ID,
+      name: tr('Receptionist'),
+      look: 'f',
+      role: tr('Receptionist'),
+      sessionId: RECEPTIONIST_ID,
+      account: '',
+      status: 'working',
+      recent: [],
+      tasks: [],
+      startedAt: now,
+      lastEventAt: now,
+      statusSince: now,
+      stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
+      seed: 2010,
+    };
+    const ch = new Character(info, appearance);
+    ch.dir = 'down';
+    // a little north of the tile's foot point: close to the counter, head and shoulders above it
+    const fx = desk.tx * TILE + FOOT_DX;
+    const fy = desk.ty * TILE + FOOT_DY - RECEPTION_DESK_LIFT;
+    if (snap || !el || !spot) {
+      ch.placeAtTile(desk.tx, desk.ty);
+      ch.y = fy;
+    } else {
+      ch.placeAtTile(spot.tx, spot.ty);
+      ch.x = spot.x;
+      ch.y = spot.y - 6;
+      ch.alpha = 0;
+      ch.inside = true;
+      ch.arriving = true;
+      ch.hiddenUntil = el.reserveAppear(now);
+      ch.queue.push({ t: 'elevOut', elev: el.index, phase: 0 }, { t: 'go', tx: desk.tx, ty: desk.ty, fx, fy, dir: 'down' });
+    }
+    this.extras.push(ch);
+    return ch;
   }
 
   // =================================================================== spawning and placement
@@ -1124,7 +1284,10 @@ export class Sim {
     ch.shellDoneAt = latestShellDone(a)?.at ?? 0;
     this.chars.set(a.id, ch);
     if (first) return ch;
-    if (a.kind === 'main' && this.arriveByBike(ch)) return ch;
+    if (a.kind === 'main' && this.arriveByBike(ch)) {
+      this.receptionDue(ch, false);
+      return ch;
+    }
     // arrival via the elevator
     const el = this.pickElevator(ch);
     const spot = this.spots.get(el.spotId)!;
@@ -1139,6 +1302,7 @@ export class Sim {
     // subagents launched together don't step out of the elevator at the same instant
     if (a.kind === 'sub') ch.hiddenUntil += Math.floor(ch.rng() * 600);
     ch.queue.push({ t: 'elevOut', elev: el.index, phase: 0 });
+    this.receptionDue(ch, false);
     return ch;
   }
 
@@ -1316,6 +1480,7 @@ export class Sim {
       this.bossLooks(now);
     }
     this.danceTick(now);
+    this.policeTick(now);
     for (const [id, ch] of this.chars) {
       if (ch.gone) {
         this.spots.releaseAll(id);
@@ -1331,7 +1496,6 @@ export class Sim {
       this.nextHousekeeping = now + 1000;
       this.housekeeping(now);
       this.updateTea(now);
-      this.updateAltar(now);
       this.updateBanhMi(now);
       this.updateLottery(now);
       this.updateRepair(now);
@@ -1342,6 +1506,9 @@ export class Sim {
       this.updateBoss(now);
       this.updateFlowers(now);
       this.updateDance(now);
+      this.updateHutieu(now);
+      this.updatePolice(now);
+      this.updateReception(now);
     }
   }
 
@@ -2185,6 +2352,7 @@ export class Sim {
   }
 
   private planLeave(ch: Character, now: number): boolean {
+    this.receptionDue(ch, true);
     ch.leaving = true;
     ch.arriving = false;
     this.spots.releaseAll(ch.id);
@@ -3484,6 +3652,244 @@ export class Sim {
     return true;
   }
 
+  /**
+   * Traffic police (sim/police.ts): when the street wants an officer, one walks out to the crossing and stays while it's
+   * jammed; at the post, whistles now and then and calls out bikes caught on the sidewalk. Runs once a second.
+   */
+  private updatePolice(now: number): void {
+    let officer = this.extras.find((e) => e.id === POLICE_ID);
+    if (this.policeWanted && !officer && !this.visit) officer = this.spawnPolice(now) ?? undefined;
+    if (!officer || !this.policeOnPost || officer.sayUntil > now) {
+      this.policeCatches = 0;
+      return;
+    }
+    if (this.policeCatches > 0) this.social.say(officer, policeCatch(officer.rng), now);
+    else if (officer.rng() < 0.05) this.social.say(officer, policeWhistle(officer.rng), now);
+    this.policeCatches = 0;
+  }
+
+  /**
+   * The officer (CSGT): mustard-yellow uniform shirt, olive trousers, the peaked cap with the red band and the badge (the
+   * 'csgt' costume, never the season's), a white-and-red baton; walks to the middle of the crossing and back when it's over.
+   */
+  private spawnPolice(now: number): Character | null {
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(9917, { look: 'm', sub: false });
+      appearance = { ...base, top: '#d9a62e', topAccent: '#a87a18', topStyle: 'shirt_tie' as const, bottom: '#4b5a2e', shoes: '#1d2230', accessory: 'none' as const, lanyard: null };
+    } catch {
+      return null;
+    }
+    const ch = new Character(this.npcInfo(POLICE_ID, tr('Traffic police'), 'm', 9917, now), appearance);
+    ch.costume = 'csgt';
+    const pts = policeRouteIn(TEA_SELLER_FROM_X);
+    ch.x = pts[0];
+    ch.y = pts[1];
+    ch.dir = 'right';
+    ch.queue.push(
+      { t: 'route', pts },
+      {
+        t: 'do',
+        fn: () => {
+          this.policeOnPost = true;
+          this.social.say(ch, policeArrive(ch.rng), this.now);
+        },
+      },
+      { t: 'until', cond: () => !this.policeWanted || this.visit, minMs: 20_000, maxMs: Number.MAX_SAFE_INTEGER, pose: 'stand', dir: 'down' },
+      { t: 'do', fn: () => (this.policeOnPost = false) },
+      { t: 'route', pts: policeRouteOut(TEA_SELLER_FROM_X) },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+    return ch;
+  }
+
+  /** At the post, the officer's gesture follows the held direction (after the step set the pose, every frame). */
+  private policeTick(now: number): void {
+    if (!this.policeOnPost) return;
+    const officer = this.extras.find((e) => e.id === POLICE_ID);
+    if (!officer) {
+      this.policeOnPost = false;
+      return;
+    }
+    const g = policeGesture(this.policeHold, now);
+    officer.dir = g.dir;
+    // the palm up to stop one side, the baton pointing the other side on
+    officer.setPose(g.pose, g.pose === 'use' ? 'baton' : 'none');
+  }
+
+  /** Someone (not the officer) is walking on the crossing (rect in px): the traffic waits for them. */
+  onCrossing(x0: number, x1: number, y0: number, y1: number): boolean {
+    for (const ch of this.people()) if (ch.id !== POLICE_ID && ch.x >= x0 && ch.x <= x1 && ch.y >= y0 && ch.y <= y1) return true;
+    return false;
+  }
+
+  /** The hủ tiếu cart is out (the hour, or forced by debug), never in visits. */
+  private hutieuOn(now: number): boolean {
+    return !this.visit && (hutieuOpen(this.hourOf(now)) || now < this.hutieuForcedUntil);
+  }
+
+  /**
+   * Night hủ tiếu cart (sim/hutieu.ts): the uncle parks the cart, the boy walks the sidewalk clacking; idle agents at the
+   * desk now and then order a bowl and the boy brings it in. Old orders are forgotten. Runs once a second.
+   */
+  private updateHutieu(now: number): void {
+    const open = this.hutieuOn(now);
+    let uncle = this.extras.find((e) => e.id === HUTIEU_UNCLE_ID);
+    if (open && !uncle) uncle = this.spawnHutieuUncle(now) ?? undefined;
+    if (!uncle) this.hutieuUp = false;
+    let boy = this.extras.find((e) => e.id === HUTIEU_BOY_ID);
+    if (open && this.hutieuUp && !boy) boy = this.spawnHutieuBoy(now) ?? undefined;
+    for (const [id, at] of this.hutieuOrders) if (now - at > HUTIEU_ORDER_MS || !this.chars.has(id)) this.hutieuOrders.delete(id);
+    if (boy && !boy.step && !boy.queue.length) this.planHutieuBoy(boy, open);
+    if (!open || !boy || this.hutieuBowls + this.hutieuOrders.size >= HUTIEU_MAX_BOWLS || boy.rng() >= HUTIEU_ORDER_CHANCE) return;
+    for (const c of this.chars.values()) {
+      if (c.leaving || c.mode !== 'idle' || c.outdoors || c.gathering || c.step || c.queue.length || !c.homeSpot || c.atSpot !== c.homeSpot) continue;
+      if (c.pose === 'sleep' || this.hutieuOrders.has(c.id)) continue;
+      // orders from the desk with a raised hand, then waits for the bowl right there
+      this.hutieuOrders.set(c.id, now);
+      this.social.say(c, hutieuOrder(c.rng), now);
+      c.queue.push(
+        { t: 'act', pose: 'raise_hand', ms: 1_600 },
+        { t: 'until', cond: () => !this.hutieuOrders.has(c.id), minMs: 0, maxMs: HUTIEU_ORDER_MS },
+      );
+      return;
+    }
+  }
+
+  /** The uncle: white tank top; pushes the cart in along the curb, stands at it until closing, pushes on east. */
+  private spawnHutieuUncle(now: number): Character | null {
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(7703, { look: 'm', sub: false });
+      appearance = { ...base, top: '#f4f4f0', topAccent: '#e2e2da', bottom: '#4a5468', accessory: 'none' as const, lanyard: null };
+    } catch {
+      return null;
+    }
+    const ch = new Character(this.npcInfo(HUTIEU_UNCLE_ID, tr('Hủ tiếu uncle'), 'm', 7703, now), appearance);
+    const pts = uncleRouteIn(TEA_SELLER_FROM_X);
+    ch.x = pts[0];
+    ch.y = pts[1];
+    ch.dir = 'right';
+    this.hutieuBowls = 0;
+    ch.queue.push(
+      { t: 'route', pts },
+      { t: 'do', fn: () => (this.hutieuUp = true) },
+      { t: 'until', cond: () => !this.hutieuOn(this.now) && !this.extras.some((e) => e.id === HUTIEU_BOY_ID), minMs: 0, maxMs: Number.MAX_SAFE_INTEGER, pose: 'stand', dir: HUTIEU_UNCLE_SPOT.dir },
+      { t: 'do', fn: () => (this.hutieuUp = false) },
+      { t: 'route', pts: uncleRouteOut((this.building.cols * COL_W + 19) * TILE) },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+    return ch;
+  }
+
+  /** The boy, with his two bamboo sticks: steps in from the west end of the sidewalk. */
+  private spawnHutieuBoy(now: number): Character | null {
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(7741, { look: 'm', sub: false });
+      appearance = { ...base, top: '#3f7fd8', topAccent: '#9fc4e8', bottom: '#2e3648', accessory: 'cap' as const, accessoryColor: '#d9342b', lanyard: null };
+    } catch {
+      return null;
+    }
+    const ch = new Character(this.npcInfo(HUTIEU_BOY_ID, tr('Hủ tiếu boy'), 'm', 7741, now), appearance);
+    ch.x = TEA_SELLER_FROM_X;
+    ch.y = LANE_Y;
+    ch.dir = 'right';
+    this.extras.push(ch);
+    return ch;
+  }
+
+  /**
+   * The boy's next errand (when his queue runs out): carry the oldest order in, or walk a stretch of the sidewalk and
+   * clack; after closing, walk off east.
+   */
+  private planHutieuBoy(boy: Character, open: boolean): void {
+    const rng = boy.rng;
+    const order = [...this.hutieuOrders.keys()].find((id) => this.chars.get(id)?.homeSpot);
+    if (order) {
+      const p = HUTIEU_PICKUP;
+      boy.queue.push(
+        { t: 'route', pts: [p.x, LANE_Y, p.x, p.y] },
+        {
+          t: 'do',
+          fn: () => {
+            const uncle = this.extras.find((e) => e.id === HUTIEU_UNCLE_ID);
+            if (uncle) uncle.chatEmoji = '🍜';
+            if (uncle) uncle.chatUntil = this.now + 2_500;
+          },
+        },
+        { t: 'act', pose: 'stand', dir: p.dir, ms: 3_000 },
+        { t: 'route', pts: wayBack(routeToSeat(p)), held: 'hutieu', trail: 'back' },
+        { t: 'do', fn: () => this.hutieuToDesk(boy, order) },
+      );
+      return;
+    }
+    if (!open) {
+      boy.queue.push({ t: 'route', pts: boyWalk(boy.x, (this.building.cols * COL_W + 19) * TILE) }, { t: 'remove' });
+      return;
+    }
+    const to = nextBeat(boy.x, rng);
+    boy.queue.push(
+      { t: 'route', pts: boyWalk(boy.x, to) },
+      { t: 'do', fn: () => this.social.say(boy, boyCall(rng), this.now) },
+      { t: 'act', pose: 'play', dir: 'down', ms: 2_500 },
+    );
+  }
+
+  /** Inside with the bowl: to the agent's desk (if they're still there), hands it over, and back out to the sidewalk. */
+  private hutieuToDesk(boy: Character, id: string): void {
+    const c = this.chars.get(id);
+    const out = routeToSeat({ x: nextBeat(0, boy.rng), y: LANE_Y });
+    const leave: Step[] = [{ t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty }, { t: 'route', pts: out }];
+    if (!c || c.leaving || !this.hutieuOrders.has(id)) {
+      this.hutieuOrders.delete(id);
+      boy.queue.unshift(...leave);
+      return;
+    }
+    const at = this.besideTile(c, boy);
+    boy.queue.unshift(
+      { t: 'go', tx: at.x, ty: at.y, held: 'hutieu' },
+      {
+        t: 'do',
+        fn: () => {
+          boy.dir = facing(boy.x, boy.y, c.x, c.y);
+          this.social.say(boy, boyDeliver(boy.rng), this.now);
+        },
+      },
+      { t: 'act', pose: 'use', held: 'hutieu', ms: 1_500 },
+      {
+        t: 'do',
+        fn: () => {
+          this.hutieuOrders.delete(id);
+          this.hutieuBowls++;
+          // still idle at the desk: eats it right there
+          if (c.mode === 'idle' && c.atSpot === c.homeSpot && !c.leaving) {
+            c.chatEmoji = '😋';
+            c.chatUntil = this.now + 1_600;
+            c.queue.unshift({ t: 'act', pose: 'sit', held: 'hutieu', ms: between(c.rng, 20_000, 35_000) });
+            this.social.say(c, hutieuThanks(c.rng), this.now);
+          }
+        },
+      },
+      ...leave,
+    );
+  }
+
+  /** Where the hủ tiếu cart is drawn (bottom center, px): next to the uncle while he's out, null otherwise. */
+  hutieuCart(): { x: number; y: number } | null {
+    const uncle = this.extras.find((e) => e.id === HUTIEU_UNCLE_ID && !e.gone);
+    return uncle ? hutieuCartAt(uncle) : null;
+  }
+
+  /** Debug: the hủ tiếu cart comes now and stays 5 minutes (whatever the hour). */
+  hutieuNow(): boolean {
+    if (this.visit) return false;
+    this.hutieuForcedUntil = this.now + 5 * 60_000;
+    return true;
+  }
+
   /** Month (1–12) for the flowers: the debug one, or the clock's. */
   monthOf(now: number): number {
     return this.monthOverride ?? new Date(now).getMonth() + 1;
@@ -3929,11 +4335,19 @@ export class Sim {
     // the flower bike's visit ends with the tab hidden (she's already gone; the vases stay)
     this.flowerStopped = false;
     this.flowers.clear();
+    // the hủ tiếu cart too (pushed in again, if it's still the hour); pending orders are dropped
+    this.hutieuUp = false;
+    this.hutieuOrders.clear();
+    // the officer is gone too (comes back if the street is still jammed)
+    this.policeOnPost = false;
     // the dance too (the aunties walk in again, if it's still the hour)
     this.dance.clear();
     this.dancersSent = 0;
     this.danceDay = '';
     this.lotteryBuyers.clear();
+    // the receptionist is back at the desk right away (if it's still office hours), no walk in
+    this.reception.snap = true;
+    this.reception.due.length = 0;
     this.repairUp = false;
     for (const room of this.rooms.values()) {
       if (room.phase === 'building') room.setPhase('ready', now - 10_000);

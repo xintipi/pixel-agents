@@ -246,6 +246,9 @@ describe('simulação do escritório', () => {
     run(sim, clock, 120, () => sim.lotteryHolders.size > 0);
     expect(sim.lotteryHolders.size).toBeGreaterThan(0);
     const holder = sim.chars.get([...sim.lotteryHolders][0])!;
+    // she walks on once everyone who came down has bought
+    run(sim, clock, 300, () => !sim.extras.some((e) => e.id === 'npc:ve-so'));
+    expect(sim.extras.some((e) => e.id === 'npc:ve-so')).toBe(false);
     // the draw at 16:15: tickets checked once, the holder reacts
     sim.hourOverride = 16.5;
     run(sim, clock, 2);
@@ -472,7 +475,7 @@ describe('simulação do escritório', () => {
   it('ngủ trưa: debug.siestaNow liga e desliga; quem ainda está acordado na mesa anuncia a soneca', () => {
     const sim = newSim();
     const clock = { now: T0 };
-    sim.hourOverride = 17; // outside the morning incense (altar) and the siesta
+    sim.hourOverride = 17; // outside the siesta
     sim.applySnapshot(snap([room('/a', 0)], [agent('ana', '/a', 'idle', { statusSince: T0 })]), clock.now);
     const ana = sim.chars.get('ana')!;
     ana.nextOutingAt = Number.MAX_SAFE_INTEGER;

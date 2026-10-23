@@ -4,6 +4,7 @@
 import { mulberry32 } from '../../../../shared/hash';
 import type { ExteriorProp } from '../layout/types';
 import { treeLook, type TreeLook } from '../seasons';
+import { pixelText } from '../../art/pixelfont';
 import { FLOWER_KINDS, flowerInfo, type FlowerInfo } from '../sim/flowers';
 
 export interface PropSprite {
@@ -1024,6 +1025,102 @@ function crossingSignSprite(): PropSprite {
   return { canvas: c, ax: 9, ay: 36 };
 }
 
+/**
+ * The night hủ tiếu cart (xe hủ tiếu gõ, Sài Gòn style), side view facing east: a turquoise-painted wooden cabinet on two
+ * bicycle wheels and a kickstand, the tall glass case on top (aluminum frame, "HỦ TIẾU" in red on the glass; noodles,
+ * bean sprouts, herbs, char siu, shrimp and lime on the shelves), the big aluminum broth pot over a glowing charcoal
+ * stove at the east end, steam rising, a bulb hanging from a little post and the push handle at the west end.
+ */
+function hutieuCartSprite(): PropSprite {
+  const o = '#1d2733';
+  const W = 56;
+  const H = 48;
+  const [c, ctx] = makeCanvas(W, H);
+  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+  shadowEllipse(ctx, 28, 45, 24, 2, 0.3);
+  // wheels peeking out under the cabinet (spoked, chrome rims) and the kickstand at the east end
+  for (const wx of [12, 40]) {
+    for (let y = -6; y <= 6; y++)
+      for (let x = -6; x <= 6; x++) {
+        const d = Math.hypot(x, y);
+        if (d > 5.6) continue;
+        if (d > 4.5) px('#15181f', wx + x, 40 + y);
+        else if (d > 3.7) px('#c9d0db', wx + x, 40 + y);
+        else if (d > 1 && (x === 0 || y === 0)) px('#7d8696', wx + x, 40 + y);
+      }
+    px(o, wx - 1, 39, 3, 3);
+  }
+  px('#5a6272', 50, 36, 1, 9);
+  // push handle at the west end (wood grip on a metal bar)
+  px('#7d8696', 0, 25, 6, 1);
+  px('#6b4429', 0, 24, 3, 3);
+  // lower cabinet: turquoise panels, white trim, two doors with little knobs
+  px(o, 4, 22, 48, 15);
+  px('#2fa39a', 5, 23, 46, 13);
+  px('#5cc7bd', 5, 23, 46, 1);
+  px('#1f7a73', 5, 35, 46, 1);
+  px('#f2f4f7', 5, 26, 46, 1);
+  for (const dx of [7, 22, 37]) px('#1f7a73', dx, 28, 12, 6);
+  for (const dx of [8, 23, 38]) px('#3ab8ad', dx, 29, 10, 4);
+  for (const dx of [17, 32, 47]) px('#f2c94c', dx, 30, 1, 2);
+  // the glass case on the west two thirds: aluminum frame, tinted glass, two shelves
+  px(o, 5, 5, 31, 18);
+  px('#c4ccd8', 6, 6, 29, 16);
+  px('#d7eef6', 7, 7, 27, 14);
+  px('#ffffff', 7, 7, 27, 1);
+  px('#eaf6fb', 8, 8, 1, 12);
+  px('#c4ccd8', 7, 14, 27, 1);
+  // "HỦ TIẾU" in red across the glass (the hook and the circumflex + acute drawn by hand)
+  pixelText(ctx, 'hu tieu', 8, 9, '#d9342b');
+  // dấu hỏi over the first U
+  px('#d9342b', 13, 7, 2, 1);
+  px('#d9342b', 14, 8, 1, 1);
+  // dấu mũ + dấu sắc over the E
+  px('#d9342b', 29, 7, 1, 1);
+  px('#d9342b', 28, 8, 1, 1);
+  px('#d9342b', 30, 8, 1, 1);
+  px('#d9342b', 31, 7, 1, 1);
+  // bottom shelf: a pile of white noodles, bean sprouts, herbs, char siu, shrimp, a lime
+  px('#f7f3ea', 8, 17, 6, 4);
+  px('#e3dccb', 8, 20, 6, 1);
+  px('#f2f0d0', 15, 18, 4, 3);
+  px('#4fae58', 20, 17, 4, 4);
+  px('#7fd17a', 20, 17, 2, 1);
+  px('#c9575a', 25, 18, 4, 3);
+  px('#e88a8c', 25, 18, 4, 1);
+  px('#f08a4a', 30, 18, 3, 2);
+  px('#c9e86a', 30, 20, 2, 1);
+  // the roof of the case with a small overhang
+  px(o, 4, 4, 33, 2);
+  px('#8a95a3', 5, 4, 31, 1);
+  // the broth pot over the charcoal stove at the east end
+  px(o, 38, 18, 14, 5);
+  px('#3a3f4a', 39, 19, 12, 3);
+  px('#ff8a3c', 40, 20, 3, 1);
+  px('#ffcf5c', 44, 20, 2, 1);
+  px('#ff5a2a', 47, 20, 3, 1);
+  px(o, 37, 7, 16, 12);
+  px('#b8c0cc', 38, 8, 14, 10);
+  px('#e4e8ee', 38, 8, 4, 10);
+  px('#8a95a3', 48, 8, 4, 10);
+  px('#9aa3b5', 38, 13, 14, 1);
+  px(o, 36, 6, 18, 2);
+  px('#d6dbe4', 37, 6, 16, 1);
+  px('#5a6272', 44, 3, 3, 3);
+  // steam
+  for (const [x, y, h] of [[40, 1, 3], [41, 0, 1], [47, 2, 3], [48, 0, 2], [51, 2, 2]] as const) px('#e6edf3', x, y, 1, h);
+  // the bulb on its post between the case and the pot
+  px('#5a6272', 36, 0, 1, 5);
+  px('#5a6272', 33, 0, 4, 1);
+  px('#5a6272', 33, 1, 1, 1);
+  px('#ffe27a', 32, 2, 3, 3);
+  px('#fff6c8', 33, 3, 1, 1);
+  return { canvas: c, ax: 28, ay: 45 };
+}
+
 /** `month` (1–12; 0 = no season) dresses the trees for the time of year (world/seasons.ts). */
 export function propSprite(prop: ExteriorProp, month = 0): PropSprite {
   const look: TreeLook = prop.kind === 'tree' && month ? treeLook(month, prop.seed) : 'green';
@@ -1100,6 +1197,9 @@ export function propSprite(prop: ExteriorProp, month = 0): PropSprite {
       break;
     case 'crossing_sign':
       s = crossingSignSprite();
+      break;
+    case 'hutieu_cart':
+      s = hutieuCartSprite();
       break;
     case 'loudspeaker':
       s = loudspeakerSprite();
