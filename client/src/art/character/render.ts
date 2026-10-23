@@ -1278,6 +1278,8 @@ const BAGUETTE: readonly string[] = ['.lbbb', 'bghrb', 'bbbb.'];
 const XOI: readonly string[] = ['.rr.', 'lrsl', 'lLLl', '.ll.'];
 /** Bánh bao: a round white bun, pleated on top, a wisp of steam. */
 const BUN: readonly string[] = ['.s..', '.pp.', 'whhw', 'wwww', '.dd.'];
+/** Bánh tráng nướng: the crisp folded rice paper (egg, scallions, a bit of sausage) sticking out of a paper wrap. */
+const BANHTRANG: readonly string[] = ['.cc.', 'cyrc', 'cgyc', 'pppp', 'pPPp'];
 /** Bunch of flowers: blooms on top, green stems, wrapped in kraft paper. */
 const BOUQUET: readonly string[] = ['.PpP.', 'pcPcp', '.pPp.', 'kgggk', '.kgk.', '..k..'];
 const BOUQUET_COLORS: Readonly<Record<'bouquet_pink' | 'bouquet_white' | 'bouquet_yellow', { p: string; P: string; c: string }>> = {
@@ -1323,6 +1325,9 @@ function drawItem(dc: Dc, x: number, y: number): void {
       break;
     case 'banhbao':
       b.stamp(BUN, x, y - 2, { s: '#dfe6ee', p: '#e8e0cc', h: '#ffffff', w: '#f6f1e4', d: '#d6ccb4' }, side);
+      break;
+    case 'banhtrang':
+      b.stamp(BANHTRANG, x, y - 2, { c: '#e2b467', y: '#f2c94c', r: '#d0573a', g: '#5fb35a', p: '#f4f2ee', P: '#d9d5cb' }, side);
       break;
     case 'bouquet_pink':
     case 'bouquet_white':

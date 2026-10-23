@@ -41,6 +41,8 @@ import { danceSpeakerProps } from '../sim/danvu';
 import { hutieuCartProps, hutieuStoolProps } from '../sim/hutieu';
 import { crosswalkClearsDash, drawCrosswalk } from './crosswalk';
 import { bunBikeProps } from '../sim/banhbao';
+import { banhtrangProps, coalsAt } from '../sim/banhtrang';
+import { drawCharcoalSmoke, drawCoalGlow } from './banhtrang-fx';
 import { loaProps } from '../sim/loa';
 import { DINER_CALL_MS, FLOODED, PARKING, RIDER_HELMETS, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
 import { countBadge, fallbackIcon } from './shell-sprites';
@@ -534,6 +536,8 @@ export class Renderer {
     for (const prop of hutieuCartProps(this.sim.hutieuCart())) if (visible(prop.x - 24, prop.y - 36, 48, 40)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of hutieuStoolProps(this.sim.hutieuUp)) if (visible(prop.x - 8, prop.y - 10, 16, 12)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of bunBikeProps(this.sim.bunBike())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
+    // night bánh tráng nướng stand: rides along with the auntie, her stool out once she's set up
+    for (const prop of banhtrangProps(this.sim.banhtrang.stand(), this.sim.banhtrang.up)) if (visible(prop.x - 20, prop.y - 30, 40, 34)) push(K.Prop, prop.y, prop, null, 1);
     // the ward loudspeaker's pole (loa phường), always there
     for (const prop of loaProps()) if (visible(prop.x - 16, prop.y - 64, 32, 68)) push(K.Prop, prop.y, prop, null, 1);
     // morning bánh mì cart: rides along with the vendor, parked east of the tea stall
@@ -581,6 +585,9 @@ export class Renderer {
     this.drawPingPong(now);
     // weather outside (rain, wind, birds), only outside the building
     this.drawFalling(now, vx0, vy0, vx1, vy1);
+    // charcoal smoke off the bánh tráng brazier (and, after the lighting, the coals' glow)
+    const coals = this.sim.banhtrang.up ? coalsAt(this.sim.banhtrang.stand() ?? { x: 0, y: 0 }) : null;
+    if (coals && visible(coals.x - 12, coals.y - 36, 32, 40)) drawCharcoalSmoke(ctx, coals.x, coals.y, now, reducedMotion());
     drawWeather(ctx, this.weather, { x: vx0, y: vy0, w: vx1 - vx0, h: vy1 - vy0 }, { x: 0, y: 0, w: this.sim.building.cols * COL_W * TILE, h: BUILDING_H * TILE }, now, this.hourNow, reducedMotion());
     // ---- shell wait: spider webs, confetti/popcorn/rain (over the entities)
     this.drawCobwebs(now);
@@ -592,6 +599,7 @@ export class Renderer {
     // ---- light: night, dark rooms, glows
     this.night = this.lighting.night;
     this.drawLighting(now, vx0, vy0, vx1, vy1);
+    if (coals && visible(coals.x - 24, coals.y - 16, 48, 32)) drawCoalGlow(ctx, coals.x, coals.y, this.night, now, reducedMotion());
     // thunderstorm: the lightning flash over everything (sim/outage.ts)
     if (now - this.sim.lightningAt < 1_000) drawLightningFlash(ctx, { x: vx0, y: vy0, w: vx1 - vx0, h: vy1 - vy0 }, { x: 0, y: 0, w: this.sim.building.cols * COL_W * TILE, h: BUILDING_H * TILE }, now - this.sim.lightningAt, reducedMotion());
     if (this.theme !== 'none') {
