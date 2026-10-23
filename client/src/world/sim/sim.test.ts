@@ -1074,7 +1074,7 @@ describe('espera de shell', () => {
     }
     expect(partyStarted).toBe(true);
     expect(held.has('pizza')).toBe(true);
-    expect(sim.extras.length).toBe(0); // the delivery person already left
+    expect(sim.extras.some((e) => e.id === 'npc:pizza')).toBe(false); // the delivery person already left
   });
 
   it('cochilo longo: alguém vem acordar; quem acorda se espreguiça e fica um tempo sem cochilar', () => {

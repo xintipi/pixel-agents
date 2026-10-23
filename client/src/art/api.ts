@@ -77,7 +77,8 @@ export type HeldItem = 'none' | 'coffee' | 'water' | 'papers' | 'laptop' | 'book
   | 'bouquet_yellow' // ...yellow chrysanthemums
   | 'hutieu' // bowl of hủ tiếu (night cart): the red-banded "rooster" bowl, white noodles, a shrimp, steam
   | 'banhtrang' // bánh tráng nướng (night stand): grilled rice paper folded in half, egg and scallions, in a paper wrap
-  | 'baton'; // traffic police baton: a short stick striped white and red (pose 'use': pointing the traffic on)
+  | 'baton' // traffic police baton: a short stick striped white and red (pose 'use': pointing the traffic on)
+  | 'flashlight'; // the night guard's flashlight: black barrel, a yellow lens pointing ahead (the beam is the lighting's)
 
 export type HairStyle =
   | 'short' | 'buzz' | 'spiky' | 'side_part' | 'curly' | 'afro' | 'bob' | 'long' | 'ponytail' | 'bun' | 'pigtails'
@@ -147,7 +148,7 @@ export interface CharacterFrameRequest {
   /** For poses that can be standing or seated (raise_hand, read, talk). */
   seated?: boolean;
   /** Seasonal accessory; absent keeps the original look. */
-  costume?: 'santa' | 'witch' | 'pumpkin' | 'vampire' | 'khandong' | 'nonla' | 'csgt' | 'lion' | 'bunny' | `${string}:${string}`;
+  costume?: 'santa' | 'witch' | 'pumpkin' | 'vampire' | 'khandong' | 'nonla' | 'csgt' | 'baove' | 'lion' | 'bunny' | `${string}:${string}`;
 }
 
 export type FurnitureKind =
