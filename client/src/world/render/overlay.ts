@@ -326,7 +326,8 @@ export class Overlay {
       const hovered = sel.hover === ch.id;
       // the visitor (Visit scene) always with name and badge
       const visitor = ch === this.sim.visitor;
-      const labeled = selected || hovered || ch.mode === 'wait' || showAll || visitor;
+      // extras in a crowd (the dance group) only show their name on hover
+      const labeled = selected || hovered || ch.mode === 'wait' || (showAll && !ch.crowd) || visitor;
       const above = labeled && this.labelAbove(ch);
       const b = this.bubbleFor(ch, head, now, opts, selected, hovered);
       if (b) {

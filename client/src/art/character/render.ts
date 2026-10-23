@@ -1278,6 +1278,13 @@ const BAGUETTE: readonly string[] = ['.lbbb', 'bghrb', 'bbbb.'];
 const XOI: readonly string[] = ['.rr.', 'lrsl', 'lLLl', '.ll.'];
 /** Bánh bao: a round white bun, pleated on top, a wisp of steam. */
 const BUN: readonly string[] = ['.s..', '.pp.', 'whhw', 'wwww', '.dd.'];
+/** Bunch of flowers: blooms on top, green stems, wrapped in kraft paper. */
+const BOUQUET: readonly string[] = ['.PpP.', 'pcPcp', '.pPp.', 'kgggk', '.kgk.', '..k..'];
+const BOUQUET_COLORS: Readonly<Record<'bouquet_pink' | 'bouquet_white' | 'bouquet_yellow', { p: string; P: string; c: string }>> = {
+  bouquet_pink: { p: '#e86a9a', P: '#ffb3cf', c: '#c23c6e' },
+  bouquet_white: { p: '#dfe5ec', P: '#ffffff', c: '#f2c94c' },
+  bouquet_yellow: { p: '#f2b630', P: '#ffe07a', c: '#c98a1f' },
+};
 
 function drawItem(dc: Dc, x: number, y: number): void {
   const { b, r } = dc;
@@ -1304,6 +1311,11 @@ function drawItem(dc: Dc, x: number, y: number): void {
       break;
     case 'banhbao':
       b.stamp(BUN, x, y - 2, { s: '#dfe6ee', p: '#e8e0cc', h: '#ffffff', w: '#f6f1e4', d: '#d6ccb4' }, side);
+      break;
+    case 'bouquet_pink':
+    case 'bouquet_white':
+    case 'bouquet_yellow':
+      b.stamp(BOUQUET, x - 1, y - 3, { ...BOUQUET_COLORS[it], g: '#4f9a45', k: '#d9b07a' }, side);
       break;
     case 'bubbletea':
       b.stamp(BOBA, x, y - 2, { s: '#e05a7a', l: '#f2f4f8', t: '#cf9a62', p: '#3a2626' }, side);

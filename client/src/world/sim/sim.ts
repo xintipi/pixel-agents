@@ -46,6 +46,24 @@ import { trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './tra
 import { LOA_LINE_MS, loaGroan, loaScript, loaWindow } from './loa';
 import { BUN_CALL_MS, BUN_MAX_BUYERS, bunBikeAt, bunCall, bunOrder, bunRoute, bunThanks, bunTime } from './banhbao';
 import { SCRAP_CALL_MS, scrapBikeAt, scrapCall, scrapPay, scrapRoute, scrapSell, scrapWindow } from './vechai';
+import {
+  FLOWER_CALL_MS,
+  FLOWER_MAX_SALES,
+  FLOWER_BUY_CHANCE,
+  FLOWER_SPOTS,
+  FLOWER_STOP_MS,
+  endOfDay,
+  flowerBikeAt,
+  flowerCall,
+  flowerInfo,
+  flowerOfMonth,
+  flowerOrder,
+  flowerReply,
+  flowerRoute,
+  flowerWindow,
+  type FlowerKind,
+} from './flowers';
+import { DANCE_WALK_Y, DANCERS, DANCER_GAP_MS, DANCER_SLOTS, DANCE_JOIN_CHANCE, JOIN_SLOTS, danceMove, danceTime, dancerLine, dancerRouteIn, dancerRouteOut, joinLine } from './danvu';
 import { DRAW_H, ROUND_GAP_MIN, buyerLine, buyerSpot, loseLine, lotteryOpen, roundLegs, sellerCall, sellerThanks, winLine, wins } from './lottery';
 import {
   LANE_Y,
@@ -56,6 +74,7 @@ import {
   TeaStall,
   chatLine,
   orderLine,
+  routeAcross,
   routeToSeat,
   seatDepth,
   sellerLine,
@@ -124,6 +143,10 @@ const LOTTERY_SELLER_ID = 'npc:ve-so';
 const MECHANIC_ID = 'npc:sua-xe';
 const TRASH_ID = 'npc:rac';
 const SCRAP_ID = 'npc:ve-chai';
+/** Id of the flower seller on her bike (extra). */
+const FLOWER_ID = 'npc:hoa';
+/** Id prefix of the dance group's aunties (extras). */
+const DANCER_ID = 'npc:danvu:';
 const BUN_ID = 'npc:banh-bao';
 /** The garbage cart's bell rings every this many ms while she's out. */
 const TRASH_BELL_MS = 2_600;
@@ -205,6 +228,25 @@ export class Sim {
   workTreeStage: WorkTreeStage | null = null;
   /** Fixed hour for meals (debug.setHour); null = the clock's. */
   hourOverride: number | null = null;
+  /** Fixed month (debug.setMonth): the flowers the bike brings; null = the clock's. */
+  monthOverride: number | null = null;
+  /** Flower bike (sim/flowers.ts): the buyers' spots, the visit already made in this window, sales and the call. */
+  readonly flowers = new Stall(FLOWER_SPOTS.length);
+  private flowerDone = '';
+  private flowerSales = 0;
+  private flowerStopped = false;
+  private nextFlowerCallAt = 0;
+  /** What the bike carries on this visit. */
+  flowerKind: FlowerKind = 'cuc';
+  /** Vases on the desks (desk furniture id -> the flowers and until when they stay). */
+  readonly deskFlowers = new Map<string, { kind: FlowerKind; until: number }>();
+  /** Evening dance (sim/danvu.ts): the places for agents who join, the evening already danced and the aunties sent. */
+  readonly dance = new Stall(JOIN_SLOTS.length);
+  private danceDay = '';
+  private dancersSent = 0;
+  private nextDancerAt = 0;
+  /** Debug: the dance goes on until this instant whatever the hour. */
+  private danceForcedUntil = 0;
   /** Siesta (sim/siesta.ts): forced by debug (true/false); null = the clock's. */
   siestaOverride: boolean | null = null;
   /** Siesta going on (checked once a second) and how dim the office is for it (0–1, smoothed; read by the lighting). */
@@ -1273,11 +1315,14 @@ export class Sim {
       this.bossLookAt = now + 250;
       this.bossLooks(now);
     }
+    this.danceTick(now);
     for (const [id, ch] of this.chars) {
       if (ch.gone) {
         this.spots.releaseAll(id);
         this.tea.release(id);
         this.banhmi.release(id);
+        this.flowers.release(id);
+        this.dance.release(id);
         this.chars.delete(id);
       }
     }
@@ -1295,6 +1340,8 @@ export class Sim {
       this.updateLoa(now);
       this.updateBun(now);
       this.updateBoss(now);
+      this.updateFlowers(now);
+      this.updateDance(now);
     }
   }
 
@@ -1917,6 +1964,9 @@ export class Sim {
     ch.chatUntil = 0;
     // the 'do' that frees the spot at the bánh mì cart may have gone with the queue (even before walking out)
     this.banhmi.release(ch.id);
+    this.flowers.release(ch.id);
+    this.dance.release(ch.id);
+    ch.danceLag = null;
     // out at the tea stall: whatever comes next starts by walking back in through the corridor door
     if (ch.outdoors) {
       this.tea.release(ch.id);
@@ -3309,6 +3359,283 @@ export class Sim {
     return !!this.spawnScrap(this.now);
   }
 
+  /** The evening dance is on (the hour, or forced by debug), never in visits. */
+  private danceOn(now: number): boolean {
+    return !this.visit && (danceTime(this.hourOf(now)) || now < this.danceForcedUntil);
+  }
+
+  /**
+   * Evening dance (sim/danvu.ts): the aunties walk in one after the other; while they dance, now and then an idle agent
+   * goes to join the back row; at the end they walk off on their own. Runs once a second.
+   */
+  private updateDance(now: number): void {
+    if (!this.danceOn(now)) return;
+    const day = dayKey(now);
+    if (this.danceDay !== day) {
+      this.danceDay = day;
+      this.dancersSent = 0;
+      this.nextDancerAt = now;
+    }
+    if (this.dancersSent < DANCERS && now >= this.nextDancerAt) {
+      if (this.spawnDancer(this.dancersSent, now)) this.dancersSent++;
+      this.nextDancerAt = now + DANCER_GAP_MS;
+    }
+    const dancers = this.extras.filter((e) => e.id.startsWith(DANCER_ID) && e.danceLag !== null);
+    if (dancers.length && dancers[0].rng() < 0.04) {
+      const who = dancers[Math.floor(dancers[0].rng() * dancers.length)];
+      if (who.sayUntil <= now) this.social.say(who, dancerLine(who.rng), now);
+    }
+    if (dancers.length < 3 || !this.dance.hasFree() || Math.random() >= DANCE_JOIN_CHANCE) return;
+    for (const c of this.chars.values()) {
+      if (c.leaving || c.mode !== 'idle' || c.outdoors || c.gathering || c.step || c.queue.length || !c.homeSpot || c.atSpot !== c.homeSpot || c.pose === 'sleep') continue;
+      if (this.planDance(c)) break;
+    }
+  }
+
+  /** One aunty in the matching outfit: walks to her place, dances while it's the hour, walks off east. */
+  private spawnDancer(i: number, now: number): boolean {
+    const slot = DANCER_SLOTS[i];
+    if (!slot) return false;
+    const seed = 8800 + i * 37;
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(seed, { look: 'f', sub: false });
+      appearance = { ...base, top: '#d9342b', topAccent: '#f2c94c', bottom: '#1d2230', accessory: 'none' as const, lanyard: null };
+    } catch {
+      return false;
+    }
+    const ch = new Character(this.npcInfo(`${DANCER_ID}${i}`, tr('Dance group'), 'f', seed, now), appearance);
+    // one name tag for the whole group (the first aunty's)
+    ch.crowd = i > 0;
+    const fromX = TEA_SELLER_FROM_X - i * 12;
+    const toX = (this.building.cols * COL_W + 19) * TILE;
+    const pts = dancerRouteIn(fromX, slot);
+    ch.x = pts[0];
+    ch.y = pts[1];
+    ch.dir = 'right';
+    ch.queue.push(
+      { t: 'route', pts },
+      { t: 'do', fn: () => (ch.danceLag = 0) },
+      { t: 'until', cond: () => !this.danceOn(this.now), minMs: 0, maxMs: Number.MAX_SAFE_INTEGER, pose: 'stand', dir: 'down' },
+      { t: 'do', fn: () => (ch.danceLag = null) },
+      { t: 'route', pts: dancerRouteOut(slot, toX) },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+    return true;
+  }
+
+  /** Out through the corridor door, across the street to the back row, a few rounds of the routine, back to the desk. */
+  private planDance(ch: Character): boolean {
+    const i = this.dance.reserve(ch.id, ch.rng);
+    if (i < 0) return false;
+    const slot = JOIN_SLOTS[i];
+    const rng = ch.rng;
+    const steps: Step[] = [];
+    this.pushLeave(ch, steps);
+    steps.push(
+      { t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty },
+      { t: 'route', pts: routeAcross(slot, DANCE_WALK_Y), trail: 'out' },
+      {
+        t: 'do',
+        fn: () => {
+          this.dance.sit(i, ch.id);
+          // a beat late: still learning the steps
+          ch.danceLag = 1;
+          this.social.say(ch, joinLine(rng), this.now);
+        },
+      },
+      { t: 'until', cond: () => !this.danceOn(this.now), minMs: between(rng, 20_000, 40_000), maxMs: 40_000, pose: 'stand', dir: 'down' },
+      {
+        t: 'do',
+        fn: () => {
+          ch.danceLag = null;
+          this.dance.release(ch.id);
+          ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), trail: 'back' });
+        },
+      },
+    );
+    ch.queue.push(...steps);
+    this.pushHome(ch, 'none');
+    return true;
+  }
+
+  /** Everyone dancing does the routine's move of the moment (after their steps set the pose, every frame). */
+  private danceTick(now: number): void {
+    for (const ch of this.people()) {
+      if (ch.danceLag === null) continue;
+      const m = danceMove(now, ch.danceLag);
+      ch.dir = m.dir;
+      ch.setPose(m.pose);
+    }
+  }
+
+  /** The trolley loudspeaker is out (some aunty is in her place). */
+  danceUp(): boolean {
+    return this.extras.some((e) => e.id.startsWith(DANCER_ID) && !e.gone);
+  }
+
+  /** Debug: the evening dance starts now and goes on for 3 minutes (whatever the hour). */
+  danceNow(): boolean {
+    if (this.visit) return false;
+    if (this.danceUp()) return true;
+    this.danceForcedUntil = this.now + 3 * 60_000;
+    this.danceDay = '';
+    return true;
+  }
+
+  /** Month (1–12) for the flowers: the debug one, or the clock's. */
+  monthOf(now: number): number {
+    return this.monthOverride ?? new Date(now).getMonth() + 1;
+  }
+
+  /**
+   * Flower bike (sim/flowers.ts): she comes by once per window, calls out, stops a few minutes in front of the building;
+   * while she's stopped, now and then an idle agent goes out to buy a bunch. Old vases go at the end of the day.
+   * Runs once a second.
+   */
+  private updateFlowers(now: number): void {
+    for (const [id, v] of this.deskFlowers) if (now >= v.until) this.deskFlowers.delete(id);
+    const vendor = this.extras.find((e) => e.id === FLOWER_ID && !e.gone);
+    if (vendor && now >= this.nextFlowerCallAt && vendor.sayUntil <= now) {
+      this.nextFlowerCallAt = now + FLOWER_CALL_MS;
+      this.social.say(vendor, flowerCall(this.flowerKind, vendor.rng), now);
+    }
+    if (vendor && this.flowerStopped && this.flowerSales < FLOWER_MAX_SALES && this.flowers.hasFree() && vendor.rng() < FLOWER_BUY_CHANCE) {
+      for (const c of this.chars.values()) {
+        if (c.leaving || c.mode !== 'idle' || c.outdoors || c.gathering || c.step || c.queue.length || !c.homeSpot || c.atSpot !== c.homeSpot) continue;
+        if (c.pose === 'sleep' || this.deskFlowers.has(this.deskOf(c) ?? '')) continue;
+        if (this.planFlowers(c)) {
+          this.flowerSales++;
+          break;
+        }
+      }
+    }
+    const w = flowerWindow(this.hourOf(now));
+    const key = `${dayKey(now)}#${w}`;
+    if (vendor || this.visit || w < 0 || this.flowerDone === key) return;
+    this.flowerDone = key;
+    this.spawnFlowers(now);
+  }
+
+  /** The desk (furniture id) at someone's workplace, where the vase goes. */
+  private deskOf(ch: Character): string | null {
+    const home = this.spots.get(ch.homeSpot);
+    return home?.deskId ?? home?.furnitureId ?? null;
+  }
+
+  /** Walks her bike in along the curb, stops a few minutes in front of the building, walks on east. */
+  private spawnFlowers(now: number): Character | null {
+    let appearance;
+    try {
+      const base = this.art.appearanceFromSeed(6127, { look: 'f', sub: false });
+      appearance = { ...base, top: '#e8eef5', topAccent: '#9fc4e8', bottom: '#3a4a6a', lanyard: null };
+    } catch {
+      return null;
+    }
+    const ch = new Character(this.npcInfo(FLOWER_ID, tr('Flower seller'), 'f', 6127, now), appearance);
+    ch.costume = 'nonla';
+    this.flowerKind = flowerOfMonth(this.monthOf(now)).kind;
+    this.flowerSales = 0;
+    const route = flowerRoute(TEA_SELLER_FROM_X, (this.building.cols * COL_W + 19) * TILE);
+    ch.x = route.in[0];
+    ch.y = route.in[1];
+    ch.dir = 'right';
+    const stopUntil = { at: 0 };
+    ch.queue.push(
+      { t: 'route', pts: route.in },
+      {
+        t: 'do',
+        fn: () => {
+          this.flowerStopped = true;
+          stopUntil.at = this.now + FLOWER_STOP_MS;
+        },
+      },
+      { t: 'until', cond: () => this.now >= stopUntil.at || this.visit, minMs: 0, maxMs: FLOWER_STOP_MS + 60_000, pose: 'stand', dir: 'right' },
+      { t: 'do', fn: () => (this.flowerStopped = false) },
+      // whoever is still buying finishes first (she doesn't leave mid-sale)
+      { t: 'until', cond: () => this.flowers.sitting().length === 0, minMs: 0, maxMs: 30_000, pose: 'stand', dir: 'right' },
+      { t: 'route', pts: route.out },
+      { t: 'remove' },
+    );
+    this.extras.push(ch);
+    this.nextFlowerCallAt = now;
+    return ch;
+  }
+
+  /** Out to the flower bike, a bunch of the month's flowers, back to the desk and into the vase. */
+  private planFlowers(ch: Character): boolean {
+    const i = this.flowers.reserve(ch.id, ch.rng);
+    if (i < 0) return false;
+    const spot = FLOWER_SPOTS[i];
+    const rng = ch.rng;
+    const info = flowerInfo(this.flowerKind);
+    const steps: Step[] = [];
+    this.pushLeave(ch, steps);
+    steps.push(
+      { t: 'go', tx: TEA_DOOR.tx, ty: TEA_DOOR.ty },
+      { t: 'route', pts: routeToSeat(spot), trail: 'out' },
+      {
+        t: 'do',
+        fn: () => {
+          this.flowers.sit(i, ch.id);
+          ch.dir = spot.dir;
+          this.social.say(ch, flowerOrder(info.kind, rng), this.now);
+        },
+      },
+      { t: 'act', pose: 'stand', dir: spot.dir, ms: between(rng, 2500, 3500) },
+      {
+        t: 'do',
+        fn: () => {
+          const vendor = this.extras.find((e) => e.id === FLOWER_ID);
+          if (vendor && vendor.sayUntil <= this.now) this.social.say(vendor, flowerReply(rng), this.now);
+          if (vendor) vendor.setIcon('coin', 2_000, this.now);
+        },
+      },
+      { t: 'act', pose: 'stand', held: info.held, dir: spot.dir, ms: between(rng, 1500, 2500) },
+      {
+        t: 'do',
+        fn: () => {
+          this.flowers.release(ch.id);
+          ch.queue.unshift({ t: 'route', pts: wayBack(ch.outdoors ?? []), held: info.held, trail: 'back' });
+        },
+      },
+    );
+    ch.queue.push(...steps);
+    // back at the desk: the bunch goes into the vase, a happy look at it, then the usual rest
+    const home = this.spots.get(ch.homeSpot);
+    ch.queue.push({ t: 'do', fn: () => this.releaseTemp(ch) });
+    if (!home) return true;
+    ch.queue.push(
+      { t: 'go', tx: home.tx, ty: home.ty, held: info.held },
+      { t: 'enter', spot: home.id },
+      {
+        t: 'do',
+        fn: () => {
+          const desk = this.deskOf(ch);
+          if (desk) this.deskFlowers.set(desk, { kind: info.kind, until: endOfDay(this.now) });
+          ch.chatEmoji = '🌸';
+          ch.chatUntil = this.now + 1_800;
+        },
+      },
+      { t: 'act', pose: 'sit', ms: between(rng, 2000, 3000) },
+      { t: 'do', fn: () => (ch.nextOutingAt = this.now + idleSitMs(ch.rng, this.options().liveliness)) },
+    );
+    return true;
+  }
+
+  /** Where the flower bike is drawn (bottom center, px): beside her while she's out, null otherwise. */
+  flowerBike(): { x: number; y: number } | null {
+    const vendor = this.extras.find((e) => e.id === FLOWER_ID && !e.gone);
+    return vendor ? flowerBikeAt(vendor) : null;
+  }
+
+  /** Debug: the flower bike comes by now (if she isn't already out). Returns whether she came. */
+  flowersNow(): boolean {
+    if (this.visit || this.extras.some((e) => e.id === FLOWER_ID)) return false;
+    return !!this.spawnFlowers(this.now);
+  }
+
   /** A street character's info (not an agent: no session, never in the panels). */
   private npcInfo(id: string, name: string, look: 'f' | 'm', seed: number, now: number): AgentInfo {
     return {
@@ -3599,6 +3926,13 @@ export class Sim {
     // so does the bánh mì cart (pushed in again, if it's still breakfast time)
     this.banhmiUp = false;
     this.banhmi.clear();
+    // the flower bike's visit ends with the tab hidden (she's already gone; the vases stay)
+    this.flowerStopped = false;
+    this.flowers.clear();
+    // the dance too (the aunties walk in again, if it's still the hour)
+    this.dance.clear();
+    this.dancersSent = 0;
+    this.danceDay = '';
     this.lotteryBuyers.clear();
     this.repairUp = false;
     for (const room of this.rooms.values()) {
@@ -3619,6 +3953,7 @@ export class Sim {
       }
       ch.gathering = null;
       ch.outdoors = null;
+      ch.danceLag = null;
       if (ch.leaving && !ch.gone) ch.gone = true;
       if (ch.gone) {
         this.spots.releaseAll(ch.id);

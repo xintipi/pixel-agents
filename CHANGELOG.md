@@ -12,6 +12,21 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Bicicleta de flores (xe hoa dạo).** Duas vezes por dia (8h e 15h30) a vendedora empurra a bicicleta carregada com as
+  flores do mês (pessegueiro no Tết, lírios brancos em abril, lótus no verão, crisântemos amarelos no outono, cúc họa
+  mi no inverno) e para alguns minutos em frente ao prédio; de vez em quando um agente à toa sai, compra um buquê e põe
+  num vasinho na mesa, que fica até o fim do dia. No console: `habblaud.world.debug.flowersNow()`.
+- **Árvores da rua nas estações.** Cada árvore lá fora tem a sua espécie: os phượng ficam vermelhos de maio a julho,
+  os bằng lăng roxos de abril a junho, na primavera saem folhas novas verde-claro e no outono as folhas amarelam (os
+  phượng continuam verdes); pétalas e folhas caem devagar. `habblaud.world.debug.setMonth(6)` mostra outro mês.
+- **Dança da noite (nhảy dân vũ).** Das 19h às 20h30, um grupo de senhoras de blusa vermelha igual chega à calçada do
+  outro lado da rua, se alinha ao lado da caixa de som com luzes e dança em sincronia; de vez em quando um agente à
+  toa atravessa a rua e entra na última fila, sempre meio tempo atrasado. No fim, todos vão embora. No console:
+  `habblaud.world.debug.danceNow()`.
+- **Faixa de pedestres.** A rua ganhou uma faixa de pedestres no padrão vietnamita (vạch 7.3: faixas brancas
+  paralelas ao eixo da rua, mais finas que os vãos), alinhada ao caminho de pedra da entrada, com a placa 423b ao lado;
+  quem vai para a dança do outro lado atravessa por ela.
+
 - **O chefe fazendo a ronda (sếp đi tuần).** Nos dias úteis, em horário de expediente (fora do almoço e da sesta), de
   vez em quando o chefe de camisa branca e gravata vermelha sai do elevador, passa pelo lounge e por algumas salas
   acesas, olha em volta e vai embora. Quem está à toa e no campo de visão leva um susto 😳: na mesa finge digitar, no

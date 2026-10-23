@@ -52,12 +52,18 @@ export interface WorldDebug {
   /** Forces the time of day (0–24) for the day/night cycle; null goes back to local time. */
   /** Pins the weather outside ('clear' | 'rain' | 'wind' | 'snow'); null goes back to the day's. */
   setWeather(weather: 'clear' | 'rain' | 'wind' | 'snow' | null): void;
+  /** Forces the month (1–12) the street trees and the flower bike follow; null goes back to the calendar. */
+  setMonth(month: number | null): void;
   /** Forces the New Year turn ('countdown' | 'party'); null goes back to the calendar. */
   setNewYear(phase: 'countdown' | 'party' | null): void;
   /** Calls the pizza delivery person now. */
   pizzaParty(): boolean;
   /** Sends the boss on a round now (whatever the hour). */
   bossNow(): boolean;
+  /** The flower bike comes by now (with the month's flowers). */
+  flowersNow(): boolean;
+  /** The evening dance starts now, for 3 minutes (whatever the hour). */
+  danceNow(): boolean;
   /** Forces the after-lunch siesta on/off (idle agents nap, lights dim); null goes back to the clock (12:30–13:30). */
   siestaNow(on: boolean | null): void;
   /**
@@ -350,9 +356,16 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
 
     pizzaParty: () => sim.pizzaParty(sim.now),
     bossNow: () => sim.bossPatrol(sim.now),
+    flowersNow: () => sim.flowersNow(),
+    danceNow: () => sim.danceNow(),
 
     setWeather: (w) => {
       renderer.weatherOverride = w;
+    },
+
+    setMonth: (m) => {
+      renderer.monthOverride = m;
+      sim.monthOverride = m;
     },
 
     setHour: (h) => {

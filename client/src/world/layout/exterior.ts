@@ -17,6 +17,8 @@ export interface ExteriorLayout {
   /** Street center line (px), for the dashed lanes. */
   streetY: number;
   streetH: number;
+  /** Zebra crossing (px): in line with the stone path from the entrance, across to the far sidewalk. */
+  crosswalk: { x: number; w: number };
 }
 
 /** Corridor closure and patio of a slot without a room. */
@@ -95,6 +97,9 @@ export function layoutExterior(cols: number): ExteriorLayout {
 
   const streetY = px(south + 4);
   const streetH = px(5);
+  // zebra crossing as wide as the stone path from the entrance (centered on it), and its sign by the curb
+  const crosswalk = { x: px(-3) - 8, w: px(3) };
+  props.push({ kind: 'crossing_sign', x: crosswalk.x + crosswalk.w + 7, y: streetY - 2, seed: 3 });
   return {
     bounds,
     floors,
@@ -105,6 +110,7 @@ export function layoutExterior(cols: number): ExteriorLayout {
     ],
     streetY,
     streetH,
+    crosswalk,
   };
 }
 

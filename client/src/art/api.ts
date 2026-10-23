@@ -71,7 +71,10 @@ export type HeldItem = 'none' | 'coffee' | 'water' | 'papers' | 'laptop' | 'book
   | 'pizza' // slice of pizza (pizza party)
   | 'banhmi' // bánh mì: half a baguette with the filling showing (morning cart)
   | 'xoi' // pack of xôi (sticky rice) wrapped in banana leaf (morning cart)
-  | 'banhbao'; // bánh bao: a round white steamed bun, a wisp of steam (night seller)
+  | 'banhbao' // bánh bao: a round white steamed bun, a wisp of steam (night seller)
+  | 'bouquet_pink' // bunch of flowers wrapped in kraft paper (flower bike): peach blossoms or lotus
+  | 'bouquet_white' // ...white lilies or daisies (cúc họa mi)
+  | 'bouquet_yellow'; // ...yellow chrysanthemums
 
 export type HairStyle =
   | 'short' | 'buzz' | 'spiky' | 'side_part' | 'curly' | 'afro' | 'bob' | 'long' | 'ponytail' | 'bun' | 'pigtails'

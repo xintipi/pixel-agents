@@ -3,6 +3,8 @@
 // bluish-gray outline, 3–4 tones per material, light coming from top/left.
 import { mulberry32 } from '../../../../shared/hash';
 import type { ExteriorProp } from '../layout/types';
+import { treeLook, type TreeLook } from '../seasons';
+import { FLOWER_KINDS, flowerInfo, type FlowerInfo } from '../sim/flowers';
 
 export interface PropSprite {
   canvas: HTMLCanvasElement;
@@ -94,7 +96,17 @@ function canopy(p: Painter, rng: () => number, cx: number, cy: number, r: number
   }
 }
 
-function treeSprite(seed: number): PropSprite {
+/** Canopy tones (dark to light) and outline by the season's look; blossoms are sprinkled on top of a green canopy. */
+const SEASON_TONES: Readonly<Record<'spring' | 'autumn', { tones: string[]; outline: string }>> = {
+  spring: { tones: ['#4f8a45', '#6aab52', '#8fcc6a', '#c2e88f'], outline: '#2f5a32' },
+  autumn: { tones: ['#9a5a1e', '#c47f28', '#e2a83a', '#f5d264'], outline: '#5a3a1a' },
+};
+const BLOSSOM: Readonly<Record<'phuong' | 'banglang', [string, string]>> = {
+  phuong: ['#c7301f', '#ff5a3a'],
+  banglang: ['#8a5cc4', '#c49af0'],
+};
+
+function treeSprite(seed: number, look: TreeLook = 'green'): PropSprite {
   const rng = mulberry32(seed);
   const [c, ctx] = makeCanvas(36, 48);
   shadowEllipse(ctx, 18, 45, 12, 3, 0.25);
@@ -113,7 +125,23 @@ function treeSprite(seed: number): PropSprite {
     ['#356b3c', '#4b8a45', '#6aa956', '#9fcf74'],
     ['#2c6250', '#3a7e5f', '#53a071', '#82c489'],
   ];
-  canopy(p, rng, 18, 18, 11 + Math.floor(rng() * 3), variants[Math.floor(rng() * variants.length)], '#25463a');
+  const r = 11 + Math.floor(rng() * 3);
+  const green = variants[Math.floor(rng() * variants.length)];
+  const season = look === 'spring' || look === 'autumn' ? SEASON_TONES[look] : null;
+  canopy(p, rng, 18, 18, r, season ? season.tones : green, season ? season.outline : '#25463a');
+  if (look === 'phuong' || look === 'banglang') {
+    // blossom clusters over the leaves (their own draws: the canopy's shape doesn't change), lighter on top
+    const [dk, lt] = BLOSSOM[look];
+    const br = mulberry32(seed ^ 0xb105);
+    for (let y = 3; y < 32; y++) {
+      for (let x = 2; x < 34; x++) {
+        if (p.alpha(x, y) === 0 || br() > 0.16) continue;
+        if (p.alpha(x - 1, y) === 0 || p.alpha(x + 1, y) === 0) continue;
+        p.set(x, y, y < 16 ? lt : dk);
+        if (br() < 0.5 && p.alpha(x + 1, y) > 0) p.set(x + 1, y, dk);
+      }
+    }
+  }
   p.flush();
   return { canvas: c, ax: 18, ay: 45 };
 }
@@ -657,7 +685,7 @@ function trashCartSprite(): PropSprite {
  * (xe đạp ve chai): dark green step-through frame, a bale of flattened cardboard and a big woven sack roped onto the rear
  * rack, a mesh bag of bottles hanging off the handlebar. 'bun' (bánh bao): navy frame, the foam steamer box on the rack.
  */
-function streetBikeSprite(load: 'scrap' | 'bun' = 'scrap'): PropSprite {
+function streetBikeSprite(load: 'scrap' | 'bun' | 'flowers' = 'scrap', fl?: FlowerInfo): PropSprite {
   const o = '#22303a';
   const [c, ctx] = makeCanvas(46, 36);
   const px = (color: string, x: number, y: number, w = 1, h = 1) => {
@@ -668,8 +696,8 @@ function streetBikeSprite(load: 'scrap' | 'bun' = 'scrap'): PropSprite {
     const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
     for (let i = 0; i <= n; i++) px(color, Math.round(x0 + ((x1 - x0) * i) / n), Math.round(y0 + ((y1 - y0) * i) / n));
   };
-  const frame = load === 'bun' ? '#2d4f8a' : '#2f6a4e';
-  const frameLit = load === 'bun' ? '#5f86c8' : '#5fae84';
+  const frame = load === 'bun' ? '#2d4f8a' : load === 'flowers' ? '#4a7fb5' : '#2f6a4e';
+  const frameLit = load === 'bun' ? '#5f86c8' : load === 'flowers' ? '#8fb8e0' : '#5fae84';
   const chrome = '#c9d0db';
   shadowEllipse(ctx, 23, 33, 19, 2, 0.28);
   // wheels: black tire, chrome rim, thin spokes, hub
@@ -710,6 +738,30 @@ function streetBikeSprite(load: 'scrap' | 'bun' = 'scrap'): PropSprite {
   px(chrome, 2, 17, 15, 1);
   line('#8a95a3', 4, 18, 11, 26);
   line('#8a95a3', 15, 18, 13, 26);
+  if (load === 'flowers' && fl) {
+    // the flowers of the month heaped on the rear rack (a wide bamboo basket) and in the front basket, no loudspeaker
+    const heap = (x0: number, y0: number, w: number, h: number) => {
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+          const edge = (x + y * 2) % 5 === 0;
+          const lit = y < h / 2 && (x + y) % 3 !== 0;
+          px(edge ? fl.center : lit ? fl.petalLit : fl.petal, x0 + x, y0 + y);
+        }
+      // a few green leaves poking out of the heap
+      for (let x = x0 + 1; x < x0 + w; x += 4) px('#4f9a45', x, y0 + h - 1, 1, 2);
+    };
+    px(o, 0, 12, 19, 6);
+    px('#c8955a', 1, 13, 17, 4);
+    px('#a4733c', 1, 15, 17, 1);
+    for (let x = 2; x < 18; x += 3) px('#e0b47c', x, 13, 1, 4);
+    heap(1, 3, 17, 10);
+    // front basket on the handlebar
+    px(o, 34, 10, 9, 7);
+    px('#c8955a', 35, 11, 7, 5);
+    px('#a4733c', 35, 13, 7, 1);
+    heap(34, 5, 9, 6);
+    return { canvas: c, ax: 23, ay: 34 };
+  }
   if (load === 'bun') {
     // the steamer: a white foam box with a lid, a red band, a wisp of steam escaping at the lid
     px(o, 1, 4, 17, 14);
@@ -902,13 +954,85 @@ function banhmiCartSprite(): PropSprite {
   return { canvas: c, ax: 21, ay: 34 };
 }
 
-export function propSprite(prop: ExteriorProp): PropSprite {
-  const key = prop.kind === 'lamp' || prop.kind === 'bench' || prop.kind === 'totem' ? prop.kind : `${prop.kind}:${prop.seed % 7}`;
+/**
+ * Trolley loudspeaker (loa kéo) of the evening dance: a tall black box on two little wheels, the telescopic handle up,
+ * a big woofer and a tweeter, and the LED ring around the woofer in rainbow colors.
+ */
+function danceSpeakerSprite(): PropSprite {
+  const [c, ctx] = makeCanvas(18, 30);
+  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+  shadowEllipse(ctx, 9, 28, 7, 1.5, 0.28);
+  // handle
+  px('#8a95a3', 6, 0, 1, 7);
+  px('#8a95a3', 11, 0, 1, 7);
+  px('#2a2e38', 5, 0, 8, 2);
+  // the box
+  px('#14171f', 2, 6, 14, 21);
+  px('#262b36', 3, 7, 12, 19);
+  px('#3a4150', 3, 7, 1, 19);
+  // tweeter and the woofer with its rainbow LED ring
+  px('#0c0e13', 7, 9, 4, 3);
+  px('#5a6272', 8, 10, 2, 1);
+  const ring = ['#ff4d6d', '#ffb347', '#ffe066', '#5ce1a1', '#4dc3ff', '#b07cff'];
+  for (let a = 0; a < 24; a++) {
+    const ang = (a / 24) * Math.PI * 2;
+    px(ring[Math.floor(a / 4) % ring.length], Math.round(9 + Math.cos(ang) * 5), Math.round(19 + Math.sin(ang) * 5));
+  }
+  for (let y = -3; y <= 3; y++) for (let x = -3; x <= 3; x++) if (x * x + y * y <= 10) px(x * x + y * y <= 2 ? '#5a6272' : '#0c0e13', 9 + x, 19 + y);
+  // wheels
+  px('#0c0e13', 2, 26, 3, 3);
+  px('#0c0e13', 13, 26, 3, 3);
+  px('#8a95a3', 3, 27, 1, 1);
+  px('#8a95a3', 14, 27, 1, 1);
+  return { canvas: c, ax: 9, ay: 28 };
+}
+
+/**
+ * Pedestrian crossing sign (Vietnam's 423b): a blue square plate with a white triangle, inside it a black figure walking
+ * over the zebra stripes; on a gray pole with a white/black band at the foot.
+ */
+function crossingSignSprite(): PropSprite {
+  const [c, ctx] = makeCanvas(18, 38);
+  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+  shadowEllipse(ctx, 9, 36, 4, 1, 0.25);
+  // pole
+  px('#6f7886', 8, 18, 2, 18);
+  px('#a3abb8', 8, 18, 1, 18);
+  px('#f4f6f8', 8, 31, 2, 2);
+  px('#1d2230', 8, 33, 2, 2);
+  // the plate: dark rim, blue face lit on top
+  px('#14234a', 0, 0, 18, 18);
+  px('#1f5fc4', 1, 1, 16, 16);
+  px('#3d7ce0', 1, 1, 16, 1);
+  // the white triangle (apex up), wide enough for the figure
+  for (let y = 0; y < 13; y++) {
+    const half = Math.min(7, Math.floor((y + 2) * 0.62));
+    px('#ffffff', 9 - half, 3 + y, half * 2, 1);
+  }
+  // the figure striding right (head, swinging arms, legs apart) and the zebra stripes under its feet
+  const FIG = ['..##..', '..##..', '.####.', '#.##.#', '..##..', '.#..#.', '.#..#.', '#....#'];
+  FIG.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) if (row[x] === '#') px('#111520', 6 + x, 5 + y, 1, 1);
+  });
+  for (let x = 4; x < 15; x += 2) px('#111520', x, 14, 1, 1);
+  return { canvas: c, ax: 9, ay: 36 };
+}
+
+/** `month` (1–12; 0 = no season) dresses the trees for the time of year (world/seasons.ts). */
+export function propSprite(prop: ExteriorProp, month = 0): PropSprite {
+  const look: TreeLook = prop.kind === 'tree' && month ? treeLook(month, prop.seed) : 'green';
+  const key = prop.kind === 'lamp' || prop.kind === 'bench' || prop.kind === 'totem' ? prop.kind : `${prop.kind}:${prop.seed % 7}${look === 'green' ? '' : `:${look}`}`;
   let s = cache.get(key);
   if (s) return s;
   switch (prop.kind) {
     case 'tree':
-      s = treeSprite(prop.seed % 7);
+      s = treeSprite(prop.seed % 7, look);
       break;
     case 'pine':
       s = pineSprite(prop.seed % 7);
@@ -967,6 +1091,15 @@ export function propSprite(prop: ExteriorProp): PropSprite {
       break;
     case 'bun_bike':
       s = streetBikeSprite('bun');
+      break;
+    case 'flower_bike':
+      s = streetBikeSprite('flowers', flowerInfo(FLOWER_KINDS[prop.seed % FLOWER_KINDS.length]));
+      break;
+    case 'dance_speaker':
+      s = danceSpeakerSprite();
+      break;
+    case 'crossing_sign':
+      s = crossingSignSprite();
       break;
     case 'loudspeaker':
       s = loudspeakerSprite();

@@ -16,6 +16,7 @@ import { cobwebScale, hourglassIcon, HOURGLASS_FLIP_MS, STORM_LIFT } from '../si
 import type { Sim } from '../sim/sim';
 import { banhmiCartProps } from '../sim/banhmi';
 import { teaStallProps } from '../sim/tea';
+import { fallingAt, fallingColors, treeLook } from '../seasons';
 import { buildAnim, furnitureScale, NO_ANIM, sweepDelay, type BuildAnim } from './anim';
 import { daylightModeOf, parseHourParam } from './daylight';
 import { RoomFxRenderer } from './github-fx';
@@ -34,6 +35,9 @@ import { SIESTA_DIM } from '../sim/siesta';
 import { repairShopProps } from '../sim/repair';
 import { trashCartProps } from '../sim/trash';
 import { scrapBikeProps } from '../sim/vechai';
+import { flowerBikeProps, flowerInfo, type FlowerInfo } from '../sim/flowers';
+import { danceSpeakerProps } from '../sim/danvu';
+import { crosswalkClearsDash, drawCrosswalk } from './crosswalk';
 import { bunBikeProps } from '../sim/banhbao';
 import { loaProps } from '../sim/loa';
 import { FLOODED, PARKING, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
@@ -132,6 +136,8 @@ export class Renderer {
   private ents: Ent[] = [];
   private pool: Ent[] = [];
   private date = new Date();
+  /** Debug: forced month for the street trees (1–12); null = the clock's. */
+  monthOverride: number | null = null;
   private icons: { x: number; y: number; name: IconName; bounce: number; alpha: number; badge: number }[] = [];
   /** Popcorn, confetti and rain (fixed pool). */
   readonly particles = new Particles();
@@ -234,7 +240,9 @@ export class Renderer {
     // street lanes
     const ly = this.exterior.streetY + Math.round(this.exterior.streetH / 2) - 1;
     ctx.fillStyle = 'rgba(255,236,170,0.75)';
-    for (let x = this.baseX + 4; x < this.baseX + c.width; x += 24) ctx.fillRect(x, ly, 12, 2);
+    const cw = { ...this.exterior.crosswalk, roadY: this.exterior.streetY, roadH: this.exterior.streetH };
+    for (let x = this.baseX + 4; x < this.baseX + c.width; x += 24) if (!crosswalkClearsDash(cw, x)) ctx.fillRect(x, ly, 12, 2);
+    drawCrosswalk(ctx, cw);
     this.shells = [];
     this.shellWindows = [];
     for (let col = CORE_COLS; col < cols; col++) {
@@ -517,6 +525,8 @@ export class Renderer {
     for (const prop of repairShopProps(this.sim.repairUp)) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of trashCartProps(this.sim.trashCart())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of scrapBikeProps(this.sim.scrapBike())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
+    for (const prop of flowerBikeProps(this.sim.flowerBike(), this.sim.flowerKind)) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
+    for (const prop of danceSpeakerProps(this.sim.danceUp())) if (visible(prop.x - 12, prop.y - 32, 24, 34)) push(K.Prop, prop.y, prop, null, 1);
     for (const prop of bunBikeProps(this.sim.bunBike())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     // the ward loudspeaker's pole (loa phường), always there
     for (const prop of loaProps()) if (visible(prop.x - 16, prop.y - 64, 32, 68)) push(K.Prop, prop.y, prop, null, 1);
@@ -564,6 +574,7 @@ export class Renderer {
     }
     this.drawPingPong(now);
     // weather outside (rain, wind, birds), only outside the building
+    this.drawFalling(now, vx0, vy0, vx1, vy1);
     drawWeather(ctx, this.weather, { x: vx0, y: vy0, w: vx1 - vx0, h: vy1 - vy0 }, { x: 0, y: 0, w: this.sim.building.cols * COL_W * TILE, h: BUILDING_H * TILE }, now, this.hourNow, reducedMotion());
     // ---- shell wait: spider webs, confetti/popcorn/rain (over the entities)
     this.drawCobwebs(now);
@@ -878,6 +889,9 @@ export class Renderer {
       ctx.drawImage(p.canvas, Math.round(f.ax + 8 - p.ax), Math.round(f.ay - 12 - p.ay));
     }
     if (!front) {
+      // flowers from the flower bike: a little glass vase on the desk's right corner
+      const vase = f.kind === 'desk' || f.kind === 'desk_back' ? this.sim.deskFlowers.get(f.id) : undefined;
+      if (vase) this.drawVase(Math.round(f.ax + 11), Math.round(f.ay - 9), flowerInfo(vase.kind));
       if (f.kind === 'desk' && s.rects?.screen) {
         const r = s.rects.screen;
         const mode = this.deskScreen(f, area);
@@ -1307,10 +1321,57 @@ export class Renderer {
       this.ctx.globalAlpha = 1;
       return;
     }
-    const s = propSprite(prop);
+    const s = propSprite(prop, this.month());
     if (alpha < 1) this.ctx.globalAlpha = alpha;
     this.ctx.drawImage(s.canvas, Math.round(prop.x - s.ax), Math.round(prop.y - s.ay));
     this.ctx.globalAlpha = 1;
+  }
+
+  /** Glass vase with a bunch of the flower bike's flowers, bottom center at (x, y): stems in water, blooms on top. */
+  private drawVase(x: number, y: number, fl: FlowerInfo): void {
+    const { ctx } = this;
+    const px = (color: string, dx: number, dy: number, w = 1, h = 1) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(x + dx, y + dy, w, h);
+    };
+    // the glass with water and the stems inside
+    px('#2e3648', -2, -5, 5, 5);
+    px('#bfe4f0', -1, -4, 3, 4);
+    px('#e8f6fb', -1, -4, 1, 3);
+    px('#4f9a45', 0, -6, 1, 5);
+    // blooms (a dome of petals, the centers peeking out) and a leaf
+    px(fl.petal, -3, -9, 7, 3);
+    px(fl.petal, -2, -10, 5, 1);
+    px(fl.petalLit, -2, -9, 2, 1);
+    px(fl.petalLit, 1, -10, 1, 1);
+    px(fl.center, -2, -8, 1, 1);
+    px(fl.center, 2, -8, 1, 1);
+    px(fl.center, 0, -9, 1, 1);
+    px('#4f9a45', 3, -7, 2, 1);
+  }
+
+  /** Month (1–12) the street trees dress for: the debug one, or the clock's. */
+  month(): number {
+    return this.monthOverride ?? this.date.getMonth() + 1;
+  }
+
+  /** Petals of the flowering trees and autumn leaves drifting down (a couple per visible tree; none with reduced motion). */
+  private drawFalling(now: number, vx0: number, vy0: number, vx1: number, vy1: number): void {
+    if (reducedMotion()) return;
+    const { ctx } = this;
+    const month = this.month();
+    for (const prop of this.exterior.props) {
+      if (prop.kind !== 'tree' || prop.x < vx0 - 24 || prop.x > vx1 + 24 || prop.y < vy0 || prop.y - 48 > vy1) continue;
+      const colors = fallingColors(treeLook(month, prop.seed));
+      if (!colors) continue;
+      for (let k = 0; k < 2; k++) {
+        const f = fallingAt(prop, k, now);
+        ctx.globalAlpha = f.alpha;
+        ctx.fillStyle = colors[(k + prop.seed) % colors.length];
+        ctx.fillRect(Math.round(f.x), Math.round(f.y), 2, 1);
+      }
+    }
+    ctx.globalAlpha = 1;
   }
 
   private pavings = new Map<string, HTMLCanvasElement>();

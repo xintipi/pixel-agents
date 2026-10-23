@@ -63,6 +63,14 @@ export function routeToSeat(s: { x: number; y: number }): number[] {
   return [DOOR_X - TILE, DOOR_Y, PATH_X, DOOR_Y, PATH_X, LANE_Y, s.x, LANE_Y, s.x, s.y];
 }
 
+/**
+ * Route to a spot across the street: down the stone path and straight on over the zebra crossing (in line with it,
+ * layout/exterior.ts), then along the far sidewalk at `farY` to the spot.
+ */
+export function routeAcross(s: { x: number; y: number }, farY: number): number[] {
+  return [DOOR_X - TILE, DOOR_Y, PATH_X, DOOR_Y, PATH_X, farY, s.x, farY, s.x, s.y];
+}
+
 /** Way back in: the points reached on the way out (trail), in reverse, ending at the corridor door. */
 export function wayBack(trail: readonly number[]): number[] {
   const out: number[] = [];

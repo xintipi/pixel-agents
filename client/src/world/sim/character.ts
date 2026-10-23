@@ -130,6 +130,10 @@ export class Character {
   costume?: CharacterFrameRequest['costume'];
   /** The boss is around (sim/boss.ts): pretends to work until this instant (0 = not pretending). */
   fakeWorkUntil = 0;
+  /** In the evening dance (sim/danvu.ts): how many beats behind the group (0 = in step); null = not dancing. */
+  danceLag: number | null = null;
+  /** Extra in a crowd (the dance group): no name tag unless hovered or selected. */
+  crowd = false;
 
   constructor(info: AgentInfo, appearance: Appearance) {
     this.id = info.id;
