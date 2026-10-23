@@ -1184,6 +1184,19 @@
   }
 }
 
+/* Very narrow card (3 accounts on a small phone): no label column either (5h on top, week below; the names stay in the
+   tooltip), so the bar and the percentage fit. */
+@container usage-card (max-width: 80px) {
+  .ui-usage-card__meters {
+    grid-template-columns: minmax(10px, 1fr) 28px;
+    column-gap: 4px;
+  }
+
+  .ui-meter__label {
+    display: none;
+  }
+}
+
 .ui-usage-card__msg {
   display: flex;
   align-items: center;
@@ -3956,6 +3969,30 @@
     position: fixed;
     top: calc(var(--top-h) + 6px);
     right: var(--gap);
+  }
+}
+
+/* Phone on its side (wide but short): a second row of cards would eat a third of the height. The cards take the compact
+   mobile form (small chip, no header) and a small minimum, so they fit on the bar's line (ui/usage.ts measures the
+   minimums) and the office keeps the height. */
+@media (min-width: 601px) and (max-height: 500px) {
+  .ui-usage-card {
+    min-width: 112px;
+    gap: 6px;
+    padding: 4px 6px 4px 4px;
+  }
+
+  .ui-usage-card > .ui-acc-chip {
+    width: 22px;
+    font-size: 14px;
+  }
+
+  .ui-usage-card__head {
+    display: none;
+  }
+
+  .ui-usage-card__flag {
+    display: grid;
   }
 }
 

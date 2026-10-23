@@ -154,6 +154,11 @@ do meio (0.**3**.0).
 
 ### Alterado
 
+- **Cartões de uso no celular.** Em telas estreitas (360 px), com três contas, os cartões perdem também a coluna
+  "5h / Semana" e mostram só as barras e as porcentagens (antes a porcentagem saía do cartão). Com o celular deitado, os
+  cartões ficam compactos na mesma linha da barra em vez de uma segunda linha, e o escritório ganha cerca de 60 px de
+  altura.
+
 - **Nomes vietnamitas.** Os personagens novos do escritório (e da demonstração) ganham nomes vietnamitas — Lan,
   Minh, Hương, Đức... — no lugar dos brasileiros. Quem já tinha nome guarda o seu. No Habblaud World os nomes
   continuam vindo da lista de sempre.
