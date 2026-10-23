@@ -238,6 +238,9 @@ do meio (0.**3**.0).
 
 ### Alterado
 
+- **Visão geral (O) mostra a rua inteira.** Além do prédio, o enquadramento pega a calçada, as duas faixas, a calçada
+  do outro lado (com os mototáxis) e, a oeste, o caminho de pedra da entrada e a faixa de pedestres; o zoom mínimo
+  acompanha, para caber em telas pequenas.
 - **Mais movimento na calçada.** A compradora de recicláveis passa quatro vezes por dia (9h, 10h30, 14h e 16h; a moça do
   trà đá só tem um saco de garrafas para ela a cada três horas) e a vendedora de bilhetes dá uma volta a cada 12–25
   minutos. O carrinho do lixo das 19h agora para ao lado do hủ tiếu (o trà đá já fechou) e o menino leva o saco de lixo

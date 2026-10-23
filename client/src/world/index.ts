@@ -105,7 +105,8 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   const updateBounds = () => {
     const b = buildingRect();
     camera.bounds = { x: b.x - 7 * TILE, y: b.y - 6 * TILE, w: b.w + 14 * TILE, h: b.h + 18 * TILE };
-    const fit = camera.fitZoom(b, 16);
+    // zooming out goes as far as the overview needs (the building and the whole street)
+    const fit = Math.min(camera.fitZoom(b, 16), overviewFrame(b, camera.viewW, camera.viewH, camera.insets).zoom);
     camera.minZoom = Math.min(1, Math.max(0.25, fit));
     camera.clamp();
   };

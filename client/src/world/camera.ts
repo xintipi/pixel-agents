@@ -13,9 +13,15 @@ export interface Bounds {
 export const OVERVIEW_MARGIN = { top: 34, bottom: 10, side: 16 } as const;
 
 /**
- * Overview framing: the building from 1.5 tiles above the north wall (signs and tall items)
- * to the south curb (hedge and sidewalk), within the free area (outside the UI panels).
- * Returns the zoom that fits, the world point to center and how far (CSS px) that point sits below
+ * What the overview shows around the building (world px): signs above the north wall; to the west the entrance's
+ * stone path and the zebra crossing; below the south facade the near sidewalk (2 tiles), the street (5) and the far
+ * sidewalk with the parked xe ôm (2) — see layout/exterior.ts.
+ */
+export const OVERVIEW_PAD = { top: 1.5 * TILE, west: 4 * TILE, east: TILE, south: 11 * TILE } as const;
+
+/**
+ * Overview framing: the building and the whole street in front of it (OVERVIEW_PAD), within the free area (outside
+ * the UI panels). Returns the zoom that fits, the world point to center and how far (CSS px) that point sits below
  * the center of the free area (the top and bottom margins differ). Pure.
  */
 export function overviewFrame(
@@ -25,7 +31,8 @@ export function overviewFrame(
   insets: { top: number; right: number; bottom: number; left: number },
 ): { zoom: number; cx: number; cy: number; dy: number } {
   const m = OVERVIEW_MARGIN;
-  const r = { x: building.x - TILE / 2, y: building.y - 1.5 * TILE, w: building.w + TILE, h: building.h + 3.5 * TILE };
+  const p = OVERVIEW_PAD;
+  const r = { x: building.x - p.west, y: building.y - p.top, w: building.w + p.west + p.east, h: building.h + p.top + p.south };
   const freeW = Math.max(80, viewW - insets.left - insets.right - 2 * m.side);
   const freeH = Math.max(80, viewH - insets.top - insets.bottom - m.top - m.bottom);
   return { zoom: Math.min(freeW / r.w, freeH / r.h), cx: r.x + r.w / 2, cy: r.y + r.h / 2, dy: (m.top - m.bottom) / 2 };
