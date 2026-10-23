@@ -12,7 +12,28 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
-- **Fregueses da rua no trà đá e no bánh mì.** Como no hủ tiếu, agora não são só os agentes: no trà đá, de vez em
+- **Bác bảo vệ ca đêm.** Depois das 22h, um guarda noturno de uniforme cáqui-oliva, quepe e lanterna entra pela
+  calçada e faz a ronda pelo corredor e pelas salas onde ainda há agentes na mesa: para ao lado de cada um, manda ir
+  dormir ("Khuya rồi, về ngủ đi con 🌙") e o agente responde ("Cho con thêm một commit nữa thôi bác ơi! 😅"); quem
+  cochila na mesa ele deixa dormir. Por volta das 23h ele baixa a porta de aço de enrolar (cửa cuốn) sobre a fachada de
+  vidro da entrada, que sobe até um terço quando alguém passa pela abertura à noite, e fica num banquinho ao lado dela
+  até as 5h30, de lanterna acesa, cochilando ou lendo jornal. Às 6h a porta sobe. Só visual: nada muda nos agentes. No
+  console: `habblaud.world.debug.guardNow()` e `shutterNow(down)`.
+
+- **Bánh tráng nướng à noite.** Das 20h às 22h uma tia traz pela guia o suporte baixo de metal, senta no banquinho na
+  calçada e assa bánh tráng (o "pizza de Đà Lạt") num braseiro de barro com carvão: abana as brasas de vez em quando (a
+  fumaça cinza sobe e se espalha; à noite as brasas brilham laranja) e chama a rua ("Bánh tráng nướng đây!"). Uma vez
+  por noite duas ou três crianças da vizinhança chegam juntas, compram uma cada e vão embora comendo; de vez em quando
+  um agente ocioso desce para comprar e come na mesa. Às 22h ela espera os últimos fregueses e vai embora. No console:
+  `banhtrangNow()`, `kidsNow()` e `banhtrangOutNow()`.
+
+- **Noite na rua.** À noite, mariposas voam em volta das lâmpadas dos postes da calçada e da lâmpada do carrinho de hủ
+  tiếu, umas acesas pela luz e outras sumindo no escuro (nada com movimento reduzido). Com a música lofi ligada, grilos
+  cantam baixinho por baixo dela: chegam ao anoitecer, somem ao amanhecer, seguem o volume da música e se calam durante
+  a discoteca. Tudo sintetizado no navegador, sem novos arquivos de áudio.
+
+- **Fregueses da rua no trà đá e no bánh mì.**
+ Como no hủ tiếu, agora não são só os agentes: no trà đá, de vez em
   quando um pedestre senta para um copo e segue, e um motoqueiro encosta a moto no meio-fio, desce e bebe (mais no
   calor do meio-dia); às vezes é um mototaxista (xe ôm) sem corrida, que fica um bom tempo reclamando do dia fraco com
   a vendedora. No bánh mì, pedestres compram um para viagem e vão comendo pelo caminho, e motoqueiros param no meio-fio
