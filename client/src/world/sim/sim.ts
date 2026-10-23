@@ -48,6 +48,7 @@ import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen 
 import { TRASH_HANDOVER, trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './trash';
 import { LOA_LINE_MS, loaGroan, loaScript, loaWindow } from './loa';
 import { BanhTrangStand } from './banhtrang';
+import { AccidentCrew } from './accident-crew';
 import { BUN_CALL_MS, BUN_MAX_BUYERS, bunBikeAt, bunCall, bunOrder, bunRoute, bunThanks, bunTime } from './banhbao';
 import { SCRAP_CALL_MS, SCRAP_SALE_GAP_MS, scrapBikeAt, scrapCall, scrapPay, scrapRoute, scrapSell, scrapWindow } from './vechai';
 import {
@@ -386,6 +387,17 @@ export class Sim {
   policeCatches = 0;
   /** The officer is at the post (the renderer tells the street, which then holds the traffic). */
   policeOnPost = false;
+  /** A traffic accident's people (sim/accident-crew.ts): the street's scene comes from the renderer each frame. */
+  readonly accident = new AccidentCrew({
+    now: () => this.now,
+    extras: () => this.extras,
+    people: () => this.people(),
+    isAgent: (ch) => this.chars.has(ch.id),
+    npc: (id, name, look, seed, patch) => this.streetNpc(id, name, look, seed, patch),
+    say: (ch, text) => this.social.say(ch, text, this.now),
+    visit: () => this.visit,
+    blocked: () => this.visit || this.siestaOn || !!this.outage || this.now < this.discoUntil || this.newYear.phase === 'party',
+  });
   /** Siesta (sim/siesta.ts): forced by debug (true/false); null = the clock's. */
   siestaOverride: boolean | null = null;
   /** Siesta going on (checked once a second) and how dim the office is for it (0–1, smoothed; read by the lighting). */
@@ -1840,6 +1852,7 @@ export class Sim {
     }
     this.danceTick(now);
     this.policeTick(now);
+    this.accident.tick(now);
     this.guard.tick(dt);
     for (const [id, ch] of this.chars) {
       if (ch.gone) {
@@ -5152,6 +5165,8 @@ export class Sim {
 
     // the officer is gone too (comes back if the street is still jammed)
     this.policeOnPost = false;
+    // a traffic accident is over by now
+    this.accident.reset();
     // the dance too (the aunties walk in again, if it's still the hour)
     this.dance.clear();
     // and the bus stop (people walk up again)

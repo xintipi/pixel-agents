@@ -214,6 +214,22 @@ export function playVoice(ac: AudioContext, dest: AudioNode, kind: SoundKind, t:
       noiseBurst(ac, out, t, o, { type: 'highpass', freq: 2600, peak: 0.08 * g, decay: 0.02 });
       powerHum(ac, out, t + 0.05, g);
       return;
+    case 'crash':
+      crash(ac, out, t, o);
+      return;
+    case 'siren': {
+      // the ambulance's two-tone "ò e ò e": two notes taking turns, a soft square through a low-pass
+      const lp = ac.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2000;
+      lp.connect(out);
+      for (let i = 0; i < 4; i++) {
+        const f = i % 2 ? 640 : 860;
+        tone(ac, lp, 'square', f, t + i * 0.45, 0.022 * g, 0.03, 0.4);
+        tone(ac, lp, 'sine', f, t + i * 0.45, 0.03 * g, 0.03, 0.4);
+      }
+      return;
+    }
     case 'robot_hum':
     case 'rain':
     case 'wind':
@@ -406,6 +422,16 @@ function yawn(ac: AudioContext, out: AudioNode, t: number, o: VoiceOpts): void {
   osc.stop(t + d + 0.05);
   // the breath under the voice
   noiseBed(ac, out, t, o, { type: 'bandpass', from: 1200, to: 700, q: 0.8, peak: 0.02 * o.gain, attack: 0.2, hold: 0.4, release: 0.5 });
+}
+
+/** A crash ("rầm"): a dull thump, the clang of the bike hitting the asphalt and bits of plastic skittering off. */
+function crash(ac: AudioContext, out: AudioNode, t: number, o: VoiceOpts): void {
+  const g = o.gain;
+  noiseBurst(ac, out, t, o, { type: 'lowpass', freq: 600, peak: 0.16 * g, decay: 0.22 });
+  tone(ac, out, 'sine', 120, t, 0.12 * g, 0.004, 0.25, 50);
+  tone(ac, out, 'triangle', 520, t + 0.03, 0.05 * g, 0.002, 0.3);
+  tone(ac, out, 'triangle', 1370, t + 0.03, 0.025 * g, 0.002, 0.2);
+  for (let i = 0; i < 5; i++) noiseBurst(ac, out, t + 0.12 + i * (0.05 + o.rng() * 0.06), o, { type: 'highpass', freq: 2500 + o.rng() * 1500, peak: (0.05 - i * 0.008) * g, decay: 0.03 });
 }
 
 /** Party horn: a buzzy reed note with a fast tremble, bending up at the end. */

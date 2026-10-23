@@ -12,6 +12,7 @@ import { tr } from '../../../../shared/i18n';
 import { TILE } from '../constants';
 import { BUS_CLOSE_MS, BUS_DOOR_MS, BUS_DWELL_MS, BUS_HALF, BUS_HOLD_MAX_MS, BUS_PARK, BUS_ROUTES, BUS_SPEED, BUS_STOP_X, busGapMs, busRuns, type BusAt } from './bus';
 import { REPAIR_SPOT, repairOpen } from './repair';
+import { ACCIDENT_T, AccidentClock, accidentAllowed, accidentStage, detourY, obstacleGap, sceneObstacle, type AccidentScene, type Obstacle } from './accident';
 
 export type VehicleKind = 'car' | 'bike';
 /** What a bike carries on its rear rack. */
@@ -74,6 +75,14 @@ export interface Vehicle {
   /** Bus: when it stopped at the curb, and when the doors started closing (ms). */
   since?: number;
   closing?: number;
+  /** An ambulance (a 'car' with a light bar; sim/accident.ts) and whether its siren is on. */
+  ambulance?: boolean;
+  siren?: boolean;
+  /** Hit a bike in a crash: stopped until `until` (ms), a bike's rider off it (the sim walks them) while `riderOff`. */
+  hit?: boolean;
+  riderOff?: boolean;
+  /** Going around an accident through the oncoming lane, until back in its own past the scene. */
+  detour?: boolean;
 }
 
 /** How long a call for a rider to pull over waits for a fitting bike (ms). */
@@ -269,6 +278,22 @@ export class Traffic {
   busNow = false;
   /** The stop (the sim says): someone is still getting on or off, or running for the bus and the driver waits. */
   busHold = false;
+  /** The accident on the street now (sim/accident.ts; null: none): the sim's crew works on it, the renderer draws it. */
+  accident: AccidentScene | null = null;
+  /** What the accident blocks this frame (none or one stretch of lane; reused). */
+  readonly obstacles: Obstacle[] = [];
+  private readonly obstacle: Obstacle = { x0: 0, x1: 0, y0: 0, y1: 0 };
+  /** Street sounds since the renderer last looked (it passes them on to the sim and empties it): a crash, the siren. */
+  readonly sounds: { kind: 'crash' | 'siren'; x: number; y: number }[] = [];
+  /** The sim says something else is going on (siesta, New Year party, disco, power cut, visit): no crash now. */
+  accidentOff = false;
+  /** The world clock (ms epoch; the renderer sets it) for the accident schedule; 0 = the step's `now`. */
+  clock = 0;
+  readonly accidentClock = new AccidentClock();
+  /** debug.crashNow: a crash at the next step, as close to this x (px) as possible. */
+  crashAt: number | null = null;
+  private accidentSeq = 0;
+  private sirenAt = 0;
 
   /** A bike is at the repair stall being fixed. */
   get repairing(): boolean {
@@ -309,6 +334,7 @@ export class Traffic {
     this.callDiner(now);
     this.flat(now, hour);
     this.policeStep(now, dt);
+    this.accidentStep(now, env, hour, raining);
     this.move(now, dt, env);
     this.vehicles = this.vehicles.filter((v) => v.x >= env.x0 - 20 && v.x <= env.x1 + 20);
     while (this.horns.length && (now - this.horns[0].at > HORN_STALE_MS || this.horns.length > MAX_HORNS)) this.horns.shift();
@@ -496,7 +522,7 @@ export class Traffic {
   private stopGap(v: Vehicle, env: TrafficEnv): number {
     const c = env.crossing;
     const p = this.police;
-    if (!c || !p.onPost || v.racer || (!p.walkers && p.hold !== v.dir) || onSidewalk(v) || v.phase === 'parked') return Infinity;
+    if (!c || !p.onPost || v.racer || v.ambulance || (!p.walkers && p.hold !== v.dir) || onSidewalk(v) || v.phase === 'parked') return Infinity;
     const line = v.dir > 0 ? c.x - STOP_BACK : c.x + c.w + STOP_BACK;
     const ahead = (line - v.x) * v.dir - half(v);
     return ahead < 0 ? Infinity : ahead;
@@ -519,6 +545,15 @@ export class Traffic {
     for (const v of this.vehicles) {
       if (v.bus) this.busStep(v, now, dt);
       if (v.phase === 'parked') continue;
+      // hit a bike: stays put a while (its rider off arguing), then rides on (around the scene)
+      if (v.hit) {
+        if (now < (v.until ?? 0)) {
+          v.speed = 0;
+          continue;
+        }
+        v.hit = false;
+        v.riderOff = false;
+      }
       if (v.phase === 'repair') {
         if (now < (v.until ?? 0)) continue;
         // fixed: back on the bike and into the lane
@@ -541,7 +576,10 @@ export class Traffic {
       // pulling out of a spot: slowly until back on the road
       if (v.phase === 'leave' && v.y !== v.ty) target = Math.min(target, 22);
       // the traffic police hold this direction: brake for the stop line before the crossing
-      const stop = this.stopGap(v, env);
+      // ...and at an accident, the officer there holds one side at a time
+      const stop = Math.min(this.stopGap(v, env), this.sceneStop(v));
+      // going around an accident: slowly
+      if (v.detour) target = Math.min(target, 26);
       if (stop < Infinity) target = Math.min(target, Math.max(0, stop - 1) * GAP_GAIN);
       // at rush hour someone always brakes for no reason: the stop-and-go waves start here
       if (l > 0.3 && !v.racer && this.rng() < 0.25 * l * dt) target *= 0.3;
@@ -551,7 +589,9 @@ export class Traffic {
       if (stop - step < 0) step = Math.max(0, stop);
       v.x += v.dir * step;
       v.stuck = v.speed < want * 0.35 ? v.stuck + dt : 0;
-      if (v.owner || v.phase) this.ride(v, dt, now);
+      if (!v.detour && this.obstacles.length && !v.owner && !v.phase && !v.racer && !v.ambulance && !onSidewalk(v)) this.tryDetour(v);
+      if (v.detour) this.goAround(v, dt);
+      else if (v.owner || v.phase) this.ride(v, dt, now);
       else if (v.racer) this.race(v, dt, now, env);
       else if (v.kind === 'bike' && !v.pushing) this.steer(v, dt, env);
       if (v.stuck > 1 && !v.owner && !v.phase && this.rng() < 0.12 * dt) this.honk(v, now);
@@ -653,6 +693,260 @@ export class Traffic {
     return { phase, x: v.x, route: v.bus, doorsOpen };
   }
 
+  // ------------------------------------------------------------------ accident (sim/accident.ts)
+
+  /**
+   * The accident's street side: when one is due (the schedule, or debug.crashNow) a bike goes down; while it lasts,
+   * the stretch it blocks, the ambulance sent, driven up, stopped by the scene and sent off; and it ends when the crew
+   * is done (or it took too long).
+   */
+  private accidentStep(now: number, env: TrafficEnv, hour: number, raining: boolean): void {
+    if (this.accident && accidentStage(this.accident, now) === 'done') this.endAccident();
+    if (!this.accident) {
+      const clock = this.clock || now;
+      const allowed = accidentAllowed({ hour, tetHoliday: this.day.tet === 'holiday' && this.forced === null, blocked: this.accidentOff });
+      const forced = this.crashAt;
+      if ((forced !== null || this.accidentClock.due(clock, this.level, raining, allowed)) && this.crash(now, env, forced, raining)) this.accidentClock.fired(clock);
+      this.crashAt = null;
+    }
+    this.obstacles.length = 0;
+    const s = this.accident;
+    if (!s) return;
+    if (sceneObstacle(s, this.obstacle)) this.obstacles.push(this.obstacle);
+    this.ambulanceStep(s, now, env);
+  }
+
+  /**
+   * A bike goes down: one riding alone in its lane (away from the ends of the street; with `nearX`, the closest to it)
+   * with someone right behind that bumps it; in the rain, or forced, it may slip on its own. Forced with no bike around,
+   * one goes down anyway in the busier lane. Returns whether it happened.
+   */
+  private crash(now: number, env: TrafficEnv, nearX: number | null, raining: boolean): boolean {
+    const lo = env.x0 + 160;
+    const hi = env.x1 - 160;
+    let best: Vehicle | null = null;
+    let partner: Vehicle | null = null;
+    let score = Infinity;
+    for (const v of this.vehicles) {
+      if (v.kind !== 'bike' || v.phase || v.owner || v.racer || v.pushing || v.parked || v.hit || v.detour || v.cargo || v.riders !== 1 || onSidewalk(v)) continue;
+      if (v.x < lo || v.x > hi || (nearX !== null && Math.abs(v.x - nearX) > 200)) continue;
+      const p = this.follower(v);
+      if (!p && nearX === null && !raining) continue;
+      const sc = (nearX === null ? 0 : Math.abs(v.x - nearX)) + (p ? 0 : 300);
+      if (sc < score) {
+        score = sc;
+        best = v;
+        partner = p;
+      }
+    }
+    if (!best && nearX === null) return false;
+    const between = ([a, b]: readonly [number, number]) => a + this.rng() * (b - a);
+    let x: number;
+    let y: number;
+    let lane: { y: number; dir: 1 | -1 };
+    let variant: number;
+    if (best) {
+      x = best.x;
+      y = best.y;
+      lane = { y: best.laneY, dir: best.dir };
+      variant = best.variant;
+      this.vehicles.splice(this.vehicles.indexOf(best), 1);
+    } else {
+      // forced on an empty stretch: the lane with more vehicles near the spot
+      const count = (l: { y: number }) => this.vehicles.filter((o) => o.laneY === l.y && Math.abs(o.x - nearX!) < 400).length;
+      lane = [...env.lanes].sort((a, b) => count(b) - count(a))[0];
+      if (!lane) return false;
+      x = Math.max(lo, Math.min(hi, nearX!));
+      y = lane.y - 4;
+      variant = Math.floor(this.rng() * 1e6);
+    }
+    const s: AccidentScene = {
+      id: ++this.accidentSeq,
+      at: now,
+      x,
+      laneY: lane.y,
+      dir: lane.dir,
+      variant,
+      other: partner ? partner.variant : null,
+      otherKind: partner ? partner.kind : 'bike',
+      otherX: 0,
+      otherY: 0,
+      otherUntil: now + between(ACCIDENT_T.other),
+      officerDue: now + between(ACCIDENT_T.officer),
+      ambulanceDue: now + between(ACCIDENT_T.ambulance),
+      officerAt: 0,
+      cones: 0,
+      directing: false,
+      hold: lane.dir,
+      holdUntil: 0,
+      bike: 'down',
+      bikeX: x,
+      bikeY: y,
+      bandaged: false,
+      doors: false,
+      loaded: false,
+      done: false,
+      ambulance: 'none',
+      ambX: 0,
+      ambY: 0,
+      ambDir: lane.dir > 0 ? -1 : 1,
+    };
+    if (partner) {
+      // right behind it, stopped dead
+      partner.x = x - lane.dir * (half(partner) + 9);
+      partner.speed = 0;
+      partner.hit = true;
+      partner.until = s.otherUntil;
+      partner.riderOff = partner.kind === 'bike';
+      s.otherX = partner.x;
+      s.otherY = partner.y;
+    }
+    this.accident = s;
+    this.sounds.push({ kind: 'crash', x, y });
+    // whoever is close behind honks
+    for (const o of this.vehicles) if (o !== partner && o.dir === lane.dir && (x - o.x) * lane.dir > 0 && (x - o.x) * lane.dir < 140 && this.rng() < 0.5) this.honk(o, now);
+    return true;
+  }
+
+  /** The vehicle right behind `v` in its way, close enough to bump it (null: none). */
+  private follower(v: Vehicle): Vehicle | null {
+    let best: Vehicle | null = null;
+    let gap = 40;
+    for (const o of this.vehicles) {
+      if (o === v || o.dir !== v.dir || o.phase || o.owner || o.racer || o.ambulance || o.bus || o.parked || o.hit || !blocks(o.kind, o.y, v)) continue;
+      const g = (v.x - o.x) * v.dir - half(o) - half(v);
+      if (g >= 0 && g < gap) {
+        gap = g;
+        best = o;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * The ambulance: sent in the other lane when due (from that lane's end of the street, or not too far off), its siren
+   * wailing; bikes ahead make way; it stops beside the scene with its back doors there (put there if it's very late),
+   * waits for the medics to load the rider, and drives off with the siren on.
+   */
+  private ambulanceStep(s: AccidentScene, now: number, env: TrafficEnv): void {
+    let amb: Vehicle | undefined;
+    for (const v of this.vehicles) if (v.ambulance) amb = v;
+    if (!amb && (s.ambulance === 'coming' || s.ambulance === 'there')) s.ambulance = 'none';
+    if (!amb && s.ambulance === 'leaving') s.ambulance = 'gone';
+    const lane = env.lanes.find((l) => l.dir !== s.dir) ?? env.lanes[0];
+    if (!lane) return;
+    // its back doors by the scene
+    const stopX = s.x + lane.dir * (HALF.car - 9);
+    if (!amb && s.ambulance === 'none' && now >= s.ambulanceDue) {
+      const far = 700;
+      const x = lane.dir > 0 ? Math.max(env.x0, s.x - far) : Math.min(env.x1, s.x + far);
+      amb = { kind: 'car', x, y: lane.y, dir: lane.dir, speed: 55, want: 72, laneY: lane.y, ty: lane.y, variant: 0, riders: 1, stuck: 0, sidewalk: 0, ambulance: true, siren: true, phase: 'arrive', park: { x: stopX, y: lane.y } };
+      this.vehicles.push(amb);
+      s.ambulance = 'coming';
+      s.ambDir = lane.dir;
+    }
+    if (!amb) return;
+    if (amb.siren && now - this.sirenAt >= 1_900) {
+      this.sirenAt = now;
+      this.sounds.push({ kind: 'siren', x: amb.x, y: amb.y });
+    }
+    if (s.ambulance === 'coming') {
+      // very late (stuck somewhere): it's simply there
+      if (now - s.at > ACCIDENT_T.ambulanceLate && amb.phase === 'arrive') {
+        amb.x = stopX;
+        amb.y = amb.laneY;
+        amb.speed = 0;
+        amb.phase = 'parked';
+      }
+      if (amb.phase === 'parked') {
+        s.ambulance = 'there';
+        s.ambX = amb.x;
+        s.ambY = amb.y;
+        amb.siren = false;
+        return;
+      }
+      // the bikes ahead pull over to the far edge of their lane
+      for (const o of this.vehicles) {
+        if (o.kind !== 'bike' || o.dir !== amb.dir || o.phase || onSidewalk(o) || o.detour) continue;
+        const ahead = (o.x - amb.x) * amb.dir;
+        const edge = o.laneY - BAND_UP;
+        if (ahead > 0 && ahead < 110 && Math.abs(o.y - amb.y) < CAR_WIDTH && this.clear(o, edge)) o.ty = edge;
+      }
+    } else if (s.ambulance === 'there' && s.loaded) {
+      s.ambulance = 'leaving';
+      amb.phase = 'leave';
+      amb.park = undefined;
+      amb.ty = amb.laneY;
+      amb.siren = true;
+    }
+  }
+
+  /** The accident is over (or dropped): the vehicles stopped by it ride on, an ambulance still there drives off. */
+  endAccident(): void {
+    const s = this.accident;
+    if (!s) return;
+    s.done = true;
+    this.accident = null;
+    this.obstacles.length = 0;
+    for (const v of this.vehicles) {
+      if (v.hit) {
+        v.hit = false;
+        v.riderOff = false;
+      }
+      if (v.ambulance && (v.phase === 'arrive' || v.phase === 'parked')) {
+        v.phase = 'leave';
+        v.park = undefined;
+        v.ty = v.laneY;
+        v.siren = true;
+      }
+    }
+  }
+
+  /**
+   * Stuck close behind the accident: go around it through the oncoming lane, when that's free ahead (or the officer
+   * there waves this side on and holds the other).
+   */
+  private tryDetour(v: Vehicle): void {
+    const s = this.accident;
+    const o = this.obstacles[0];
+    if (!s || !o || v.dir !== s.dir || v.hit) return;
+    if (obstacleGap(v.x, half(v), v.dir, v.y, v.kind === 'car' ? 5 : 1, o) > 24) return;
+    if (s.directing && s.hold === v.dir) return;
+    const y = detourY(s);
+    if (!this.clear(v, y)) return;
+    // the officer holds the other side: only what's still at the scene matters; otherwise, anyone coming up ahead
+    const waved = s.directing && s.hold !== v.dir;
+    for (const u of this.vehicles) {
+      if (u.dir === v.dir || onSidewalk(u) || (u.phase === 'parked' && !u.ambulance)) continue;
+      const ahead = (u.x - v.x) * v.dir;
+      if (waved ? u.x + half(u) > o.x0 - 6 && u.x - half(u) < o.x1 + 6 : ahead > -half(u) - 10 && ahead < 230) return;
+    }
+    v.detour = true;
+    v.ty = y;
+  }
+
+  /** Going around the accident: out to the detour line, and back into the lane once past the scene (or it's gone). */
+  private goAround(v: Vehicle, dt: number): void {
+    const o = this.obstacles[0];
+    const past = !this.accident || !o || (v.dir > 0 ? v.x - half(v) > o.x1 + 4 : v.x + half(v) < o.x0 - 4);
+    if (past && Math.abs(v.ty - v.laneY) > BAND_DOWN + 6) {
+      const back = v.kind === 'car' ? v.laneY : v.laneY - 4;
+      if (this.clear(v, back)) v.ty = back;
+    }
+    if (v.y !== v.ty) v.y += Math.sign(v.ty - v.y) * Math.min(Math.abs(v.ty - v.y), DRIFT * 1.4 * dt);
+    else if (past) v.detour = false;
+  }
+
+  /** Room (px) before the accident's stop line for `v` while the officer there holds its side, else Infinity. */
+  private sceneStop(v: Vehicle): number {
+    const s = this.accident;
+    const o = this.obstacles[0];
+    if (!s || !o || !s.directing || s.hold !== v.dir || v.detour || v.ambulance || v.racer || v.phase || onSidewalk(v)) return Infinity;
+    const line = v.dir > 0 ? o.x0 - 16 : o.x1 + 16;
+    const ahead = (line - v.x) * v.dir - half(v);
+    return ahead < 0 ? Infinity : ahead;
+  }
+
   /** Bikes weave through the jam and, westbound, ride the far sidewalk for a stretch. */
   private steer(v: Vehicle, dt: number, env: TrafficEnv): void {
     const police = this.police.onPost && env.crossing ? env.crossing.x + env.crossing.w / 2 : null;
@@ -690,9 +984,16 @@ export class Traffic {
     let best = Infinity;
     for (const o of this.vehicles) {
       if (o === v || o.dir !== v.dir || !blocks(v.kind, y, o)) continue;
+      // the bikes make way for an ambulance
+      if (v.ambulance && o.kind === 'bike') continue;
       const ahead = (o.x - v.x) * v.dir;
       if (ahead <= 0) continue;
       const gap = ahead - half(o) - half(v);
+      if (gap < best) best = gap;
+    }
+    // an accident blocking the lane
+    for (const o of this.obstacles) {
+      const gap = obstacleGap(v.x, half(v), v.dir, y, v.kind === 'car' ? 5 : 1, o);
       if (gap < best) best = gap;
     }
     return best === Infinity ? null : { gap: best };

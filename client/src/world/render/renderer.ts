@@ -44,6 +44,8 @@ import { crosswalkClearsDash, drawCrosswalk } from './crosswalk';
 import { bunBikeProps } from '../sim/banhbao';
 import { banhtrangProps, coalsAt } from '../sim/banhtrang';
 import { drawCharcoalSmoke, drawCoalGlow } from './banhtrang-fx';
+import { drawAmbulance, drawCone, drawDebris, drawFallenBike, drawImpact, drawSirenGlow, drawUprightBike } from './accident-fx';
+import { conePoints, type AccidentScene } from '../sim/accident';
 import { loaProps } from '../sim/loa';
 import { DINER_CALL_MS, FLOODED, PARKING, RIDER_HELMETS, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
 import { busStopProps, type BusAt } from '../sim/bus';
@@ -62,12 +64,19 @@ const enum K {
   Ball,
   Robot,
   Shutter,
+  Accident,
+}
+
+/** A piece of a traffic accident drawn in the depth order: a cone (0–2) or the bike standing (3). */
+interface AccidentBit {
+  accident: true;
+  i: number;
 }
 
 interface Ent {
   k: K;
   y: number;
-  ref: FurnVis | Character | ExteriorProp | Vehicle | Pet | null;
+  ref: FurnVis | Character | ExteriorProp | Vehicle | Pet | AccidentBit | null;
   area: AreaVis | null;
   scale: number;
 }
@@ -458,6 +467,12 @@ export class Renderer {
     const view = { x0: vx0, y0: vy0, x1: vx1, y1: vy1 };
     // CI alarm: red tone on the floor (under furniture and characters)
     this.roomFx.drawFloor(ctx, this.sim, now, view);
+    // a traffic accident: the bits of plastic on the road and the bike lying in the lane (flat, under everyone)
+    const acc = this.traffic.accident;
+    if (acc && acc.bike !== 'gone' && visible(acc.x - 32, acc.bikeY - 20, 64, 30)) {
+      drawDebris(ctx, acc.x, acc.bikeY, acc.id);
+      if (acc.bike === 'down') drawFallenBike(ctx, acc.x, acc.bikeY, acc.variant, acc.dir);
+    }
 
     // ---- entities sorted by depth
     const ents = this.ents;
@@ -555,6 +570,12 @@ export class Renderer {
     for (const prop of banhmiCartProps(this.sim.banhmiCart())) if (visible(prop.x - 24, prop.y - 36, 48, 40)) push(K.Prop, prop.y, prop, null, 1);
     for (const car of this.traffic.vehicles) if (visible(car.x - 46, car.y - 46, 92, 50)) push(K.Car, car.y, car, null, 1);
     for (const car of this.xeOm()) if (visible(car.x - 24, car.y - 28, 48, 32)) push(K.Car, car.y, car, null, 1);
+    // the accident's cones and the bike once it's up (wheeled by the officer, parked by the curb)
+    if (acc) {
+      const cones = this.conesOf(acc);
+      for (let i = 0; i < acc.cones && i < cones.length; i++) if (visible(cones[i].x - 6, cones[i].y - 12, 12, 14)) push(K.Accident, cones[i].y, this.accidentBits[i], null, 1);
+      if ((acc.bike === 'wheeled' || acc.bike === 'parked') && visible(acc.bikeX - 16, acc.bikeY - 24, 32, 26)) push(K.Accident, acc.bikeY - 2, this.accidentBits[3], null, 1);
+    }
     this.petBoxes.clear();
     for (const pet of this.sim.pets.pets) if (visible(pet.x - 16, pet.y - 20, 32, 24)) push(K.Pet, pet.depth(), pet, null, 1);
     const robot = this.sim.pets.robot;
@@ -594,8 +615,13 @@ export class Renderer {
         case K.Shutter:
           drawShutter(this.ctx, this.sim.guard.shutter);
           break;
+        case K.Accident:
+          this.drawAccidentBit((e.ref as AccidentBit).i);
+          break;
       }
     }
+    // the crash's flash, over the vehicles
+    if (acc && now - acc.at < 800) drawImpact(ctx, acc.x, acc.bikeY - 8, now - acc.at);
     this.drawPingPong(now);
     // weather outside (rain, wind, birds), only outside the building
     this.drawFalling(now, vx0, vy0, vx1, vy1);
@@ -614,6 +640,8 @@ export class Renderer {
     this.night = this.lighting.night;
     this.drawLighting(now, vx0, vy0, vx1, vy1);
     if (coals && visible(coals.x - 24, coals.y - 16, 48, 32)) drawCoalGlow(ctx, coals.x, coals.y, this.night, now, reducedMotion());
+    // the ambulance's flashing lights on the road at night
+    if (acc) for (const car of this.traffic.vehicles) if (car.ambulance && visible(car.x - 60, car.y - 50, 120, 70)) drawSirenGlow(ctx, car.x, car.y, car.dir, this.night, this.clock(), reducedMotion());
     // thunderstorm: the lightning flash over everything (sim/outage.ts)
     if (now - this.sim.lightningAt < 1_000) drawLightningFlash(ctx, { x: vx0, y: vy0, w: vx1 - vx0, h: vy1 - vy0 }, { x: 0, y: 0, w: this.sim.building.cols * COL_W * TILE, h: BUILDING_H * TILE }, now - this.sim.lightningAt, reducedMotion());
     if (this.theme !== 'none') {
@@ -1397,6 +1425,12 @@ export class Renderer {
   }
 
   private drawCar(car: Vehicle): void {
+    if (car.ambulance) {
+      const acc = this.traffic.accident;
+      drawAmbulance(this.ctx, car.x, car.y, car.dir, this.clock(), !!acc && acc.doors && car.phase === 'parked');
+      this.wetWheels(car, 29);
+      return;
+    }
     if (car.bus) {
       drawBus(this.ctx, car, this.clock(), this.night, !!this.busAt?.doorsOpen);
       this.wetWheels(car, 40);
@@ -1422,7 +1456,7 @@ export class Renderer {
       this.ctx.drawImage(c.canvas, Math.round(car.x + car.dir * BIKE_RACK.dx - c.ax), Math.round(car.y + BIKE_RACK.dy - c.ay));
     }
     // a rider who pulled over to eat is off the bike (the sim walks them to the stools); one buying to go stays on
-    if (!car.pushing && !(car.diner && !car.dinerStays && car.phase === 'parked')) {
+    if (!car.pushing && !car.riderOff && !(car.diner && !car.dinerStays && car.phase === 'parked')) {
       riders.forEach((appearance, i) => {
         const rider = i === riders.length - 1;
         const dx = rider ? BIKE_SEATS.rider : BIKE_SEATS.passenger;
@@ -1573,7 +1607,13 @@ export class Renderer {
     // last frame's weather: this frame's is worked out further down
     // the bus stop: the people still getting on or off hold the bus; the stop sees where the bus is
     this.traffic.busHold = this.sim.busStop.hold;
+    // traffic accidents: on the world clock, not while the sim has something else going on
+    this.traffic.clock = d.getTime();
+    this.traffic.accidentOff = this.sim.accident.off;
     this.traffic.step(now, dt, env, hour, d.getDay(), this.weather === 'rain', this.streetDay());
+    this.sim.accident.scene = this.traffic.accident;
+    for (const s of this.traffic.sounds) this.sim.sound(s.kind, s.x, s.y);
+    this.traffic.sounds.length = 0;
     this.busAt = this.sim.busStop.bus = this.traffic.busAt(now);
     this.sim.policeWanted = this.traffic.police.wanted;
     this.sim.policeHold = this.traffic.police.hold;
@@ -1637,6 +1677,32 @@ export class Renderer {
       this.xeOmList = [-8.2, -5.8, -3.4].map((tx, i): Vehicle => ({ kind: 'bike', x: tx * TILE, y, dir: 1, speed: 0, want: 0, laneY: y, ty: y, variant: 7001 + i * 3, riders: 1, stuck: 0, sidewalk: 0, parked: true }));
     }
     return this.xeOmList.slice(0, 2 + (this.date.getHours() % 2));
+  }
+
+  /** Accident pieces drawn in the depth order (cones 0–2, the standing bike 3); reused every frame. */
+  private readonly accidentBits: AccidentBit[] = [0, 1, 2, 3].map((i) => ({ accident: true, i }));
+  /** The accident's cone spots (cached per accident) and which way the wheeled bike faces. */
+  private coneCache: { id: number; pts: readonly { x: number; y: number }[] } = { id: 0, pts: [] };
+  private bikeFace: 1 | -1 = 1;
+  private bikeLastX = 0;
+
+  private conesOf(s: AccidentScene): readonly { x: number; y: number }[] {
+    if (this.coneCache.id !== s.id) this.coneCache = { id: s.id, pts: conePoints(s) };
+    return this.coneCache.pts;
+  }
+
+  /** A cone, or the bike standing: wheeled along (facing the way it moves) or parked by the curb. */
+  private drawAccidentBit(i: number): void {
+    const s = this.traffic.accident;
+    if (!s) return;
+    if (i < 3) {
+      const c = this.conesOf(s)[i];
+      if (c) drawCone(this.ctx, c.x, c.y);
+      return;
+    }
+    if (Math.abs(s.bikeX - this.bikeLastX) > 0.2) this.bikeFace = s.bikeX > this.bikeLastX ? 1 : -1;
+    this.bikeLastX = s.bikeX;
+    drawUprightBike(this.ctx, s.bikeX, s.bikeY, s.variant, this.bikeFace);
   }
 
   /** Muddy water over the street (spilling onto the curbs when deep), with ripples drifting on it. */

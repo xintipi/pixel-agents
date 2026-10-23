@@ -157,7 +157,10 @@ export type SoundCueKind =
   // power cuts (sim/outage.ts): the breaker's "tạch", the hum of the power coming back, the generator outside (a bed)
   | 'power_off'
   | 'power_on'
-  | 'generator';
+  | 'generator'
+  // a traffic accident (sim/accident.ts): the crash ("rầm") and the ambulance's two-tone siren
+  | 'crash'
+  | 'siren';
 
 export interface SoundCue {
   kind: SoundCueKind;

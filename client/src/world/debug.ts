@@ -7,6 +7,7 @@ import { hash32 } from '../../../shared/hash';
 import { TILE } from '../art/api';
 import type { Camera } from './camera';
 import type { Renderer } from './render/renderer';
+import { accidentStage, type AccidentScene, type AccidentStage, type Obstacle } from './sim/accident';
 import { oldestShell } from './sim/shell';
 import type { Sim } from './sim/sim';
 import type { GatherKind } from './social/gathering';
@@ -103,6 +104,26 @@ export interface WorldDebug {
   rushNow(on: boolean | null): { car: number; bike: number };
   /** A racing boy rides past right now (whatever the hour). */
   racerNow(): void;
+  /**
+   * A traffic accident right now (whatever the hour): a bike goes down near the middle of the view (bumped by whoever is
+   * behind it, if anyone), then the officer, the ambulance, the clearing. Pair with rushNow(true) for the jam.
+   */
+  crashNow(): void;
+  /** Ends the traffic accident now (everyone vanishes, the lane reopens). */
+  crashEnd(): void;
+  /**
+   * The traffic accident right now, for the console (null: none): its stage, how long ago it happened, the scene
+   * (bike, officer, cones, ambulance, medics), what it blocks and how many vehicles are stuck behind it.
+   */
+  accident(): {
+    stage: AccidentStage;
+    ageS: number;
+    scene: AccidentScene;
+    blocked: Obstacle | null;
+    vehicles: number;
+    stuck: number;
+    allowed: boolean;
+  } | null;
   /**
    * A city bus comes now (whatever the hour) and stops across the street (sim/bus.ts); `chase`: someone comes running
    * after it, and the driver waits ('wait') or pulls away without them ('miss').
@@ -462,6 +483,31 @@ export function createDebug(sim: Sim, renderer: Renderer, camera: Camera, onCame
 
     racerNow: () => {
       renderer.traffic.racerNow = true;
+    },
+
+    crashNow: () => {
+      renderer.traffic.endAccident();
+      renderer.traffic.crashAt = camera.x;
+    },
+
+    crashEnd: () => {
+      renderer.traffic.endAccident();
+    },
+
+    accident: () => {
+      const t = renderer.traffic;
+      const s = t.accident;
+      if (!s) return null;
+      const at = t.clock || now();
+      return {
+        stage: accidentStage(s, at),
+        ageS: Math.round((at - s.at) / 100) / 10,
+        scene: { ...s },
+        blocked: t.obstacles[0] ? { ...t.obstacles[0] } : null,
+        vehicles: t.vehicles.length,
+        stuck: t.vehicles.filter((v) => v.stuck > 0).length,
+        allowed: !t.accidentOff,
+      };
     },
 
     busNow: (chase) => {

@@ -27,8 +27,8 @@ const SFX_STALE_MS = 1_500;
 const SFX_GAIN: Partial<Record<SoundCue['kind'], number>> = { door: 0.7, flush: 0.8, tap: 0.7, coffee: 0.8, yawn: 0.8, bark: 0.9, meow: 0.9, robot_start: 0.8, robot_dock: 0.8 };
 /** At most one horn this often (ms): a rush-hour jam honks a lot, and it shouldn't drown the rest (global cap). */
 const HORN_GAP_MS = 650;
-/** Heard even off screen (quieter): the doorbell of the pizza delivery, the power going and coming back, a close thunderclap. */
-const SFX_OFFSCREEN: ReadonlySet<SoundCue['kind']> = new Set(['pizza', 'power_off', 'power_on', 'thunder']);
+/** Heard even off screen (quieter): the doorbell of the pizza delivery, the power going and coming back, a close thunderclap, an ambulance's siren. */
+const SFX_OFFSCREEN: ReadonlySet<SoundCue['kind']> = new Set(['pizza', 'power_off', 'power_on', 'thunder', 'siren']);
 
 interface ViewRect {
   x0: number;

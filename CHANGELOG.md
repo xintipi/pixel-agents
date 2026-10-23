@@ -175,6 +175,14 @@ do meio (0.**3**.0).
   sesta. Dá bom-dia a quem chega e tchau a quem vai embora (um balão a cada 20 s, no máximo), sorri para quem passa
   e se endireita com uma reverência quando o chefe faz a ronda. Chega e vai embora pelo elevador. No console:
   `habblaud.world.debug.receptionistNow()`.
+- **Acidente na rua.** Uma ou duas vezes por dia (mais na chuva e na hora do rush; nunca de madrugada, na sesta, no
+  Tết, sem luz ou numa visita), uma moto cai na pista com um "rầm": o piloto senta do lado ("Ui, cái chân…"), quem
+  vinha atrás para e discute, e os curiosos olham. O guarda chega a pé, põe três cones e libera um lado de cada vez;
+  a ambulância vem com sirene e luzes (de noite, refletidas no asfalto), as motos abrem caminho, dois socorristas
+  fazem o curativo e levam o piloto. Depois o guarda tira a moto e os cones e a pista reabre. Com a rua vazia os
+  carros só desviam devagar; na hora do rush vira engarrafamento, com buzina e moto subindo na calçada. Sons do
+  impacto e da sirene. No console: `habblaud.world.debug.crashNow()` (com `rushNow(true)` para o engarrafamento) e
+  `crashEnd()`.
 - **Cúp điện.** De vez em quando o prédio fica sem luz: as salas apagam (de dia, penumbra; à noite, quase breu), quem
   está trabalhando de verdade continua no laptop com a luz da tela no rosto, e quem está à toa leva um susto, acende a
   lanterna do celular ou vai se abanar na janela, e comemora quando a luz volta ("Có điện rồi! 🎉"). Três causas:

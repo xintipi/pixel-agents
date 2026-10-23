@@ -48,6 +48,8 @@ export const CATEGORY_OF: Readonly<Record<SoundKind, SoundCategory>> = {
   power_off: 'life',
   power_on: 'life',
   generator: 'life',
+  crash: 'weather',
+  siren: 'weather',
 };
 
 /** Minimum interval (ms) between two sounds on the same channel. */
@@ -84,6 +86,8 @@ export const MIN_GAP_MS: Readonly<Record<SoundKind, number>> = {
   power_off: 1_500,
   power_on: 1_500,
   generator: 0,
+  crash: 2_000,
+  siren: 1_500,
 };
 
 /** The bell and the pop share the same channel (one doesn't trample the other). */
@@ -120,6 +124,8 @@ const CHANNEL: Readonly<Record<SoundKind, string>> = {
   power_off: 'power',
   power_on: 'power',
   generator: 'generator',
+  crash: 'crash',
+  siren: 'siren',
 };
 
 /** Global cap: at most this many sounds per second (the alert bell always gets through). */
