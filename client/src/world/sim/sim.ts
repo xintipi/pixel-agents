@@ -48,7 +48,7 @@ import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen 
 import { TRASH_HANDOVER, trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './trash';
 import { BanhTrangStand } from './banhtrang';
 import { AccidentCrew } from './accident-crew';
-import { BUN_CALL_MS, BUN_MAX_BUYERS, bunBikeAt, bunCall, bunOrder, bunRoute, bunThanks, bunTime } from './banhbao';
+import { BUN_CALL_MS, BUN_MAX_BUYERS, bunBikeAt, bunBuyerSpot, bunCall, bunOrder, bunRoute, bunThanks, bunTime } from './banhbao';
 import { SCRAP_CALL_MS, SCRAP_SALE_GAP_MS, scrapBikeAt, scrapCall, scrapPay, scrapRoute, scrapSell, scrapWindow } from './vechai';
 import {
   FLOWER_CALL_MS,
@@ -3937,7 +3937,7 @@ export class Sim {
   /** Down the stone path to him, a bun bought, back up and eaten at the desk. */
   private planBunBuy(ch: Character, i: number): void {
     const rng = ch.rng;
-    const spot = buyerSpot(i);
+    const spot = bunBuyerSpot(i);
     this.bunBuyers.add(ch.id);
     const steps: Step[] = [];
     this.pushLeave(ch, steps);

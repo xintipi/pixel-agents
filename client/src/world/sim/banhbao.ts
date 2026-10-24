@@ -2,6 +2,7 @@
 // and the little loudspeaker on the handlebar ("bánh bao nóng hổi đây…"); he stops at the foot of the stone path, whoever
 // is still idle in the office comes down for one, and he walks on east. Pure (no DOM).
 import { tr } from '../../../../shared/i18n';
+import { TILE } from '../constants';
 import type { ExteriorProp } from '../layout/types';
 import { LOTTERY_STOPS } from './lottery';
 
@@ -15,8 +16,17 @@ export const BUN_MAX_BUYERS = 3;
 
 /** The bike rides just ahead of him (he pushes it by the rear rack). */
 const BIKE_DX = 32;
-/** He walks the same line as the lottery seller and stops at the same place, so the buyers line up beside him. */
-const STOP = LOTTERY_STOPS.path;
+/**
+ * He walks the same line as the lottery seller and stops just east of the lamp post at x = 4 tiles, the bike ahead of
+ * him clear of the tea stall's stacked stools, the buyers lining up west of him (between the zebra crossing's sign and
+ * the lamp post): at the foot of the path the sign would hide him or his steamer box.
+ */
+const STOP = { x: 4 * TILE + 7, y: LOTTERY_STOPS.path.y } as const;
+
+/** Where a buyer from the office stands (feet, px): beside him, the first one closest. */
+export function bunBuyerSpot(i: number): { x: number; y: number } {
+  return { x: STOP.x - 14 - i * 11, y: STOP.y - 3 };
+}
 
 export function bunTime(hour: number): boolean {
   return hour >= BUN_FROM_H && hour < BUN_TO_H;

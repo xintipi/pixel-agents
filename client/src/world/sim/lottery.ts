@@ -18,9 +18,12 @@ export const WIN_CHANCE = 0.15;
 /** She walks along the sidewalk, a bit below the walking lane (like the tea seller). */
 const WALK_Y = LANE_Y + 14;
 
-/** Where she stops: at the foot of the stone path (calling the office) and in front of the tea stall. */
+/**
+ * Where she stops: at the foot of the stone path (calling the office; west of the zebra crossing's sign, which would
+ * hide her) and in front of the tea stall.
+ */
 export const LOTTERY_STOPS = {
-  path: { x: -6, y: WALK_Y },
+  path: { x: -22, y: WALK_Y },
   tea: { x: TEA_TABLE.x - 30, y: WALK_Y },
 } as const;
 
