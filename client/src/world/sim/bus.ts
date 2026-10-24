@@ -54,7 +54,7 @@ export const BUS_SPEED = 34;
 export const BUS_CHASE_CHANCE = 0.3;
 export const BUS_WAIT_CHANCE = 0.55;
 /** Each second in service hours: the chance someone walks up to wait (plus more at rush hour), and how many at most. */
-export const BUS_RIDER_CHANCE = 0.004;
+export const BUS_RIDER_CHANCE = 0.008;
 export const BUS_RIDER_RUSH = 0.008;
 
 export interface BusSpot {
