@@ -46,7 +46,6 @@ import { racerReaction, type RacerWitness } from './racer';
 import { STREET_H, STREET_Y } from '../layout/exterior';
 import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen } from './repair';
 import { TRASH_HANDOVER, trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './trash';
-import { LOA_LINE_MS, loaGroan, loaScript, loaWindow } from './loa';
 import { BanhTrangStand } from './banhtrang';
 import { AccidentCrew } from './accident-crew';
 import { BUN_CALL_MS, BUN_MAX_BUYERS, bunBikeAt, bunCall, bunOrder, bunRoute, bunThanks, bunTime } from './banhbao';
@@ -508,12 +507,6 @@ export class Sim {
   private nextScrapCallAt = 0;
   /** When the tea seller last sold her the empty bottles (a bag fills up every few hours). */
   private lastScrapSale = -1e15;
-  /** Ward loudspeaker (sim/loa.ts): the last window it played (day + index), and the broadcast on air. */
-  private loaDone = '';
-  private loaLines: string[] = [];
-  private loaStartedAt = 0;
-  /** Someone in the office groans about it then (0: done). */
-  private loaGroanAt = 0;
   /** Night bánh bao seller (sim/banhbao.ts): day he came, next loudspeaker call, who's coming down to buy. */
   private bunDoneOn = '';
   private nextBunCallAt = 0;
@@ -1877,7 +1870,6 @@ export class Sim {
       this.updateRepair(now);
       this.updateTrash(now);
       this.updateScrap(now);
-      this.updateLoa(now);
       this.updateBun(now);
       this.updateBoss(now);
       this.updateFlowers(now);
@@ -3891,43 +3883,6 @@ export class Sim {
   trashNow(): boolean {
     if (this.visit || this.extras.some((e) => e.id === TRASH_ID)) return false;
     return !!this.spawnTrash(this.now);
-  }
-
-  /** The ward radio comes on once in each window (6:00, 17:00); someone in the office groans about it. */
-  private updateLoa(now: number): void {
-    if (this.loaGroanAt && now >= this.loaGroanAt) {
-      this.loaGroanAt = 0;
-      const who = [...this.chars.values()].filter((c) => !c.leaving);
-      const c = who[Math.floor(Math.random() * who.length)];
-      if (c) this.social.say(c, loaGroan(c.rng), now);
-    }
-    const w = loaWindow(this.hourOf(now));
-    const key = `${dayKey(now)}#${w}`;
-    if (this.visit || w < 0 || this.loaDone === key) return;
-    this.loaDone = key;
-    this.startLoa(now);
-  }
-
-  private startLoa(now: number): void {
-    this.loaLines = loaScript(Math.random);
-    this.loaStartedAt = now;
-    this.loaGroanAt = now + LOA_LINE_MS * 1.5;
-  }
-
-  /** What the loudspeaker is saying now (null: off air), for the overlay. */
-  loaSay(): { text: string; at: number; until: number } | null {
-    if (!this.loaLines.length || this.visit) return null;
-    const i = Math.floor((this.now - this.loaStartedAt) / LOA_LINE_MS);
-    if (i < 0 || i >= this.loaLines.length) return null;
-    const at = this.loaStartedAt + i * LOA_LINE_MS;
-    return { text: this.loaLines[i], at, until: at + LOA_LINE_MS };
-  }
-
-  /** Debug: the ward radio comes on now. */
-  loaNow(): boolean {
-    if (this.visit) return false;
-    this.startLoa(this.now);
-    return true;
   }
 
   /** The bánh bao seller comes by once an evening, the loudspeaker calling all along. */

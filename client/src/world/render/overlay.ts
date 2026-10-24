@@ -9,7 +9,6 @@ import type { WorldOptions } from '../api';
 import type { Camera } from '../camera';
 import { COL_W, CORRIDOR_Y, SOUTH_Y } from '../constants';
 import type { Character } from '../sim/character';
-import { LOA_POLE, LOA_TOP } from '../sim/loa';
 import { shellAgeKey, shellBubbleAlpha, shellBubbleText, STORM_LIFT, unitHash } from '../sim/shell';
 import type { Sim } from '../sim/sim';
 import { buildAnim } from './anim';
@@ -309,7 +308,6 @@ export class Overlay {
     // signs and pills first: they are fixed and large; bubbles and tags avoid them
     this.drawRoomTexts(now, zoom);
     this.drawFxBanners(now, zoom);
-    if (opts.bubbles !== 'none' && zoom >= TINY_ZOOM) this.drawLoa(now);
 
     // ---- collect bubbles and tags of the visible characters
     const items = this.items;
@@ -456,47 +454,6 @@ export class Overlay {
   private iconLift(ch: Character): number {
     const lift = headIconLift(ch);
     return this.sim.roomFx.active.size && this.sim.roomFx.alarmOwner(ch.id, this.sim.now) ? Math.max(lift, 13) : lift;
-  }
-
-  /** What the ward loudspeaker is saying (loa phường): a speech bubble hanging from the horns, bubbles avoid it. */
-  private drawLoa(now: number): void {
-    const say = this.sim.loaSay();
-    if (!say) return;
-    const { ctx, camera } = this;
-    const ax = this.sx(LOA_POLE.x);
-    const ay = this.sy(LOA_POLE.y - LOA_TOP);
-    if (ax < -200 || ax > camera.viewW + 200 || ay < -40 || ay > camera.viewH + 40) return;
-    const text = this.fit(SAY_FONT, `📢 ${say.text}`, 320);
-    const w = Math.round(this.measure(SAY_FONT, text) + 14);
-    const h = SAY_H;
-    const x = Math.max(4, Math.min(camera.viewW - w - 4, Math.round(ax - w / 2)));
-    const y = Math.round(ay - h - 6);
-    const tailX = Math.max(x + 8, Math.min(x + w - 8, Math.round(ax)));
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, Math.min(1, (now - say.at) / 120, (say.until - now) / 300));
-    ctx.fillStyle = 'rgba(16,20,32,0.22)';
-    ctx.beginPath();
-    ctx.roundRect(x, y + 2, w, h, 7);
-    ctx.fill();
-    ctx.fillStyle = '#fff6d6';
-    ctx.strokeStyle = 'rgba(120,90,20,0.45)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, 7);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(tailX - 4.5, y + h - 1);
-    ctx.lineTo(tailX, y + h + 5);
-    ctx.lineTo(tailX + 4.5, y + h - 1);
-    ctx.closePath();
-    ctx.fill();
-    ctx.font = SAY_FONT;
-    ctx.fillStyle = '#3b2a00';
-    ctx.textAlign = 'center';
-    ctx.fillText(text, x + w / 2, y + h / 2 + 1);
-    ctx.restore();
-    this.place(x, y, w, h);
   }
 
   /** Party/alarm banner (GitHub events) at the top of the floor of each room with an effect. */

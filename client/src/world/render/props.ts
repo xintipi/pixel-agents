@@ -832,56 +832,6 @@ function streetBikeSprite(load: 'scrap' | 'bun' | 'flowers' = 'scrap', fl?: Flow
   return { canvas: c, ax: 23, ay: 34 };
 }
 
-/**
- * The ward loudspeaker (loa phường): a tall gray concrete pole, cables coiled around it, a crossbar near the top with two
- * horn speakers pointing up and down the street, and a little junction box.
- */
-function loudspeakerSprite(): PropSprite {
-  const o = '#22303a';
-  const [c, ctx] = makeCanvas(32, 66);
-  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w, h);
-  };
-  shadowEllipse(ctx, 16, 63, 6, 1.5, 0.28);
-  // the pole: tapering square concrete, lit on the left
-  px(o, 13, 6, 6, 58);
-  px('#a8a49a', 14, 6, 4, 57);
-  px('#c8c4ba', 14, 6, 1, 57);
-  px('#86827a', 17, 6, 1, 57);
-  px('#6e6a62', 12, 60, 8, 4);
-  px('#8a867c', 13, 60, 6, 1);
-  // coils of black cable wrapped around it, and a stray one hanging down
-  for (const y of [22, 23, 25, 36, 37]) px('#1a1d24', 13, y, 6, 1);
-  px('#1a1d24', 19, 25, 1, 9);
-  // junction box
-  px(o, 18, 40, 6, 8);
-  px('#8a95a3', 19, 41, 4, 6);
-  px('#c9d0db', 19, 41, 4, 1);
-  // crossbar with the two horns: gray, mouths out, the driver bell at the back
-  px(o, 6, 9, 20, 3);
-  px('#5a6070', 7, 10, 18, 1);
-  const horn = (x0: number, dir: 1 | -1) => {
-    // driver at the pole end, the flare opening toward the street
-    for (let i = 0; i < 9; i++) {
-      const x = x0 + i * dir;
-      const half = 1 + Math.floor(i / 2.2);
-      px(o, x, 6 - half, 1, half * 2 + 1);
-      if (half > 1) px(i > 6 ? '#e8ebf0' : '#c9d0db', x, 7 - half, 1, half * 2 - 1);
-    }
-    const mouth = x0 + 8 * dir;
-    px('#5a6070', mouth, 3, 1, 5);
-  };
-  horn(12, -1);
-  horn(19, 1);
-  px(o, 14, 2, 4, 8);
-  px('#5a6070', 15, 3, 2, 6);
-  // cap on top of the pole
-  px(o, 13, 0, 6, 3);
-  px('#86827a', 14, 1, 4, 1);
-  return { canvas: c, ax: 16, ay: 63 };
-}
-
 function banhmiCartSprite(): PropSprite {
   const [c, ctx] = makeCanvas(42, 36);
   shadowEllipse(ctx, 21, 33, 18, 2, 0.24);
@@ -1202,9 +1152,6 @@ export function propSprite(prop: ExteriorProp, month = 0): PropSprite {
       break;
     case 'hutieu_cart':
       s = hutieuCartSprite();
-      break;
-    case 'loudspeaker':
-      s = loudspeakerSprite();
       break;
     case 'banhtrang_stand':
       s = banhtrangStandSprite();

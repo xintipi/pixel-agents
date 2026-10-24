@@ -109,10 +109,6 @@ do meio (0.**3**.0).
   motoqueiro desce e empurra até a banca, espera ao lado enquanto o mecânico levanta para consertar e depois segue
   viagem. No console:
   `habblaud.world.debug.repairNow()`.
-- **Loa phường (alto-falante do bairro).** Um poste de concreto com duas cornetas na calçada da frente. Às 6h e às 17h a
-  rádio do bairro entra no ar: "Đây là Đài truyền thanh phường…", uns avisos (dengue, lixo só das 19h às 20h, golpe
-  do código OTP…) num balão sobre as cornetas, e o encerramento; alguém no escritório reclama do barulho. No console:
-  `habblaud.world.debug.loaNow()`.
 - **Bánh bao à noite.** Por volta das 20h30, uma vez por noite, o vendedor de bánh bao passa empurrando a bicicleta
   com a caixa de isopor e o alto-falante ("bánh bao nóng hổi đây…"); para no pé do caminho de pedras e quem está à toa
   no escritório desce para comprar e come na mesa. No console: `habblaud.world.debug.banhbaoNow()`.

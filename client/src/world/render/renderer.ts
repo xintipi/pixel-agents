@@ -46,7 +46,6 @@ import { banhtrangProps, coalsAt } from '../sim/banhtrang';
 import { drawCharcoalSmoke, drawCoalGlow } from './banhtrang-fx';
 import { drawAmbulance, drawCone, drawDebris, drawFallenBike, drawImpact, drawSirenGlow, drawUprightBike } from './accident-fx';
 import { conePoints, type AccidentScene } from '../sim/accident';
-import { loaProps } from '../sim/loa';
 import { DINER_CALL_MS, FLOODED, PARKING, RIDER_HELMETS, Traffic, type StreetDay, type TrafficEnv, type Vehicle } from '../sim/traffic';
 import { busStopProps, type BusAt } from '../sim/bus';
 import { drawBus } from './bus';
@@ -562,8 +561,6 @@ export class Renderer {
     for (const prop of bunBikeProps(this.sim.bunBike())) if (visible(prop.x - 24, prop.y - 32, 48, 36)) push(K.Prop, prop.y, prop, null, 1);
     // night bánh tráng nướng stand: rides along with the auntie, her stool out once she's set up
     for (const prop of banhtrangProps(this.sim.banhtrang.stand(), this.sim.banhtrang.up)) if (visible(prop.x - 20, prop.y - 30, 40, 34)) push(K.Prop, prop.y, prop, null, 1);
-    // the ward loudspeaker's pole (loa phường), always there
-    for (const prop of loaProps()) if (visible(prop.x - 16, prop.y - 64, 32, 68)) push(K.Prop, prop.y, prop, null, 1);
     // the bus stop across the street (shelter and sign post), always there
     for (const prop of busStopProps()) if (visible(prop.x - 32, prop.y - 58, 64, 60)) push(K.Prop, prop.y, prop, null, 1);
     // morning bánh mì cart: rides along with the vendor, parked east of the tea stall
