@@ -37,7 +37,15 @@ export interface SlotShell {
   props: ExteriorProp[];
 }
 
+/** Lamp posts on the far sidewalk (x in tiles, up to `east`): clear of what already stands there, then every 10 tiles. */
+export function farLampXs(east: number): number[] {
+  const xs = [-12, 11.5];
+  for (let x = 23.5; x < east; x += 10) xs.push(x);
+  return xs.filter((x) => x < east);
+}
+
 export function layoutExterior(cols: number): ExteriorLayout {
+
   const w = cols * COL_W;
   const bounds: TileRect = { x: -EXT_WEST, y: -EXT_NORTH, w: w + EXT_WEST + EXT_EAST, h: BUILDING_H + EXT_NORTH + EXT_SOUTH };
   const px = (t: number) => t * TILE;
@@ -91,6 +99,9 @@ export function layoutExterior(cols: number): ExteriorLayout {
   for (let x = bounds.x + 4; x < bounds.x + bounds.w; x += 10) {
     props.push({ kind: 'lamp', x: px(x), y: px(south + 3) + 6, seed: x });
   }
+  // the far sidewalk has its own, by the curb, in the gaps between what stands there: the waiting xe ôm bikes and the
+  // crossing (x ≈ -8..0), the evening dance (2..10), the bus stop with the bus pulling in (14..22)
+  for (const x of farLampXs(bounds.x + bounds.w)) props.push({ kind: 'lamp', x: px(x), y: px(south + 9) + 8, seed: 1000 + x * 10 });
   for (const row of [13, 17, 21]) {
     for (let x = bounds.x + 3; x < bounds.x + bounds.w - 2; x += 6 + Math.floor(rng() * 5)) {
       props.push({ kind: rng() < 0.2 ? 'pine' : 'tree', x: px(x) + Math.floor(rng() * 10), y: px(south + row) + Math.floor(rng() * 10), seed: Math.floor(rng() * 1e9) });

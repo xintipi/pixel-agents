@@ -12,7 +12,12 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
-- **Ponto de ônibus na rua.** Na calçada do outro lado agora há um ponto de ônibus de Sài Gòn: abrigo com banco, painel
+- **Postes dos dois lados da rua.** A calçada do outro lado também ganhou postes de luz junto ao meio-fio, nos vãos
+  entre o que já fica ali (as motos dos xe ôm e a faixa de pedestres, a dança da noite, o ponto de ônibus): à noite as
+  duas calçadas ficam iluminadas, com as mariposas em volta das lâmpadas.
+
+- **Ponto de ônibus na rua.**
+ Na calçada do outro lado agora há um ponto de ônibus de Sài Gòn: abrigo com banco, painel
   de propaganda e a placa azul com as linhas 08, 19 e 150. Das 5h30 às 21h passa um ônibus verde a cada 15–20 minutos
   (mais seguido na hora do rush): ele dá seta, encosta no meio-fio e abre as portas por uns 10 segundos; os carros
   esperam atrás e as motos desviam buzinando. Quem está esperando (no banco, no celular ou olhando a rua) embarca,
