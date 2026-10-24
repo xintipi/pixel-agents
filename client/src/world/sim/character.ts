@@ -128,6 +128,8 @@ export class Character {
   outdoors: number[] | null = null;
   /** Fixed costume (extras, e.g. the tea seller's conical hat); absent = the theme's. */
   costume?: CharacterFrameRequest['costume'];
+  /** Always in their own clothes, whatever the theme (an accident's riders and medics): no seasonal costume. */
+  plain = false;
   /** The boss is around (sim/boss.ts): pretends to work until this instant (0 = not pretending). */
   fakeWorkUntil = 0;
   /** In the evening dance (sim/danvu.ts): how many beats behind the group (0 = in step); null = not dancing. */

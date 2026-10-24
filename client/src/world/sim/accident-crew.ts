@@ -91,6 +91,15 @@ export class AccidentCrew {
     }
     if (!this.officerSent && now >= s.officerDue) this.sendOfficer(s);
     if (!this.medicsSent && s.ambulance === 'there') this.sendMedics(s);
+    // no officer (the art failed, or he's gone): once the ambulance has left, the scene clears by itself
+    if (this.officerSent && (!this.officer || this.officer.gone) && (s.ambulance === 'leaving' || s.ambulance === 'gone')) {
+      s.directing = false;
+      s.cones = 0;
+      s.bike = 'gone';
+      s.done = true;
+      return;
+    }
+    this.footing(s);
     const o = this.officer;
     if (o && !o.gone) {
       if (s.directing) {
@@ -124,6 +133,24 @@ export class AccidentCrew {
     }
   }
 
+  /**
+   * Where the crew stands out on the road (feet, into the scene's `walkers`) for the street to stop short of them: the
+   * riders, the medics and the officer while he walks about (not while he directs, standing beside the traffic).
+   */
+  private footing(s: AccidentScene): void {
+    const w = (s.walkers ??= []);
+    w.length = 0;
+    const add = (ch: Character | null) => {
+      if (!ch || ch.gone || ch.inside || ch.y < STREET_Y || ch.y > STREET_Y + STREET_H) return;
+      if (ch === this.officer && s.directing) return;
+      w.push(ch.x, ch.y);
+    };
+    add(this.rider);
+    add(this.other);
+    add(this.officer);
+    for (const m of this.medics) add(m);
+  }
+
   /** Coming back from a hidden tab (the extras are gone already): the accident is over too. */
   reset(): void {
     if (this.scene) this.scene.done = true;
@@ -143,6 +170,7 @@ export class AccidentCrew {
     if (rider) {
       const spot = riderSpot(s);
       rider.crowd = true;
+      rider.plain = true;
       rider.x = s.x;
       rider.y = s.bikeY + 1;
       rider.dir = face(s.dir);
@@ -165,6 +193,7 @@ export class AccidentCrew {
       if (other) {
         const [angry, worried] = otherLines(other.rng);
         other.crowd = true;
+        other.plain = true;
         other.x = s.otherX + s.dir * 4;
         other.y = s.otherY + 4;
         other.dir = face(s.dir);
@@ -305,6 +334,7 @@ export class AccidentCrew {
       const m = this.host.npc(`${ID}medic:${i}`, tr('Paramedic'), i ? 'f' : 'm', 5511 + i * 17, MEDIC);
       if (!m) continue;
       m.crowd = true;
+      m.plain = true;
       const [x, y] = this.rearPts(s, i);
       m.x = x;
       m.y = y;

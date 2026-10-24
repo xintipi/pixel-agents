@@ -273,6 +273,134 @@ describe('the scene on the street', () => {
     expect(t.vehicles.some((v) => v.ambulance)).toBe(false);
   });
 
+  it('whoever goes around never drives through the oncoming traffic: the oncoming side yields to them', () => {
+    const t = street();
+    t.vehicles.push(vehicle('bike', 400, 1));
+    t.crashAt = 400;
+    let now = run(t, 0.1, 0);
+    const s = t.accident!;
+    s.officerDue = s.ambulanceDue = Infinity;
+    const halfOf = (v: Vehicle) => (v.kind === 'car' ? 29 : 13);
+    const crossing = (a: Vehicle, b: Vehicle) =>
+      Math.abs(a.x - b.x) < halfOf(a) + halfOf(b) - 2 && Math.abs(a.y - b.y) < (a.kind === 'car' || b.kind === 'car' ? 10 : 7);
+    let overlaps = 0;
+    let detours = 0;
+    let late = 0;
+    let k = 0;
+    const surprised = new Set<Vehicle>();
+    // eastbound cars piling up behind the scene; whenever one has just pulled out to go around, someone turns up in the
+    // oncoming lane right in front of it (a new arrival, or the side the officer just let go)
+    now = run(t, 90, now, () => {
+      k++;
+      if (k % 75 === 0) t.vehicles.push(vehicle(k % 150 ? 'car' : 'bike', -350, 1, { variant: 200 + k }));
+      for (const a of t.vehicles) {
+        if (!a.detour) continue;
+        detours++;
+        if (!surprised.has(a)) {
+          surprised.add(a);
+          late++;
+          // a car in the middle of its lane, or a bike weaving along the edge of its band nearest the detour line
+          const bike = late % 2 === 0;
+          const y = bike ? WEST - 15 : WEST;
+          t.vehicles.push(vehicle(bike ? 'bike' : 'car', a.x + 110, -1, { variant: 900 + k, y, ty: y }));
+        }
+        for (const b of t.vehicles) if (b.dir !== a.dir && crossing(a, b)) overlaps++;
+      }
+    });
+    expect(detours).toBeGreaterThan(0);
+    expect(late).toBeGreaterThanOrEqual(2);
+    expect(overlaps).toBe(0);
+    // and nobody got stuck face to face: the ones that went around made it past the scene
+    expect([...surprised].filter((a) => a.x > s.x + 60).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('nobody starts going around while the ambulance is on the street', () => {
+    const t = street();
+    t.vehicles.push(vehicle('bike', 400, 1));
+    t.crashAt = 400;
+    let now = run(t, 0.1, 0);
+    const s = t.accident!;
+    s.officerDue = Infinity;
+    s.ambulanceDue = now;
+    now = run(t, 2, now);
+    expect(t.vehicles.some((v) => v.ambulance)).toBe(true);
+    const car = vehicle('car', 200, 1);
+    t.vehicles.push(car);
+    let around = false;
+    run(t, 12, now, () => (around ||= !!car.detour && t.vehicles.some((v) => v.ambulance)));
+    expect(around).toBe(false);
+  });
+
+  it('a late ambulance put by the scene never lands on top of someone', () => {
+    const t = street();
+    t.vehicles.push(vehicle('bike', 400, 1));
+    t.crashAt = 400;
+    let now = run(t, 0.1, 0);
+    const s = t.accident!;
+    s.officerDue = Infinity;
+    s.ambulanceDue = now;
+    now = run(t, 1, now);
+    // the westbound lane at the stop is packed and doesn't move
+    const amb = t.vehicles.find((v) => v.ambulance)!;
+    amb.x = 1100;
+    for (let i = 0; i < 4; i++) t.vehicles.push(vehicle('car', 330 + i * 62, -1, { want: 0, speed: 0, variant: 500 + i }));
+    run(t, ACCIDENT_T.ambulanceLate / 1000 + 2, now);
+    expect(s.ambulance).toBe('there');
+    for (const o of t.vehicles) if (o !== amb && o.dir === amb.dir && Math.abs(o.y - amb.y) < 10) expect(Math.abs(o.x - amb.x)).toBeGreaterThanOrEqual(29 + (o.kind === 'car' ? 29 : 13));
+  });
+
+  it('agents riding in and the racing boy go around too (they used to wait it out)', () => {
+    const t = street();
+    t.vehicles.push(vehicle('bike', 400, 1));
+    t.crashAt = 400;
+    let now = run(t, 0.1, 0);
+    const s = t.accident!;
+    s.officerDue = s.ambulanceDue = Infinity;
+    const mine = vehicle('bike', 200, 1, { owner: 'agent-1', phase: 'arrive', park: { x: 1100, y: STREET_Y - 6 } });
+    t.vehicles.push(mine);
+    run(t, 20, now);
+    expect(mine.x).toBeGreaterThan(s.x + 40);
+  });
+
+  it('the crossing officer and the one at the scene hold the same side', () => {
+    const t = street();
+    t.police.onPost = true;
+    t.vehicles.push(vehicle('bike', 100, 1));
+    t.crashAt = 100;
+    let now = run(t, 0.1, 0);
+    const s = t.accident!;
+    s.officerDue = s.ambulanceDue = Infinity;
+    s.cones = 3;
+    s.directing = true;
+    s.hold = 1;
+    s.holdUntil = now + 60_000;
+    now = run(t, 1, now);
+    expect(t.police.hold).toBe(1);
+    s.hold = -1;
+    run(t, 1, now);
+    expect(t.police.hold).toBe(-1);
+  });
+
+  it('nobody drives through the crew out on the road', () => {
+    const t = street();
+    t.vehicles.push(vehicle('bike', 400, 1));
+    t.crashAt = 400;
+    let now = run(t, 0.1, 0);
+    const s = t.accident!;
+    s.officerDue = s.ambulanceDue = Infinity;
+    // someone standing in the westbound lane, a car coming at them
+    s.walkers = [250, WEST];
+    const car = vehicle('car', 600, -1);
+    t.vehicles.push(car);
+    now = run(t, 12, now);
+    expect(car.x - 29).toBeGreaterThanOrEqual(254 - 0.5);
+    expect(car.speed).toBeLessThan(1);
+    // they stepped off the road: it rides on
+    s.walkers = [];
+    run(t, 10, now);
+    expect(car.x).toBeLessThan(200);
+  });
+
   it('never lasts forever', () => {
     const t = street();
     t.crashAt = 300;
@@ -330,6 +458,63 @@ describe('the whole accident, street and people', () => {
     expect(t.obstacles.length).toBe(0);
     expect(sim.extras.some((e) => e.id.startsWith('npc:accident:') && !e.gone)).toBe(false);
     expect(now - T0).toBeLessThan(ACCIDENT_T.max);
+  });
+
+  it('no officer (the art failed): the scene clears by itself once the ambulance has left', () => {
+    const noOfficer = {
+      appearanceFromSeed: (seed: number) => {
+        if (seed === 9931) throw new Error('no art');
+        return appearance;
+      },
+      roomTheme: () => theme,
+    } as unknown as ArtModule;
+    const sim = new Sim(noOfficer, () => ({ ...DEFAULT_WORLD_OPTIONS }), null);
+    let now = T0;
+    sim.applySnapshot(snap, now);
+    const t = street();
+    t.vehicles.push(vehicle('bike', 300, 1));
+    t.crashAt = 300;
+    let id = 0;
+    let gone = false;
+    for (let i = 0; i < 200 * 30; i++) {
+      now += 1000 / 30;
+      t.step(now, 1 / 30, env, 10.5, 3);
+      sim.accident.scene = t.accident;
+      sim.update(1 / 30, now);
+      const s = t.accident;
+      if (s) {
+        id ||= s.id;
+        gone ||= s.ambulance === 'leaving' || s.ambulance === 'gone';
+      } else if (id) break;
+    }
+    expect(gone).toBe(true);
+    expect(t.accident).toBeNull();
+    expect(t.obstacles.length).toBe(0);
+    // well before the hard cap
+    expect(now - T0).toBeLessThan(ACCIDENT_T.max - 30_000);
+  });
+
+  it('the riders and the medics keep their own clothes whatever the theme', () => {
+    const sim = new Sim(art, () => ({ ...DEFAULT_WORLD_OPTIONS }), null);
+    let now = T0;
+    sim.applySnapshot(snap, now);
+    const t = street();
+    t.vehicles.push(vehicle('bike', 300, 1), vehicle('bike', 270, 1, { variant: 99 }));
+    t.crashAt = 300;
+    let medics = 0;
+    for (let i = 0; i < 120 * 30; i++) {
+      now += 1000 / 30;
+      t.step(now, 1 / 30, env, 10.5, 3);
+      sim.accident.scene = t.accident;
+      sim.update(1 / 30, now);
+      medics = Math.max(medics, sim.extras.filter((e) => e.id.includes(':medic:') && !e.gone).length);
+      if (medics) break;
+    }
+    const crew = sim.extras.filter((e) => e.id.startsWith('npc:accident:') && !e.gone);
+    expect(crew.find((e) => e.id.endsWith(':rider'))?.plain).toBe(true);
+    expect(crew.filter((e) => e.id.includes(':medic:')).every((e) => e.plain)).toBe(true);
+    // the officer wears the traffic police uniform (his own costume), not the theme's either
+    expect(crew.find((e) => e.id.endsWith(':police'))?.costume).toBe('csgt');
   });
 
   it('a hidden tab ends it', () => {

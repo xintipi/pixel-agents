@@ -1075,7 +1075,7 @@ export class Renderer {
     req.pose = ch.pose;
     req.held = ch.held;
     req.seated = ch.seated;
-    req.costume = ch.costume ?? seasonalCostume(this.theme, ch.info.seed);
+    req.costume = ch.costume ?? (ch.plain ? undefined : seasonalCostume(this.theme, ch.info.seed));
     try {
       sprite = this.charSprite(req, ch.animT);
     } catch {
@@ -1284,7 +1284,7 @@ export class Renderer {
       req.pose = ch.pose === 'groom' ? 'groom' : 'stand';
       req.held = ch.pose === 'groom' ? ch.held : 'none';
       req.seated = false;
-      req.costume = ch.costume ?? seasonalCostume(this.theme, ch.info.seed);
+      req.costume = ch.costume ?? (ch.plain ? undefined : seasonalCostume(this.theme, ch.info.seed));
       let s: Sprite;
       try {
         s = this.charSprite(req, ch.animT);

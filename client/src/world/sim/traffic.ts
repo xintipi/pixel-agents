@@ -293,6 +293,11 @@ export class Traffic {
   /** debug.crashNow: a crash at the next step, as close to this x (px) as possible. */
   crashAt: number | null = null;
   private accidentSeq = 0;
+  /** An ambulance is on the street: nobody starts going around the scene (they'd meet it head-on). */
+  private ambOut = false;
+  /** The accident's crew on foot out on the road this frame (sim/accident-crew.ts): nobody drives through them (reused). */
+  readonly crewBoxes: Obstacle[] = [];
+  private readonly crewPool: Obstacle[] = [];
   private sirenAt = 0;
 
   /** A bike is at the repair stall being fixed. */
@@ -512,6 +517,14 @@ export class Traffic {
       p.holdUntil = 0;
       return;
     }
+    // an officer directing at an accident down the street: the one at the crossing holds the same side, so nobody
+    // gets waved on at one and stopped at the other
+    const s = this.accident;
+    if (s?.directing) {
+      p.hold = s.hold;
+      p.holdUntil = s.holdUntil;
+      return;
+    }
     if (now >= p.holdUntil) {
       p.hold = p.hold === 1 ? -1 : 1;
       p.holdUntil = now + POLICE_PHASE_MS;
@@ -569,7 +582,7 @@ export class Traffic {
       let target = Math.min(want, Math.max(0, gap - MIN_GAP) * GAP_GAIN);
       // riding in to park: up onto the sidewalk near the spot, braking to stop right at it
       const toPark = v.phase === 'arrive' && v.park ? (v.park.x - v.x) * v.dir : Infinity;
-      if (toPark < 70) {
+      if (toPark < 70 && !v.detour) {
         v.ty = v.park!.y;
         target = Math.min(target, Math.max(0, toPark) * 1.6 + (toPark > 1 ? 6 : 0));
       }
@@ -589,11 +602,13 @@ export class Traffic {
       if (stop - step < 0) step = Math.max(0, stop);
       v.x += v.dir * step;
       v.stuck = v.speed < want * 0.35 ? v.stuck + dt : 0;
-      if (!v.detour && this.obstacles.length && !v.owner && !v.phase && !v.racer && !v.ambulance && !onSidewalk(v)) this.tryDetour(v);
+      // around an accident: the street's traffic, the racing boy, and agents riding in whose spot is still a way off
+      if (!v.detour && this.obstacles.length && !v.ambulance && !v.bus && !v.pushing && !onSidewalk(v) && (!v.phase || (v.phase === 'arrive' && toPark > 150))) this.tryDetour(v);
+      const giving = v.kind === 'bike' && !v.racer && this.makeWay(v);
       if (v.detour) this.goAround(v, dt);
       else if (v.owner || v.phase) this.ride(v, dt, now);
       else if (v.racer) this.race(v, dt, now, env);
-      else if (v.kind === 'bike' && !v.pushing) this.steer(v, dt, env);
+      else if (v.kind === 'bike' && !v.pushing) this.steer(v, dt, env, giving);
       if (v.stuck > 1 && !v.owner && !v.phase && this.rng() < 0.12 * dt) this.honk(v, now);
       else if (v.kind === 'bike' && l > 0.5 && this.rng() < 0.015 * dt) this.honk(v, now);
     }
@@ -710,10 +725,27 @@ export class Traffic {
       this.crashAt = null;
     }
     this.obstacles.length = 0;
+    this.crewBoxes.length = 0;
     const s = this.accident;
-    if (!s) return;
+    if (!s) {
+      this.ambOut = false;
+      return;
+    }
     if (sceneObstacle(s, this.obstacle)) this.obstacles.push(this.obstacle);
     this.ambulanceStep(s, now, env);
+    this.ambOut = this.vehicles.some((v) => v.ambulance);
+    // the officer, the medics and the riders out on the road: a small box around each one's feet
+    const w = s.walkers;
+    if (w) {
+      for (let i = 0; i + 1 < w.length; i += 2) {
+        const box = (this.crewPool[i >> 1] ??= { x0: 0, x1: 0, y0: 0, y1: 0 });
+        box.x0 = w[i] - 4;
+        box.x1 = w[i] + 4;
+        box.y0 = w[i + 1] - 4;
+        box.y1 = w[i + 1] + 2;
+        this.crewBoxes.push(box);
+      }
+    }
   }
 
   /**
@@ -851,8 +883,10 @@ export class Traffic {
       this.sounds.push({ kind: 'siren', x: amb.x, y: amb.y });
     }
     if (s.ambulance === 'coming') {
-      // very late (stuck somewhere): it's simply there
-      if (now - s.at > ACCIDENT_T.ambulanceLate && amb.phase === 'arrive') {
+      // very late (stuck somewhere): it's simply there, the ones standing on its spot moved back along the queue (not
+      // while someone going around the scene is passing there)
+      if (now - s.at > ACCIDENT_T.ambulanceLate && amb.phase === 'arrive' && !this.vehicles.some((o) => o.detour && Math.abs(o.x - stopX) < half(o) + HALF.car + MIN_GAP)) {
+        this.makeRoom(amb, stopX);
         amb.x = stopX;
         amb.y = amb.laneY;
         amb.speed = 0;
@@ -881,6 +915,26 @@ export class Traffic {
     }
   }
 
+  /**
+   * Room in its lane for the ambulance put at `x`: whoever stands on the spot (or right behind it) is moved back behind
+   * it, and the queue behind them in turn, keeping the usual gap. Rare (a very late ambulance), so it may allocate.
+   */
+  private makeRoom(amb: Vehicle, x: number): void {
+    const d = amb.dir;
+    const row = this.vehicles
+      .filter((o) => o !== amb && o.dir === d && !o.detour && o.phase !== 'parked' && !onSidewalk(o) && blocks('car', amb.laneY, o) && (o.x - x) * d < half(o) + HALF.car + MIN_GAP)
+      .sort((a, b) => (b.x - a.x) * d);
+    let back = x - d * HALF.car;
+    for (const o of row) {
+      const front = o.x + d * half(o);
+      if ((back - front) * d < MIN_GAP) {
+        o.x = back - d * (MIN_GAP + half(o));
+        o.speed = 0;
+      }
+      back = o.x - d * half(o);
+    }
+  }
+
   /** The accident is over (or dropped): the vehicles stopped by it ride on, an ambulance still there drives off. */
   endAccident(): void {
     const s = this.accident;
@@ -888,6 +942,7 @@ export class Traffic {
     s.done = true;
     this.accident = null;
     this.obstacles.length = 0;
+    this.crewBoxes.length = 0;
     for (const v of this.vehicles) {
       if (v.hit) {
         v.hit = false;
@@ -909,7 +964,8 @@ export class Traffic {
   private tryDetour(v: Vehicle): void {
     const s = this.accident;
     const o = this.obstacles[0];
-    if (!s || !o || v.dir !== s.dir || v.hit) return;
+    // with an ambulance on the street nobody pulls out: it would meet them head-on in the oncoming lane
+    if (!s || !o || v.dir !== s.dir || v.hit || this.ambOut) return;
     if (obstacleGap(v.x, half(v), v.dir, v.y, v.kind === 'car' ? 5 : 1, o) > 24) return;
     if (s.directing && s.hold === v.dir) return;
     const y = detourY(s);
@@ -947,10 +1003,30 @@ export class Traffic {
     return ahead < 0 ? Infinity : ahead;
   }
 
-  /** Bikes weave through the jam and, westbound, ride the far sidewalk for a stretch. */
-  private steer(v: Vehicle, dt: number, env: TrafficEnv): void {
+  /**
+   * An oncoming bike with someone going around the accident just ahead in its band: over to the far side of its lane
+   * (away from the detour line). Returns whether it's making way (then it doesn't weave about meanwhile).
+   */
+  private makeWay(v: Vehicle): boolean {
+    const s = this.accident;
+    if (!s || v.dir === s.dir || v.detour || onSidewalk(v)) return false;
+    const away = detourY(s) < v.laneY ? v.laneY + BAND_DOWN : v.laneY - BAND_UP;
+    for (const o of this.vehicles) {
+      if (!o.detour || Math.abs(o.y - v.y) >= 12) continue;
+      const ahead = (o.x - v.x) * v.dir;
+      if (ahead <= -half(o) || ahead >= 160) continue;
+      if (v.ty !== away && this.clear(v, away)) v.ty = away;
+      return true;
+    }
+    return false;
+  }
+
+  /** Bikes weave through the jam and, westbound, ride the far sidewalk for a stretch (not while making way: `giving`). */
+  private steer(v: Vehicle, dt: number, env: TrafficEnv, giving = false): void {
     const police = this.police.onPost && env.crossing ? env.crossing.x + env.crossing.w / 2 : null;
-    if (onSidewalk(v)) {
+    if (giving) {
+      // just moving over (below)
+    } else if (onSidewalk(v)) {
       v.sidewalk -= v.speed * dt;
       // the officer saw that: a whistle, and back down to the road right away
       if (police !== null && !v.caught && Math.abs(v.x - police) < CATCH_R) {
@@ -983,17 +1059,26 @@ export class Traffic {
   private leader(v: Vehicle, y: number): { gap: number } | null {
     let best = Infinity;
     for (const o of this.vehicles) {
-      if (o === v || o.dir !== v.dir || !blocks(v.kind, y, o)) continue;
-      // the bikes make way for an ambulance
-      if (v.ambulance && o.kind === 'bike') continue;
+      if (o === v || !blocks(v.kind, y, o)) continue;
+      if (o.dir !== v.dir) {
+        // head-on around an accident: whoever goes around the scene and an oncoming vehicle in the same band both stop
+        // short of each other; the oncoming bike moves over to the far side of its lane (makeWay) and both ride on
+        // (cars keep to the middle of their lane, clear of the detour line, so they never meet one)
+        if (!o.detour && !v.detour) continue;
+      } else if (v.ambulance && o.kind === 'bike') continue; // the bikes make way for an ambulance
       const ahead = (o.x - v.x) * v.dir;
       if (ahead <= 0) continue;
       const gap = ahead - half(o) - half(v);
       if (gap < best) best = gap;
     }
-    // an accident blocking the lane
+    // an accident blocking the lane, and its crew out on the road
+    const margin = v.kind === 'car' ? 5 : 1;
     for (const o of this.obstacles) {
-      const gap = obstacleGap(v.x, half(v), v.dir, y, v.kind === 'car' ? 5 : 1, o);
+      const gap = obstacleGap(v.x, half(v), v.dir, y, margin, o);
+      if (gap < best) best = gap;
+    }
+    for (const o of this.crewBoxes) {
+      const gap = obstacleGap(v.x, half(v), v.dir, y, margin, o);
       if (gap < best) best = gap;
     }
     return best === Infinity ? null : { gap: best };

@@ -89,6 +89,8 @@ export interface AccidentScene {
   ambX: number;
   ambY: number;
   ambDir: 1 | -1;
+  /** The crew on foot out on the road right now (flat x,y feet pairs, px; sim/accident-crew.ts fills it): nobody drives through them. */
+  walkers?: number[];
 }
 
 /** A stretch of a lane nobody can ride through (px): x0..x1 along it, y0..y1 across it. */
