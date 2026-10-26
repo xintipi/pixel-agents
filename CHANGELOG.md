@@ -254,6 +254,14 @@ do meio (0.**3**.0).
   dia) e um aviso quando um agente gasta US$ 1, 2 ou 5 em 10 minutos (US$ 2 por padrão). O valor continua sendo o
   que o próprio Claude Code grava; o Codex não grava custo e fica de fora.
 
+### Corrigido
+
+- **Ao voltar de outra aba, a rua não recomeça do zero.** Depois de uns segundos com a aba escondida, a vendedora de trà
+  đá, o mecânico, o carrinho de bánh mì, o do hủ tiếu (com o menino), a banca de bánh tráng, o guarda de trânsito e o
+  grupo de dança "saíam de novo" desde a ponta da calçada. Agora já estão no lugar quando você volta; e quem estava
+  passando pela calçada (vé số, ve chai, carrinho do lixo, bánh bao, florista) segue de onde estava se a aba ficou
+  escondida por menos de 2 minutos.
+
 ### Alterado
 
 - **Visão geral (O) mostra a rua inteira.** Além do prédio, o enquadramento pega a calçada, as duas faixas, a calçada

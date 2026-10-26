@@ -46,7 +46,7 @@ import { racerReaction, type RacerWitness } from './racer';
 import { STREET_H, STREET_Y } from '../layout/exterior';
 import { MECHANIC_SEAT, MECHANIC_WALK_Y, mechanicDone, mechanicLine, repairOpen } from './repair';
 import { TRASH_HANDOVER, trashCall, trashCartAt, trashReply, trashRoute, trashTime } from './trash';
-import { BanhTrangStand } from './banhtrang';
+import { BANHTRANG_VENDOR_ID, BanhTrangStand } from './banhtrang';
 import { AccidentCrew } from './accident-crew';
 import { BUN_CALL_MS, BUN_MAX_BUYERS, bunBikeAt, bunBuyerSpot, bunCall, bunOrder, bunRoute, bunThanks, bunTime } from './banhbao';
 import { SCRAP_CALL_MS, SCRAP_SALE_GAP_MS, scrapBikeAt, scrapCall, scrapPay, scrapRoute, scrapSell, scrapWindow } from './vechai';
@@ -238,6 +238,11 @@ const HUTIEU_BOY_ID = 'npc:hutieu-go';
 /** Id of the traffic police officer at the crossing (extra). */
 const POLICE_ID = 'npc:csgt';
 const BUN_ID = 'npc:banh-bao';
+/** Sellers of the all-day stalls: after the tab was hidden they're already at their stall (fastForward). */
+const STALL_SELLERS: ReadonlySet<string> = new Set([TEA_SELLER_ID, BANHMI_VENDOR_ID, MECHANIC_ID, HUTIEU_UNCLE_ID, BANHTRANG_VENDOR_ID, POLICE_ID]);
+/** Street walkers (a round along the sidewalk) and how long a tab can stay hidden for them to carry on where they were (ms). */
+const STREET_WALKERS: ReadonlySet<string> = new Set([LOTTERY_SELLER_ID, SCRAP_ID, TRASH_ID, BUN_ID, FLOWER_ID]);
+const WALKER_KEEP_MS = 120_000;
 /** The garbage cart's bell rings every this many ms while she's out. */
 const TRASH_BELL_MS = 2_600;
 /** At most this many from the office come down to buy when she calls at the path. */
@@ -5090,10 +5095,14 @@ export class Sim {
 
   /** Advances everything instantly to the destinations (used when coming back from a hidden tab). */
   fastForward(now: number): void {
+    // how long the sim was frozen (the tab was hidden)
+    const away = now - this.now;
     this.now = now;
     this.pets.fastForward(now);
-    // extras: what they were going to do happens (the pizza stays on the table) and they're already gone
+    // extras: what they were going to do happens (the pizza stays on the table) and they're already gone; except the
+    // street walkers mid-round after a short absence: the sim just stood still, they carry on where they were
     for (const e of this.extras) {
+      if (away >= 0 && away < WALKER_KEEP_MS && STREET_WALKERS.has(e.id)) continue;
       for (const s of [e.step, ...e.queue]) if (s?.t === 'do') s.fn();
       e.gone = true;
     }
@@ -5104,7 +5113,8 @@ export class Sim {
     this.banhmiUp = false;
     this.banhmi.clear();
     // the flower bike's visit ends with the tab hidden (she's already gone; the vases stay)
-    this.flowerStopped = false;
+    // (the flower seller mid-stop, kept above, stays stopped)
+    if (!this.extras.some((e) => e.id === FLOWER_ID && !e.gone)) this.flowerStopped = false;
     this.flowers.clear();
     // the hủ tiếu cart too (pushed in again, if it's still the hour); pending orders are dropped
     this.hutieuUp = false;
@@ -5129,6 +5139,7 @@ export class Sim {
     this.dancersSent = 0;
     this.danceDay = '';
     this.lotteryBuyers.clear();
+    this.bunBuyers.clear();
     // the receptionist is back at the desk right away (if it's still office hours), no walk in
     this.reception.snap = true;
     this.reception.due.length = 0;
@@ -5206,7 +5217,45 @@ export class Sim {
         v.setPose('stand');
       }
     }
+    // the all-day stalls are already set up when you look back: their sellers don't walk in from the start again
+    for (let i = this.extras.length - 1; i >= 0; i--) if (this.extras[i].gone) this.extras.splice(i, 1);
+    const before = new Set(this.extras);
+    this.updateTea(now);
+    this.updateBanhMi(now);
+    this.updateRepair(now);
+    this.updateHutieu(now);
+    this.updatePolice(now);
+    this.banhtrang.tick(now);
+    // the dance group is already in its places (all of the aunties, not one by one)
+    if (this.danceOn(now)) {
+      for (let i = 0; i < DANCERS; i++) {
+        this.nextDancerAt = 0;
+        this.updateDance(now);
+      }
+    }
+    for (const e of this.extras) if (!before.has(e) && (STALL_SELLERS.has(e.id) || e.id.startsWith(DANCER_ID))) this.settle(e, now);
+    // the hủ tiếu boy comes once the uncle's cart is up: right by it, not at the end of the sidewalk
+    this.updateHutieu(now);
+    for (const e of this.extras) {
+      if (before.has(e) || e.id !== HUTIEU_BOY_ID) continue;
+      e.step = null;
+      e.queue.length = 0;
+      e.x = HUTIEU_PICKUP.x - 24;
+      e.y = LANE_Y;
+    }
     if (this.visit) this.applyVisitLight(now);
+  }
+
+  /** A seller who just opened a stall (in fastForward) is already at it: through the walk in and the setting up, up to sitting or standing there. */
+  private settle(ch: Character, now: number): void {
+    for (let guard = 0; guard < 20; guard++) {
+      if (!ch.step) ch.step = ch.queue.shift() ?? null;
+      const s = ch.step;
+      if (!s || (s.t !== 'route' && s.t !== 'go' && s.t !== 'do' && s.t !== 'enter' && s.t !== 'stall')) break;
+      this.finishStep(ch, s, now);
+      ch.step = null;
+    }
+    ch.stepT = 0;
   }
 
   private finishStep(ch: Character, s: Step, now: number): void {

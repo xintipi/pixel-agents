@@ -488,6 +488,60 @@ describe('simulação do escritório', () => {
     expect(sim.rooms.get('/b')!.lightOn).toBe(true);
   });
 
+  it('avanço rápido: quem vende já está na banca ao voltar, e quem passava segue de onde estava', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.hourOverride = 10;
+    sim.applySnapshot(snap([room('/a', 0)], [agent('ana', '/a', 'working')]), clock.now);
+    run(sim, clock, 90, () => sim.teaUp && sim.repairUp);
+    expect(sim.teaUp).toBe(true);
+    expect(sim.repairUp).toBe(true);
+    // her round starts by itself in these hours (or right now)
+    if (!sim.extras.some((e) => e.id === 'npc:ve-so')) sim.lotteryNow();
+    run(sim, clock, 5);
+    const seller = sim.extras.find((e) => e.id === 'npc:ve-so')!;
+    const at = seller.x;
+    // a short absence: the stalls are set up right away (nobody walks in again), the lottery seller stays where she was
+    clock.now += 10_000;
+    sim.fastForward(clock.now);
+    expect(sim.teaUp).toBe(true);
+    expect(sim.repairUp).toBe(true);
+    const tea = sim.extras.find((e) => e.id === 'npc:tra-da')!;
+    expect(tea.seated).toBe(true);
+    expect(tea.gone).toBeFalsy();
+    expect(sim.extras.find((e) => e.id === 'npc:sua-xe')!.seated).toBe(true);
+    expect(seller.gone).toBeFalsy();
+    expect(seller.x).toBe(at);
+    // a long absence: the round is over, the stalls are still there
+    clock.now += 10 * 60_000;
+    sim.fastForward(clock.now);
+    expect(seller.gone).toBe(true);
+    expect(sim.teaUp).toBe(true);
+  });
+
+  it('avanço rápido à noite: dança, hủ tiếu, bánh tráng e guarda já estão nos seus lugares', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.hourOverride = 20.3;
+    sim.policeWanted = true;
+    sim.applySnapshot(snap([room('/a', 0)], [agent('ana', '/a', 'working')]), clock.now);
+    run(sim, clock, 5);
+    // away for 10 min (long enough for any round to be over): nobody starts over from the end of the sidewalk
+    clock.now += 10 * 60_000;
+    sim.fastForward(clock.now);
+    const byId = (id: string) => sim.extras.find((e) => e.id === id && !e.gone);
+    expect(sim.hutieuUp).toBe(true);
+    expect(sim.banhtrang.up).toBe(true);
+    expect(sim.policeOnPost).toBe(true);
+    expect(byId('npc:hutieu')!.x).toBeGreaterThan(0);
+    expect(byId('npc:banh-trang')!.seated).toBe(true);
+    const aunties = sim.extras.filter((e) => e.id.startsWith('npc:danvu:') && !e.gone);
+    expect(aunties.length).toBeGreaterThanOrEqual(3);
+    expect(aunties.every((e) => e.danceLag !== null)).toBe(true);
+    // the boy is by the cart, not at the west end of the sidewalk
+    expect(byId('npc:hutieu-go')!.x).toBeGreaterThan(0);
+  });
+
   it('snapshots com falhas não quebram o mundo', () => {
     const sim = newSim();
     const clock = { now: T0 };
