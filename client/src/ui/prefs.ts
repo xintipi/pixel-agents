@@ -53,7 +53,7 @@ export const DEFAULT_PREFS: UiPrefs = {
   musicVolume: DEFAULT_MUSIC_VOLUME,
   browserNotifications: false,
   sidebarOpen: true,
-  feedOpen: true,
+  feedOpen: false,
   hiddenAccounts: [],
   worldVisitNotify: true,
   rowCost: true,

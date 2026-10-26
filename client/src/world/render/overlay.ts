@@ -7,7 +7,7 @@
 import { TILE } from '../../art/api';
 import type { WorldOptions } from '../api';
 import type { Camera } from '../camera';
-import { COL_W, CORRIDOR_Y, SOUTH_Y } from '../constants';
+import { BUILDING_H, COL_W, CORRIDOR_Y, SOUTH_Y } from '../constants';
 import type { Character } from '../sim/character';
 import { shellAgeKey, shellBubbleAlpha, shellBubbleText, STORM_LIFT, unitHash } from '../sim/shell';
 import type { Sim } from '../sim/sim';
@@ -324,8 +324,10 @@ export class Overlay {
       const hovered = sel.hover === ch.id;
       // the visitor (Visit scene) always with name and badge
       const visitor = ch === this.sim.visitor;
-      // extras in a crowd (the dance group) only show their name on hover
-      const labeled = selected || hovered || ch.mode === 'wait' || (showAll && !ch.crowd) || visitor;
+      // extras in a crowd (the dance group) and the street's sellers and passers-by only show their name on hover: the tag
+      // would sit on their bike, their cart and their speech
+      const street = ch.info.id.startsWith('npc:') && ch.y >= BUILDING_H * TILE;
+      const labeled = selected || hovered || ch.mode === 'wait' || (showAll && !ch.crowd && !street) || visitor;
       const above = labeled && this.labelAbove(ch);
       const b = this.bubbleFor(ch, head, now, opts, selected, hovered);
       if (b) {

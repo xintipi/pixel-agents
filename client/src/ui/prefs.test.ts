@@ -38,8 +38,8 @@ describe('preferências', () => {
   });
   it('salva e carrega de volta', () => {
     const st = memoryStorage();
-    savePrefs(st, { ...DEFAULT_PREFS, bubbles: 'none', feedOpen: false });
-    expect(loadPrefs(st)).toEqual({ ...DEFAULT_PREFS, bubbles: 'none', feedOpen: false });
+    savePrefs(st, { ...DEFAULT_PREFS, bubbles: 'none', feedOpen: true });
+    expect(loadPrefs(st)).toEqual({ ...DEFAULT_PREFS, bubbles: 'none', feedOpen: true });
   });
   it('não quebra quando o armazenamento lança exceção', () => {
     const broken = {

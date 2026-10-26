@@ -264,6 +264,9 @@ do meio (0.**3**.0).
 
 ### Alterado
 
+- **Rua mais limpa.** Vendedores e transeuntes da calçada (e os do outro lado da rua) só mostram o nome ao passar o
+  mouse: a etiqueta ficava em cima da bicicleta, do carrinho e da fala deles. E a barra "Atividade" agora começa
+  recolhida para quem ainda não escolheu (quem já abriu ou fechou mantém a escolha).
 - **Visão geral (O) mostra a rua inteira.** Além do prédio, o enquadramento pega a calçada, as duas faixas, a calçada
   do outro lado (com os mototáxis) e, a oeste, o caminho de pedra da entrada e a faixa de pedestres; o zoom mínimo
   acompanha, para caber em telas pequenas.
