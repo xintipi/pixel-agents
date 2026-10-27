@@ -7,7 +7,7 @@ import type { UiComponent, UiContext } from './context';
 import { computeCounters } from './model';
 import { tr } from '../../../shared/i18n';
 
-const BASE_TITLE = 'Habblaud';
+const BASE_TITLE = 'FTE';
 
 export type NotificationState = 'unsupported' | 'default' | 'granted' | 'denied';
 

@@ -264,6 +264,9 @@ do meio (0.**3**.0).
 
 ### Alterado
 
+- **Marca "FTE" no lugar de "Habblaud" (nesta versão).** O logotipo em pixels, a placa da recepção (`signage.png`, gerada
+  por `scripts/assets/pixelart.py`), o totem da entrada, a fala da recepcionista, o título da aba e o nome do app
+  instalado passam a mostrar "FTE".
 - **Rua mais limpa.** Vendedores e transeuntes da calçada (e os do outro lado da rua) só mostram o nome ao passar o
   mouse: a etiqueta ficava em cima da bicicleta, do carrinho e da fala deles. E a barra "Atividade" agora começa
   recolhida para quem ainda não escolheu (quem já abriu ou fechou mantém a escolha).

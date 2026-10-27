@@ -3561,7 +3561,7 @@ export const VI: Readonly<Record<string, string>> = {
   "See you tomorrow! 👋": "Hẹn gặp lại ngày mai ạ! 👋",
   "Goodbye! Take care! 👋": "Chào anh chị, đi cẩn thận nhé! 👋",
   "See you soon! 👋": "Hẹn gặp lại ạ! 👋",
-  "Habblaud, how may I help you? 📞": "Habblaud xin nghe, em có thể giúp gì ạ? 📞",
+  "FTE, how may I help you? 📞": "FTE xin nghe, em có thể giúp gì ạ? 📞",
   "One moment, please… 📞": "Anh chị vui lòng chờ máy giây lát ạ… 📞",
   "Power cut at {0} today, charge your laptops! 🔌": "Hôm nay {0} cúp điện nha, sạc laptop đi mọi người! 🔌",
   "The power is back! 🎉": "Có điện rồi! 🎉",

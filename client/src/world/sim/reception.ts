@@ -58,7 +58,7 @@ export function byeLine(hour: number, rng: () => number): string {
 
 /** What she says now and then on the desk phone. */
 export function phoneLine(rng: () => number): string {
-  return pick([tr('Habblaud, how may I help you? 📞'), tr('One moment, please… 📞')], rng);
+  return pick([tr('FTE, how may I help you? 📞'), tr('One moment, please… 📞')], rng);
 }
 
 export interface DeskAct {
