@@ -116,7 +116,8 @@ export function openFlappy(o: FlappyOptions): void {
   };
   const wingColor = [appearance.top, appearance.topAccent].find(stands) ?? '#f0a22e';
   const hair = luma(hexRgb(appearance.hair)) < 80 ? css(mix(hexRgb(appearance.hair), [255, 255, 255], 0.45)) : appearance.hair;
-  const wing = { '#f0a22e': wingColor, '#fff0b0': css(mix(hexRgb(wingColor), [255, 255, 255], 0.55)) };
+  // (the wing is cream with its own dark outline; it takes a pale tint of the shirt colour, the white highlight stays)
+  const wing = { '#fff0b0': css(mix(hexRgb(wingColor), [255, 255, 255], 0.68)) };
   const frames = [FLAPPY_BIRD_0, FLAPPY_BIRD_1, FLAPPY_BIRD_2, FLAPPY_BIRD_3].map((g) => {
     const [c, bctx] = canvasOf(g.rows[0].length, g.rows.length);
     paintGrid(bctx, g, 0, 0, { recolor: wing });
@@ -130,7 +131,7 @@ export function openFlappy(o: FlappyOptions): void {
       [12, 1, 'o'],
       [13, 1, 'o'],
     ] as const) {
-      bctx.fillStyle = k === 'o' ? '#2e3648' : hair;
+      bctx.fillStyle = k === 'o' ? '#3d2b35' : hair;
       bctx.fillRect(x, y, 1, 1);
     }
     return c;
