@@ -32,6 +32,11 @@ do meio (0.**3**.0).
   Pixelorama pelo servidor MCP.
   As cargas das motos (garrafão, caixas de isopor, planta, buquê, galho de pêssego), os banquinhos e a pilha do chá gelado, a caixa de
   som do baile e a placa de travessia de pedestres também são desenhos à mão (o buquê gira as cores das flores).
+  A mobília do escritório que não depende de semente (69 peças com variantes e estados: armários, impressora, bebedouro,
+  lixeira, sofás, poltronas, pufes, mesa de pingue-pongue, fliperama, geladeira, máquina de salgadinhos, balcões, pia,
+  boxes, cadeiras, relógio, TV, quadro branco, elevador e as demais) vem de 10 folhas de sprites do Pixelorama
+  (`scripts/assets/handdrawn/furniture/furniture-N.png`, com as cores semitransparentes preservadas). Mesas, estantes,
+  plantas e as demais peças com variação por semente continuam procedurais.
   Os bichinhos (corgi e gato) agora também vêm de folhas de sprites desenhadas no Pixelorama (`pet-dog.png` e `pet-cat.png`,
   uma linha por pose e vista, uma coluna por quadro, 28 quadros cada): o desenho é idêntico ao anterior, mas dá para
   editar com o pincel em vez de mexer em mapas de caracteres no código.

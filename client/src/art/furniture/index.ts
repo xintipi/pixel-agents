@@ -2,6 +2,7 @@
 // and cached by the caller (see art/index.ts).
 import { FURNITURE, type FurnitureKind } from '../api';
 import { trim, type BufFurniture } from '../core/sprite';
+import { handFurniture } from '../handdrawn/furniture';
 import * as C from './common';
 import * as O from './office';
 import * as W from './wall';
@@ -131,6 +132,9 @@ function build(kind: FurnitureKind, variant: string | undefined, state: number, 
 /** Generates a piece of furniture's sprites (in a buffer), cropped to the content. */
 export function renderFurniture(kind: FurnitureKind, variant?: string, state?: number, seed?: number): BufFurniture {
   const n = normalizeFurniture(kind, variant, state, seed);
+  // hand-drawn pieces (scripts/assets/handdrawn/furniture): the ones that don't depend on a seed
+  const drawn = handFurniture(kind, n.variant, n.state);
+  if (drawn) return drawn;
   const f = build(kind, n.variant, n.state, n.vseed);
   return { base: trim(f.base), front: f.front ? trim(f.front) : undefined };
 }

@@ -1,0 +1,1501 @@
+{
+ "atlases": [
+  {
+   "name": "furniture-0",
+   "w": 200,
+   "h": 55,
+   "cells": [
+    {
+     "id": "office_chair_front|black|0#base",
+     "x": 0,
+     "y": 0,
+     "w": 16,
+     "h": 25
+    },
+    {
+     "id": "office_chair_front|blue|0#base",
+     "x": 17,
+     "y": 0,
+     "w": 16,
+     "h": 25
+    },
+    {
+     "id": "office_chair_front|red|0#base",
+     "x": 34,
+     "y": 0,
+     "w": 16,
+     "h": 25
+    },
+    {
+     "id": "office_chair_front|green|0#base",
+     "x": 51,
+     "y": 0,
+     "w": 16,
+     "h": 25
+    },
+    {
+     "id": "office_chair_front|gray|0#base",
+     "x": 68,
+     "y": 0,
+     "w": 16,
+     "h": 25
+    },
+    {
+     "id": "office_chair|black|0#base",
+     "x": 85,
+     "y": 0,
+     "w": 14,
+     "h": 14
+    },
+    {
+     "id": "office_chair|black|0#front",
+     "x": 100,
+     "y": 0,
+     "w": 10,
+     "h": 10
+    },
+    {
+     "id": "office_chair|blue|0#base",
+     "x": 111,
+     "y": 0,
+     "w": 14,
+     "h": 14
+    },
+    {
+     "id": "office_chair|blue|0#front",
+     "x": 126,
+     "y": 0,
+     "w": 10,
+     "h": 10
+    },
+    {
+     "id": "office_chair|red|0#base",
+     "x": 137,
+     "y": 0,
+     "w": 14,
+     "h": 14
+    },
+    {
+     "id": "office_chair|red|0#front",
+     "x": 152,
+     "y": 0,
+     "w": 10,
+     "h": 10
+    },
+    {
+     "id": "office_chair|green|0#base",
+     "x": 163,
+     "y": 0,
+     "w": 14,
+     "h": 14
+    },
+    {
+     "id": "office_chair|green|0#front",
+     "x": 178,
+     "y": 0,
+     "w": 10,
+     "h": 10
+    },
+    {
+     "id": "office_chair|gray|0#base",
+     "x": 0,
+     "y": 26,
+     "w": 14,
+     "h": 14
+    },
+    {
+     "id": "office_chair|gray|0#front",
+     "x": 15,
+     "y": 26,
+     "w": 10,
+     "h": 10
+    },
+    {
+     "id": "filing_cabinet|-|0#base",
+     "x": 26,
+     "y": 26,
+     "w": 16,
+     "h": 25
+    },
+    {
+     "id": "printer|-|0#base",
+     "x": 43,
+     "y": 26,
+     "w": 18,
+     "h": 29
+    }
+   ]
+  },
+  {
+   "name": "furniture-1",
+   "w": 200,
+   "h": 41,
+   "cells": [
+    {
+     "id": "trash_bin|-|0#base",
+     "x": 0,
+     "y": 0,
+     "w": 12,
+     "h": 13
+    },
+    {
+     "id": "glass_partition|h|0#base",
+     "x": 13,
+     "y": 0,
+     "w": 16,
+     "h": 35
+    },
+    {
+     "id": "glass_partition|v|0#base",
+     "x": 30,
+     "y": 0,
+     "w": 10,
+     "h": 32
+    },
+    {
+     "id": "glass_partition|end|0#base",
+     "x": 41,
+     "y": 0,
+     "w": 10,
+     "h": 36
+    },
+    {
+     "id": "stool|-|0#base",
+     "x": 52,
+     "y": 0,
+     "w": 12,
+     "h": 15
+    },
+    {
+     "id": "floor_lamp|-|0#base",
+     "x": 65,
+     "y": 0,
+     "w": 14,
+     "h": 41
+    }
+   ]
+  },
+  {
+   "name": "furniture-2",
+   "w": 200,
+   "h": 37,
+   "cells": [
+    {
+     "id": "water_cooler|-|0#base",
+     "x": 0,
+     "y": 0,
+     "w": 15,
+     "h": 37
+    },
+    {
+     "id": "whiteboard|-|0#base",
+     "x": 16,
+     "y": 0,
+     "w": 47,
+     "h": 23
+    },
+    {
+     "id": "window|-|0#base",
+     "x": 64,
+     "y": 0,
+     "w": 32,
+     "h": 24
+    },
+    {
+     "id": "clock|-|0#base",
+     "x": 97,
+     "y": 0,
+     "w": 16,
+     "h": 15
+    },
+    {
+     "id": "poster|code|0#base",
+     "x": 114,
+     "y": 0,
+     "w": 15,
+     "h": 19
+    },
+    {
+     "id": "poster|coffee|0#base",
+     "x": 130,
+     "y": 0,
+     "w": 15,
+     "h": 19
+    }
+   ]
+  },
+  {
+   "name": "furniture-3",
+   "w": 200,
+   "h": 63,
+   "cells": [
+    {
+     "id": "poster|rocket|0#base",
+     "x": 0,
+     "y": 0,
+     "w": 15,
+     "h": 19
+    },
+    {
+     "id": "poster|cat|0#base",
+     "x": 16,
+     "y": 0,
+     "w": 15,
+     "h": 19
+    },
+    {
+     "id": "poster|bug|0#base",
+     "x": 32,
+     "y": 0,
+     "w": 15,
+     "h": 19
+    },
+    {
+     "id": "poster|ship_it|0#base",
+     "x": 48,
+     "y": 0,
+     "w": 15,
+     "h": 19
+    },
+    {
+     "id": "tv|-|0#base",
+     "x": 64,
+     "y": 0,
+     "w": 33,
+     "h": 21
+    },
+    {
+     "id": "light_switch|on|0#base",
+     "x": 98,
+     "y": 0,
+     "w": 7,
+     "h": 9
+    },
+    {
+     "id": "light_switch|off|0#base",
+     "x": 106,
+     "y": 0,
+     "w": 7,
+     "h": 9
+    },
+    {
+     "id": "elevator|-|0#base",
+     "x": 114,
+     "y": 0,
+     "w": 34,
+     "h": 30
+    },
+    {
+     "id": "elevator|-|1#base",
+     "x": 149,
+     "y": 0,
+     "w": 34,
+     "h": 30
+    },
+    {
+     "id": "elevator|-|2#base",
+     "x": 0,
+     "y": 31,
+     "w": 34,
+     "h": 30
+    },
+    {
+     "id": "elevator|-|3#base",
+     "x": 35,
+     "y": 31,
+     "w": 34,
+     "h": 30
+    },
+    {
+     "id": "elevator|-|4#base",
+     "x": 70,
+     "y": 31,
+     "w": 34,
+     "h": 30
+    },
+    {
+     "id": "door_frame|-|0#base",
+     "x": 105,
+     "y": 31,
+     "w": 38,
+     "h": 32
+    }
+   ]
+  },
+  {
+   "name": "furniture-4",
+   "w": 200,
+   "h": 35,
+   "cells": [
+    {
+     "id": "sign|-|0#base",
+     "x": 0,
+     "y": 0,
+     "w": 45,
+     "h": 14
+    },
+    {
+     "id": "mirror|-|0#base",
+     "x": 46,
+     "y": 0,
+     "w": 15,
+     "h": 17
+    },
+    {
+     "id": "counter|plain|0#base",
+     "x": 62,
+     "y": 0,
+     "w": 16,
+     "h": 21
+    },
+    {
+     "id": "counter|drawers|0#base",
+     "x": 79,
+     "y": 0,
+     "w": 16,
+     "h": 21
+    },
+    {
+     "id": "counter_sink|-|0#base",
+     "x": 96,
+     "y": 0,
+     "w": 16,
+     "h": 25
+    },
+    {
+     "id": "coffee_machine|-|0#base",
+     "x": 113,
+     "y": 0,
+     "w": 16,
+     "h": 35
+    },
+    {
+     "id": "coffee_machine|-|1#base",
+     "x": 130,
+     "y": 0,
+     "w": 16,
+     "h": 35
+    }
+   ]
+  },
+  {
+   "name": "furniture-5",
+   "w": 200,
+   "h": 41,
+   "cells": [
+    {
+     "id": "microwave|-|0#base",
+     "x": 0,
+     "y": 0,
+     "w": 16,
+     "h": 29
+    },
+    {
+     "id": "fridge|-|0#base",
+     "x": 17,
+     "y": 0,
+     "w": 18,
+     "h": 41
+    }
+   ]
+  },
+  {
+   "name": "furniture-6",
+   "w": 200,
+   "h": 41,
+   "cells": [
+    {
+     "id": "vending_machine|-|0#base",
+     "x": 0,
+     "y": 0,
+     "w": 18,
+     "h": 41
+    },
+    {
+     "id": "cafe_table|-|0#base",
+     "x": 19,
+     "y": 0,
+     "w": 16,
+     "h": 18
+    },
+    {
+     "id": "cafe_chair|up|0#base",
+     "x": 36,
+     "y": 0,
+     "w": 12,
+     "h": 13
+    },
+    {
+     "id": "cafe_chair|up|0#front",
+     "x": 49,
+     "y": 0,
+     "w": 12,
+     "h": 10
+    },
+    {
+     "id": "cafe_chair|down|0#base",
+     "x": 62,
+     "y": 0,
+     "w": 12,
+     "h": 24
+    },
+    {
+     "id": "cafe_chair|left|0#base",
+     "x": 75,
+     "y": 0,
+     "w": 12,
+     "h": 24
+    },
+    {
+     "id": "cafe_chair|right|0#base",
+     "x": 88,
+     "y": 0,
+     "w": 12,
+     "h": 24
+    }
+   ]
+  },
+  {
+   "name": "furniture-7",
+   "w": 200,
+   "h": 70,
+   "cells": [
+    {
+     "id": "sofa|down|0#base",
+     "x": 0,
+     "y": 0,
+     "w": 50,
+     "h": 29
+    },
+    {
+     "id": "sofa|up|0#base",
+     "x": 51,
+     "y": 0,
+     "w": 50,
+     "h": 25
+    },
+    {
+     "id": "sofa|up|0#front",
+     "x": 102,
+     "y": 0,
+     "w": 50,
+     "h": 17
+    },
+    {
+     "id": "armchair|up|0#base",
+     "x": 153,
+     "y": 0,
+     "w": 18,
+     "h": 24
+    },
+    {
+     "id": "armchair|up|0#front",
+     "x": 172,
+     "y": 0,
+     "w": 18,
+     "h": 17
+    },
+    {
+     "id": "armchair|down|0#base",
+     "x": 0,
+     "y": 30,
+     "w": 18,
+     "h": 28
+    },
+    {
+     "id": "armchair|left|0#base",
+     "x": 19,
+     "y": 30,
+     "w": 18,
+     "h": 28
+    },
+    {
+     "id": "armchair|right|0#base",
+     "x": 38,
+     "y": 30,
+     "w": 18,
+     "h": 28
+    },
+    {
+     "id": "pingpong_table|-|0#base",
+     "x": 57,
+     "y": 30,
+     "w": 50,
+     "h": 40
+    },
+    {
+     "id": "beanbag|red|0#base",
+     "x": 108,
+     "y": 30,
+     "w": 16,
+     "h": 14
+    },
+    {
+     "id": "beanbag|blue|0#base",
+     "x": 125,
+     "y": 30,
+     "w": 16,
+     "h": 14
+    },
+    {
+     "id": "beanbag|yellow|0#base",
+     "x": 142,
+     "y": 30,
+     "w": 16,
+     "h": 14
+    }
+   ]
+  },
+  {
+   "name": "furniture-8",
+   "w": 200,
+   "h": 40,
+   "cells": [
+    {
+     "id": "beanbag|green|0#base",
+     "x": 0,
+     "y": 0,
+     "w": 16,
+     "h": 14
+    },
+    {
+     "id": "arcade|-|0#base",
+     "x": 17,
+     "y": 0,
+     "w": 16,
+     "h": 40
+    },
+    {
+     "id": "toilet_stall|-|0#base",
+     "x": 34,
+     "y": 0,
+     "w": 34,
+     "h": 36
+    },
+    {
+     "id": "toilet_stall|-|0#front",
+     "x": 69,
+     "y": 0,
+     "w": 34,
+     "h": 25
+    },
+    {
+     "id": "toilet_stall|-|1#base",
+     "x": 104,
+     "y": 0,
+     "w": 34,
+     "h": 36
+    },
+    {
+     "id": "toilet_stall|-|1#front",
+     "x": 139,
+     "y": 0,
+     "w": 34,
+     "h": 25
+    }
+   ]
+  },
+  {
+   "name": "furniture-9",
+   "w": 200,
+   "h": 33,
+   "cells": [
+    {
+     "id": "sink|-|0#base",
+     "x": 0,
+     "y": 0,
+     "w": 18,
+     "h": 24
+    },
+    {
+     "id": "reception_desk|-|0#base",
+     "x": 19,
+     "y": 0,
+     "w": 52,
+     "h": 33
+    },
+    {
+     "id": "bench|-|0#base",
+     "x": 72,
+     "y": 0,
+     "w": 34,
+     "h": 24
+    }
+   ]
+  }
+ ],
+ "entries": [
+  {
+   "key": "office_chair_front|black|0",
+   "kind": "office_chair_front",
+   "variant": "black",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 24,
+    "rects": null
+   }
+  },
+  {
+   "key": "office_chair_front|blue|0",
+   "kind": "office_chair_front",
+   "variant": "blue",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 24,
+    "rects": null
+   }
+  },
+  {
+   "key": "office_chair_front|red|0",
+   "kind": "office_chair_front",
+   "variant": "red",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 24,
+    "rects": null
+   }
+  },
+  {
+   "key": "office_chair_front|green|0",
+   "kind": "office_chair_front",
+   "variant": "green",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 24,
+    "rects": null
+   }
+  },
+  {
+   "key": "office_chair_front|gray|0",
+   "kind": "office_chair_front",
+   "variant": "gray",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 24,
+    "rects": null
+   }
+  },
+  {
+   "key": "office_chair|black|0",
+   "kind": "office_chair",
+   "variant": "black",
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 13,
+    "rects": null
+   },
+   "front": {
+    "ax": 5,
+    "ay": 11,
+    "rects": null
+   }
+  },
+  {
+   "key": "office_chair|blue|0",
+   "kind": "office_chair",
+   "variant": "blue",
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 13,
+    "rects": null
+   },
+   "front": {
+    "ax": 5,
+    "ay": 11,
+    "rects": null
+   }
+  },
+  {
+   "key": "office_chair|red|0",
+   "kind": "office_chair",
+   "variant": "red",
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 13,
+    "rects": null
+   },
+   "front": {
+    "ax": 5,
+    "ay": 11,
+    "rects": null
+   }
+  },
+  {
+   "key": "office_chair|green|0",
+   "kind": "office_chair",
+   "variant": "green",
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 13,
+    "rects": null
+   },
+   "front": {
+    "ax": 5,
+    "ay": 11,
+    "rects": null
+   }
+  },
+  {
+   "key": "office_chair|gray|0",
+   "kind": "office_chair",
+   "variant": "gray",
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 13,
+    "rects": null
+   },
+   "front": {
+    "ax": 5,
+    "ay": 11,
+    "rects": null
+   }
+  },
+  {
+   "key": "filing_cabinet|-|0",
+   "kind": "filing_cabinet",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 24,
+    "rects": null
+   }
+  },
+  {
+   "key": "printer|-|0",
+   "kind": "printer",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 9,
+    "ay": 28,
+    "rects": null
+   }
+  },
+  {
+   "key": "trash_bin|-|0",
+   "kind": "trash_bin",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 6,
+    "ay": 12,
+    "rects": null
+   }
+  },
+  {
+   "key": "glass_partition|h|0",
+   "kind": "glass_partition",
+   "variant": "h",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 34,
+    "rects": null
+   }
+  },
+  {
+   "key": "glass_partition|v|0",
+   "kind": "glass_partition",
+   "variant": "v",
+   "state": 0,
+   "base": {
+    "ax": 4,
+    "ay": 32,
+    "rects": null
+   }
+  },
+  {
+   "key": "glass_partition|end|0",
+   "kind": "glass_partition",
+   "variant": "end",
+   "state": 0,
+   "base": {
+    "ax": 5,
+    "ay": 35,
+    "rects": null
+   }
+  },
+  {
+   "key": "stool|-|0",
+   "kind": "stool",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 6,
+    "ay": 14,
+    "rects": null
+   }
+  },
+  {
+   "key": "floor_lamp|-|0",
+   "kind": "floor_lamp",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 41,
+    "rects": {
+     "glow": {
+      "x": 3,
+      "y": 5,
+      "w": 8,
+      "h": 6
+     }
+    }
+   }
+  },
+  {
+   "key": "water_cooler|-|0",
+   "kind": "water_cooler",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 36,
+    "rects": null
+   }
+  },
+  {
+   "key": "whiteboard|-|0",
+   "kind": "whiteboard",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 23,
+    "ay": 28,
+    "rects": {
+     "board": {
+      "x": 3,
+      "y": 3,
+      "w": 40,
+      "h": 15
+     }
+    }
+   }
+  },
+  {
+   "key": "window|-|0",
+   "kind": "window",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 16,
+    "ay": 28,
+    "rects": {
+     "glass": {
+      "x": 4,
+      "y": 3,
+      "w": 24,
+      "h": 15
+     }
+    }
+   }
+  },
+  {
+   "key": "clock|-|0",
+   "kind": "clock",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 29,
+    "rects": {
+     "face": {
+      "x": 3,
+      "y": 2,
+      "w": 10,
+      "h": 10
+     }
+    }
+   }
+  },
+  {
+   "key": "poster|code|0",
+   "kind": "poster",
+   "variant": "code",
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 29,
+    "rects": null
+   }
+  },
+  {
+   "key": "poster|coffee|0",
+   "kind": "poster",
+   "variant": "coffee",
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 29,
+    "rects": null
+   }
+  },
+  {
+   "key": "poster|rocket|0",
+   "kind": "poster",
+   "variant": "rocket",
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 29,
+    "rects": null
+   }
+  },
+  {
+   "key": "poster|cat|0",
+   "kind": "poster",
+   "variant": "cat",
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 29,
+    "rects": null
+   }
+  },
+  {
+   "key": "poster|bug|0",
+   "kind": "poster",
+   "variant": "bug",
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 29,
+    "rects": null
+   }
+  },
+  {
+   "key": "poster|ship_it|0",
+   "kind": "poster",
+   "variant": "ship_it",
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 29,
+    "rects": null
+   }
+  },
+  {
+   "key": "tv|-|0",
+   "kind": "tv",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 16,
+    "ay": 28,
+    "rects": {
+     "tv": {
+      "x": 2,
+      "y": 2,
+      "w": 28,
+      "h": 15
+     }
+    }
+   }
+  },
+  {
+   "key": "light_switch|on|0",
+   "kind": "light_switch",
+   "variant": "on",
+   "state": 0,
+   "base": {
+    "ax": 3,
+    "ay": 20,
+    "rects": null
+   }
+  },
+  {
+   "key": "light_switch|off|0",
+   "kind": "light_switch",
+   "variant": "off",
+   "state": 0,
+   "base": {
+    "ax": 3,
+    "ay": 20,
+    "rects": null
+   }
+  },
+  {
+   "key": "elevator|-|0",
+   "kind": "elevator",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 17,
+    "ay": 29,
+    "rects": null
+   }
+  },
+  {
+   "key": "elevator|-|1",
+   "kind": "elevator",
+   "variant": null,
+   "state": 1,
+   "base": {
+    "ax": 17,
+    "ay": 29,
+    "rects": null
+   }
+  },
+  {
+   "key": "elevator|-|2",
+   "kind": "elevator",
+   "variant": null,
+   "state": 2,
+   "base": {
+    "ax": 17,
+    "ay": 29,
+    "rects": null
+   }
+  },
+  {
+   "key": "elevator|-|3",
+   "kind": "elevator",
+   "variant": null,
+   "state": 3,
+   "base": {
+    "ax": 17,
+    "ay": 29,
+    "rects": null
+   }
+  },
+  {
+   "key": "elevator|-|4",
+   "kind": "elevator",
+   "variant": null,
+   "state": 4,
+   "base": {
+    "ax": 17,
+    "ay": 29,
+    "rects": null
+   }
+  },
+  {
+   "key": "door_frame|-|0",
+   "kind": "door_frame",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 19,
+    "ay": 31,
+    "rects": null
+   }
+  },
+  {
+   "key": "sign|-|0",
+   "kind": "sign",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 22,
+    "ay": 29,
+    "rects": {
+     "sign": {
+      "x": 5,
+      "y": 3,
+      "w": 34,
+      "h": 7
+     }
+    }
+   }
+  },
+  {
+   "key": "mirror|-|0",
+   "kind": "mirror",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 7,
+    "ay": 29,
+    "rects": {
+     "glass": {
+      "x": 2,
+      "y": 2,
+      "w": 10,
+      "h": 12
+     }
+    }
+   }
+  },
+  {
+   "key": "counter|plain|0",
+   "kind": "counter",
+   "variant": "plain",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 20,
+    "rects": null
+   }
+  },
+  {
+   "key": "counter|drawers|0",
+   "kind": "counter",
+   "variant": "drawers",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 20,
+    "rects": null
+   }
+  },
+  {
+   "key": "counter_sink|-|0",
+   "kind": "counter_sink",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 24,
+    "rects": null
+   }
+  },
+  {
+   "key": "coffee_machine|-|0",
+   "kind": "coffee_machine",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 34,
+    "rects": null
+   }
+  },
+  {
+   "key": "coffee_machine|-|1",
+   "kind": "coffee_machine",
+   "variant": null,
+   "state": 1,
+   "base": {
+    "ax": 8,
+    "ay": 34,
+    "rects": null
+   }
+  },
+  {
+   "key": "microwave|-|0",
+   "kind": "microwave",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 28,
+    "rects": null
+   }
+  },
+  {
+   "key": "fridge|-|0",
+   "kind": "fridge",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 9,
+    "ay": 40,
+    "rects": null
+   }
+  },
+  {
+   "key": "vending_machine|-|0",
+   "kind": "vending_machine",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 9,
+    "ay": 40,
+    "rects": {
+     "glow": {
+      "x": 3,
+      "y": 6,
+      "w": 9,
+      "h": 22
+     }
+    }
+   }
+  },
+  {
+   "key": "cafe_table|-|0",
+   "kind": "cafe_table",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 17,
+    "rects": null
+   }
+  },
+  {
+   "key": "cafe_chair|up|0",
+   "kind": "cafe_chair",
+   "variant": "up",
+   "state": 0,
+   "base": {
+    "ax": 6,
+    "ay": 12,
+    "rects": null
+   },
+   "front": {
+    "ax": 6,
+    "ay": 14,
+    "rects": null
+   }
+  },
+  {
+   "key": "cafe_chair|down|0",
+   "kind": "cafe_chair",
+   "variant": "down",
+   "state": 0,
+   "base": {
+    "ax": 6,
+    "ay": 23,
+    "rects": null
+   }
+  },
+  {
+   "key": "cafe_chair|left|0",
+   "kind": "cafe_chair",
+   "variant": "left",
+   "state": 0,
+   "base": {
+    "ax": 6,
+    "ay": 23,
+    "rects": null
+   }
+  },
+  {
+   "key": "cafe_chair|right|0",
+   "kind": "cafe_chair",
+   "variant": "right",
+   "state": 0,
+   "base": {
+    "ax": 6,
+    "ay": 23,
+    "rects": null
+   }
+  },
+  {
+   "key": "sofa|down|0",
+   "kind": "sofa",
+   "variant": "down",
+   "state": 0,
+   "base": {
+    "ax": 25,
+    "ay": 28,
+    "rects": null
+   }
+  },
+  {
+   "key": "sofa|up|0",
+   "kind": "sofa",
+   "variant": "up",
+   "state": 0,
+   "base": {
+    "ax": 25,
+    "ay": 24,
+    "rects": null
+   },
+   "front": {
+    "ax": 25,
+    "ay": 16,
+    "rects": null
+   }
+  },
+  {
+   "key": "armchair|up|0",
+   "kind": "armchair",
+   "variant": "up",
+   "state": 0,
+   "base": {
+    "ax": 9,
+    "ay": 23,
+    "rects": null
+   },
+   "front": {
+    "ax": 9,
+    "ay": 16,
+    "rects": null
+   }
+  },
+  {
+   "key": "armchair|down|0",
+   "kind": "armchair",
+   "variant": "down",
+   "state": 0,
+   "base": {
+    "ax": 9,
+    "ay": 27,
+    "rects": null
+   }
+  },
+  {
+   "key": "armchair|left|0",
+   "kind": "armchair",
+   "variant": "left",
+   "state": 0,
+   "base": {
+    "ax": 9,
+    "ay": 27,
+    "rects": null
+   }
+  },
+  {
+   "key": "armchair|right|0",
+   "kind": "armchair",
+   "variant": "right",
+   "state": 0,
+   "base": {
+    "ax": 9,
+    "ay": 27,
+    "rects": null
+   }
+  },
+  {
+   "key": "pingpong_table|-|0",
+   "kind": "pingpong_table",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 25,
+    "ay": 40,
+    "rects": null
+   }
+  },
+  {
+   "key": "beanbag|red|0",
+   "kind": "beanbag",
+   "variant": "red",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 14,
+    "rects": null
+   }
+  },
+  {
+   "key": "beanbag|blue|0",
+   "kind": "beanbag",
+   "variant": "blue",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 14,
+    "rects": null
+   }
+  },
+  {
+   "key": "beanbag|yellow|0",
+   "kind": "beanbag",
+   "variant": "yellow",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 14,
+    "rects": null
+   }
+  },
+  {
+   "key": "beanbag|green|0",
+   "kind": "beanbag",
+   "variant": "green",
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 14,
+    "rects": null
+   }
+  },
+  {
+   "key": "arcade|-|0",
+   "kind": "arcade",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 8,
+    "ay": 39,
+    "rects": {
+     "screen": {
+      "x": 3,
+      "y": 7,
+      "w": 10,
+      "h": 7
+     }
+    }
+   }
+  },
+  {
+   "key": "toilet_stall|-|0",
+   "kind": "toilet_stall",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 17,
+    "ay": 55,
+    "rects": null
+   },
+   "front": {
+    "ax": 17,
+    "ay": 24,
+    "rects": null
+   }
+  },
+  {
+   "key": "toilet_stall|-|1",
+   "kind": "toilet_stall",
+   "variant": null,
+   "state": 1,
+   "base": {
+    "ax": 17,
+    "ay": 55,
+    "rects": null
+   },
+   "front": {
+    "ax": 17,
+    "ay": 24,
+    "rects": null
+   }
+  },
+  {
+   "key": "sink|-|0",
+   "kind": "sink",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 9,
+    "ay": 23,
+    "rects": null
+   }
+  },
+  {
+   "key": "reception_desk|-|0",
+   "kind": "reception_desk",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 26,
+    "ay": 32,
+    "rects": null
+   }
+  },
+  {
+   "key": "bench|-|0",
+   "kind": "bench",
+   "variant": null,
+   "state": 0,
+   "base": {
+    "ax": 17,
+    "ay": 23,
+    "rects": null
+   }
+  }
+ ]
+}
