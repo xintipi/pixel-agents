@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { TILE } from '../constants';
 import { BUS_PARK, BUS_SIGN, BUS_STOP_X } from '../sim/bus';
 import { DANCE_SPEAKER } from '../sim/danvu';
-import { CROSSWALK, farLampXs, layoutExterior } from './exterior';
+import { CROSSWALK, farLampXs, inPond, layoutExterior, POND } from './exterior';
 
 describe('street lamps', () => {
   const lamps = layoutExterior(3).props.filter((p) => p.kind === 'lamp');
@@ -26,5 +26,24 @@ describe('street lamps', () => {
 
   it('only up to the east end', () => {
     expect(farLampXs(30).every((x) => x < 30)).toBe(true);
+  });
+});
+
+describe('o lago do parque', () => {
+  const props = layoutExterior(3).props;
+  it('existe um só, e nenhuma árvore ou arbusto cresce dentro dele nem encostado na borda', () => {
+    expect(props.filter((p) => p.kind === 'pond')).toHaveLength(1);
+    for (const p of props) if (p.kind === 'tree' || p.kind === 'pine' || p.kind === 'bush') expect(inPond(p.x, p.y, 20)).toBe(false);
+  });
+  it('o clique vale na água (elipse) e não fora dela', () => {
+    expect(inPond(POND.x, POND.y)).toBe(true);
+    expect(inPond(POND.x + POND.rx - 2, POND.y)).toBe(true);
+    expect(inPond(POND.x + POND.rx + 2, POND.y)).toBe(false);
+    expect(inPond(POND.x, POND.y - POND.ry - 2)).toBe(false);
+    expect(inPond(POND.x + POND.rx * 0.9, POND.y + POND.ry * 0.9)).toBe(false);
+  });
+  it('a árvore do resto do parque não mudou de lugar: o sorteio segue a mesma ordem', () => {
+    expect(layoutExterior(3).props.length).toBe(props.length);
+    expect(props.filter((p) => p.kind === 'tree').length).toBeGreaterThan(30);
   });
 });

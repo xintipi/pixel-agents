@@ -184,3 +184,17 @@ Regras de estilo, para os sprites combinarem entre si:
 - **Luz:** vem de cima e da esquerda; sombra no lado direito e embaixo.
 - **Tons:** 3 a 4 por material (sombra, base, luz, brilho), sem degradê nem anti-aliasing.
 - **Variantes:** o jogo troca as cores por tabela (`recolor`) e espelha (`flip`): desenhe a versão-base com as cores do primeiro item da tabela.
+
+## Sprites do mini jogo de pescaria
+
+`handdrawn/fishing/` guarda os desenhos do mini jogo (`client/src/fishing/`):
+
+- `fishing-fish.png`: cinco formas de peixe (redondo, alto, comprido, enguia, esturjão) numa paleta canônica, que cada
+  espécie recolore com as próprias cores, mais o lixo (bota, lata, garrafa, baú), já nas cores finais.
+- `scene-bg.png`: o cenário inteiro do lago numa só imagem de 320 x 180 (colinas, mata, margem distante, água com
+  ondas, a margem com grama e caminho, salgueiro, banco, lampião, cais e vitórias-régias), com o céu transparente
+  (o jogo desenha o céu por trás, conforme a hora). Para mexer no cenário, edite este PNG no Pixelorama; a paleta é
+  única e tem menos de 62 cores.
+
+Cada PNG vira uma grade com `png2grid.py`, em `client/src/fishing/sprites/` (os peixes e o lixo, uma grade por célula
+do atlas; o cenário, uma grade só).

@@ -3,12 +3,13 @@
 import * as artModule from '../art';
 import { TILE, type ArtModule } from '../art/api';
 import type { OfficeStore } from '../net/store';
-import { DEFAULT_WORLD_OPTIONS, seasonalThemeFor, type Selection, type SocialEvent, type SoundCue, type WorldApi, type WorldOptions, type WorldPlayback } from './api';
+import { DEFAULT_WORLD_OPTIONS, seasonalThemeFor, type PondVisit, type Selection, type SocialEvent, type SoundCue, type WorldApi, type WorldOptions, type WorldPlayback } from './api';
 import { loadWorldAssets, type WorldAssets } from './assets';
 import { Camera, overviewFrame } from './camera';
 import { createDebug, type WorldDebug } from './debug';
 import { BUILDING_H, COL_W } from './constants';
 import { RECEPTION_ID } from './layout/core';
+import { inPond } from './layout/exterior';
 import { inRect } from './layout/geometry';
 import { attachInput, type Hit } from './input';
 import type { AgentInfo } from '../../../shared/types';
@@ -65,6 +66,8 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   let worldNow = 0;
   const selectCbs = new Set<(s: Selection) => void>();
   const hoverCbs = new Set<(id: string | null) => void>();
+  const pondCbs = new Set<(v: PondVisit) => void>();
+  let overPond = false;
   const socialCbs = new Set<(e: SocialEvent) => void>();
   const soundCbs = new Set<(c: SoundCue) => void>();
   const roomMenuCbs = new Set<(roomId: string, at: { x: number; y: number }) => void>();
@@ -104,7 +107,8 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
 
   const updateBounds = () => {
     const b = buildingRect();
-    camera.bounds = { x: b.x - 7 * TILE, y: b.y - 6 * TILE, w: b.w + 14 * TILE, h: b.h + 18 * TILE };
+    // (the south end reaches the park across the street, where the pond is)
+    camera.bounds = { x: b.x - 7 * TILE, y: b.y - 6 * TILE, w: b.w + 14 * TILE, h: b.h + 26 * TILE };
     // zooming out goes as far as the overview needs (the building and the whole street)
     const fit = Math.min(camera.fitZoom(b, 16), overviewFrame(b, camera.viewW, camera.viewH, camera.insets).zoom);
     camera.minZoom = Math.min(1, Math.max(0.25, fit));
@@ -244,6 +248,13 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     camera.follow = VISITOR_ID;
   };
 
+  /** The pond across the street: the selected agent (else the first one) goes fishing. */
+  const openPond = () => {
+    const sel = selection?.type === 'agent' ? sim.chars.get(selection.id) : undefined;
+    const ch = sel ?? sim.chars.values().next().value;
+    pondCbs.forEach((cb) => cb({ appearance: ch?.appearance ?? null, name: ch?.info.name ?? null, dark: Math.max(0, Math.min(1, renderer.night)), rain: renderer.weather === 'rain' }));
+  };
+
   const detachInput = attachInput(canvas, camera, {
     pick,
     click: (hit, at, mods) => {
@@ -254,6 +265,10 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       }
       const pet = petAt(at.x, at.y, hit);
       if (pet && sim.pets.pat(pet, sim.now)) return;
+      if (!hit && !visitMode && !playback && pondCbs.size) {
+        const w = camera.screenToWorld(at.x, at.y);
+        if (inPond(w.x, w.y)) return openPond();
+      }
       if (visitMode) visitClick(hit, at);
       else setSelection(hit);
     },
@@ -347,6 +362,12 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       if (mouse) {
         const hit = pick(mouse.x, mouse.y);
         setHover(hit?.type === 'agent' ? hit.id : null);
+        const at = camera.screenToWorld(mouse.x, mouse.y);
+        const over = !hit && !visitMode && !playback && pondCbs.size > 0 && inPond(at.x, at.y);
+        if (over !== overPond) {
+          overPond = over;
+          if (!hover) canvas.style.cursor = over ? 'pointer' : 'grab';
+        }
       }
       // selection of someone who already left
       if (selection?.type === 'agent' && !sim.chars.has(selection.id)) setSelection(null);
@@ -430,6 +451,10 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     onHover: (cb) => {
       hoverCbs.add(cb);
       return () => void hoverCbs.delete(cb);
+    },
+    onPond: (cb) => {
+      pondCbs.add(cb);
+      return () => void pondCbs.delete(cb);
     },
     focusAgent,
     focusRoom,
@@ -520,6 +545,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       document.removeEventListener('visibilitychange', onVisibility);
       selectCbs.clear();
       hoverCbs.clear();
+      pondCbs.clear();
       socialCbs.clear();
       soundCbs.clear();
     },

@@ -11315,3 +11315,138 @@ html.is-replay #world {
   outline: 2px solid var(--ui-accent);
   outline-offset: 1px;
 }
+
+/* ------------------------------------------------------------------ fishing mini game (fishing/game.ts) */
+
+.ui-dialog.ui-fish {
+  width: fit-content;
+  max-width: calc(100vw - 24px);
+}
+
+.ui-fish .ui-dialog__head {
+  gap: 12px;
+}
+
+.ui-fish .ui-dialog__head h2 {
+  margin-right: auto;
+}
+
+.ui-fish__mood {
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+.ui-fish__btn {
+  padding: 6px 12px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--ui-bg-soft);
+  color: var(--ui-text);
+  font: 600 12px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.ui-fish__btn:hover {
+  background: var(--ui-bg-hover);
+}
+
+.ui-fish__stage {
+  position: relative;
+  margin: 12px auto 0;
+  outline: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ui-fish__stage:focus-visible {
+  box-shadow: 0 0 0 2px var(--ui-accent);
+}
+
+.ui-fish__canvas {
+  display: block;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+
+.ui-fish__hint {
+  margin: 0;
+  padding: 10px 16px 12px;
+  text-align: center;
+  color: var(--ui-muted);
+  font-size: 13px;
+}
+
+.ui-fish__hint.is-flash {
+  color: var(--st-waiting);
+  font-weight: 600;
+}
+
+.ui-fish__result,
+.ui-fish__dex {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(10, 14, 22, 0.84);
+  text-align: center;
+}
+
+.ui-fish__result[hidden],
+.ui-fish__dex[hidden] {
+  display: none;
+}
+
+.ui-fish__result strong {
+  font-size: 18px;
+}
+
+.ui-fish__rar {
+  font: 700 11px/1 var(--font-ui);
+  letter-spacing: 0.12em;
+}
+
+.ui-fish__new {
+  color: var(--st-working);
+  font-weight: 700;
+}
+
+.ui-fish__icon {
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+.ui-fish__dex h3 {
+  margin: 0;
+  font: 700 15px/1.2 var(--font-ui);
+}
+
+.ui-fish__cells {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px 10px;
+  margin: 0;
+  padding: 0 12px;
+  list-style: none;
+}
+
+.ui-fish__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--ui-muted);
+}
+
+.ui-fish__cell strong {
+  font-size: 12px;
+}
+
+.ui-fish__cell.is-locked strong {
+  color: var(--ui-faint);
+}

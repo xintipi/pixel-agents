@@ -1,6 +1,7 @@
 // World CONTRACT (office canvas) consumed by the UI (client/src/ui/**).
 // Implementation: client/src/world/index.ts -> createWorld().
 // Rule: changes here must be ADDITIVE.
+import type { Appearance } from '../art/api';
 
 export type Selection = { type: 'agent'; id: string } | { type: 'room'; id: string } | null;
 
@@ -172,7 +173,18 @@ export interface SoundCue {
   count?: number;
 }
 
+/** What the fishing mini game needs when the pond is clicked: who fishes (the selected agent, else the first) and the weather there. */
+export interface PondVisit {
+  appearance: Appearance | null;
+  name: string | null;
+  /** 0 (day) to 1 (night), as drawn. */
+  dark: number;
+  rain: boolean;
+}
+
 export interface WorldApi {
+  /** (Optional, additive) The pond across the street was clicked (opens the fishing mini game). */
+  onPond?(cb: (visit: PondVisit) => void): () => void;
   /** Selects (or clears) an agent/room. `focus` moves the camera to it. */
   select(sel: Selection, opts?: { focus?: boolean }): void;
   getSelection(): Selection;

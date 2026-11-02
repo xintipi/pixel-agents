@@ -13,6 +13,19 @@ export const CROSSWALK = { x: -3 * TILE - 8, w: 3 * TILE } as const;
 export const STREET_Y = (BUILDING_H + 4) * TILE;
 export const STREET_H = 5 * TILE;
 
+/**
+ * The pond in the park across the street (px): centre and radii of the ellipse, south of the far sidewalk. Clicking it
+ * opens the fishing mini game (world/index.ts); the trees that would stand in the water are left out of the layout.
+ */
+export const POND = { x: 16 * TILE, y: (BUILDING_H + 16) * TILE, rx: 6.5 * TILE, ry: 2.5 * TILE } as const;
+
+/** Is the point (px) on the pond's water? `margin` widens the ellipse. */
+export function inPond(x: number, y: number, margin = 0): boolean {
+  const dx = (x - POND.x) / (POND.rx + margin);
+  const dy = (y - POND.y) / (POND.ry + margin);
+  return dx * dx + dy * dy <= 1;
+}
+
 export interface ExteriorLayout {
   /** Bounds of the drawn area (tiles). */
   bounds: TileRect;
@@ -108,6 +121,12 @@ export function layoutExterior(cols: number): ExteriorLayout {
       if (rng() < 0.3) props.push({ kind: 'bush', x: px(x + 3), y: px(south + row + 1), seed: Math.floor(rng() * 1e9) });
     }
   }
+  // the pond takes the place of the trees in its way (they were drawn above, so the rest of the layout doesn't move)
+  for (let i = props.length - 1; i >= 0; i--) {
+    const p = props[i];
+    if ((p.kind === 'tree' || p.kind === 'pine' || p.kind === 'bush') && inPond(p.x, p.y, 26)) props.splice(i, 1);
+  }
+  props.push({ kind: 'pond', x: POND.x, y: POND.y + POND.ry, seed: 0 });
   props.push({ kind: 'bench', x: px(-4), y: px(CORRIDOR_Y + 3) + 6, seed: 1 });
   // brand totem at the main entrance (west)
   props.push({ kind: 'totem', x: px(-3) + 6, y: px(CORRIDOR_Y + 1), seed: 2 });

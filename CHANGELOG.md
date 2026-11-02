@@ -12,6 +12,17 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Mini jogo de pescaria no lago do parque.** Do outro lado da rua, no parque, agora há um lago com um pequeno cais
+  (arraste a tela para baixo, ou use o zoom, para chegar até ele). Clicar no lago abre uma janela com a pescaria: o
+  agente selecionado (ou o primeiro do escritório) vai pescar no cais. Segure Espaço (ou o botão do mouse, ou o dedo)
+  para carregar o arremesso e solte para lançar: quanto mais longe, mais fácil sair um peixe raro. Quando o peixe
+  morder, aperte para fisgar e, na fase de puxar, segure para subir a faixa verde e mantenha o peixe dentro dela até
+  encher a barra. São dez peixes, que dependem da hora (o dia e a noite do escritório) e da chuva do dia, mais lixo e
+  um baú do tesouro, e o caderno de peixes (Fishdex) guarda o maior de cada espécie. Tudo fica só neste navegador
+  (`habblaud:fishing`) e nada vai para o servidor nem para o Habblaud World. Os desenhos (os peixes, o lixo e o cenário
+  inteiro do lago, numa só imagem editável) foram feitos no Pixelorama (`scripts/assets/handdrawn/fishing/`). O jogo só é
+  baixado no primeiro clique no lago; Esc fecha (e fecha o caderno primeiro), e o movimento decorativo para com
+  "reduzir movimento".
 - **Primeiros sprites desenhados à mão: banco, poste, canteiro de flores, garrafão de chá e bicicleta.** Em vez de
   retângulos pintados pelo código, agora são desenhos feitos no Pixelorama (`scripts/assets/handdrawn/*.png`): o banco
   com encosto de duas ripas, braços e pés de metal; o poste com lanterna acesa, duas braçadeiras e base alargada; o

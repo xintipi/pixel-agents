@@ -3,6 +3,7 @@
 // bluish-gray outline, 3–4 tones per material, light coming from top/left.
 import { mulberry32 } from '../../../../shared/hash';
 import type { ExteriorProp } from '../layout/types';
+import { POND } from '../layout/exterior';
 import { treeLook, type TreeLook } from '../seasons';
 import { BANHTRANG_STAND } from '../../art/handdrawn/banhtrang-stand';
 import { BUSH } from '../../art/handdrawn/bush';
@@ -220,6 +221,63 @@ function benchSprite(): PropSprite {
   shadowEllipse(ctx, 13, 12, 11, 2, 0.22);
   paintGrid(ctx, BENCH);
   return { canvas: c, ax: 13, ay: 12 };
+}
+
+/** Scanline ellipse with crisp pixel edges. */
+function fillEllipse(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number, color: string): void {
+  ctx.fillStyle = color;
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    ctx.fillRect(cx - half, cy + y, half * 2, 1);
+  }
+}
+
+/** The pond of the park across the street (fishing mini game): stone rim, water, lily pads, a little jetty and a float. */
+function pondSprite(): PropSprite {
+  const rx = Math.round(POND.rx);
+  const ry = Math.round(POND.ry);
+  const w = rx * 2 + 8;
+  const h = ry * 2 + 10;
+  const [c, ctx] = makeCanvas(w, h);
+  const cx = w / 2;
+  const cy = ry + 3;
+  fillEllipse(ctx, cx, cy + 2, rx + 2, ry + 2, 'rgba(28,36,52,0.28)');
+  fillEllipse(ctx, cx, cy, rx + 1, ry + 1, '#2e3648');
+  fillEllipse(ctx, cx, cy, rx, ry, '#9a968c');
+  fillEllipse(ctx, cx, cy, rx - 3, ry - 3, '#356f98');
+  fillEllipse(ctx, cx, cy - 1, rx - 3, ry - 5, '#3f7fa8');
+  fillEllipse(ctx, cx - 8, cy - 7, Math.round(rx * 0.6), Math.round(ry * 0.42), '#5aa0c8');
+  // stones on the rim
+  ctx.fillStyle = '#b9b5aa';
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * Math.PI * 2;
+    ctx.fillRect(Math.round(cx + Math.cos(a) * (rx - 1.5)) - 1, Math.round(cy + Math.sin(a) * (ry - 1.5)), 3, 1);
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  for (const [x, y] of [[-46, -6], [18, 8], [56, -12], [-18, 14], [74, 6]]) ctx.fillRect(cx + x, cy + y, 5, 1);
+  ctx.fillStyle = '#4b8a45';
+  for (const [x, y] of [[40, 4], [-52, 10], [-24, -14], [70, 12]]) {
+    ctx.fillRect(cx + x, cy + y, 8, 3);
+    ctx.fillRect(cx + x + 1, cy + y - 1, 6, 1);
+  }
+  ctx.fillStyle = '#f28fb0';
+  ctx.fillRect(cx + 43, cy + 3, 2, 1);
+  // jetty at the south edge
+  for (let y = cy + ry - 17; y < cy + ry + 1; y += 3) {
+    ctx.fillStyle = '#a77848';
+    ctx.fillRect(cx - 9, y, 18, 2);
+    ctx.fillStyle = '#6b4a2b';
+    ctx.fillRect(cx - 9, y + 2, 18, 1);
+  }
+  ctx.fillStyle = '#2e3648';
+  ctx.fillRect(cx - 10, cy + ry - 17, 1, 17);
+  ctx.fillRect(cx + 9, cy + ry - 17, 1, 17);
+  // a float, to say "fish here"
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(cx + 24, cy + 6, 3, 2);
+  ctx.fillStyle = '#e8454a';
+  ctx.fillRect(cx + 24, cy + 4, 3, 2);
+  return { canvas: c, ax: cx, ay: h - 3 };
 }
 
 /** Rock: hand-drawn (scripts/assets/handdrawn/rock.png), mirrored by the seed. */
@@ -536,6 +594,9 @@ export function propSprite(prop: ExteriorProp, month = 0): PropSprite {
       break;
     case 'bus_sign':
       s = busSignSprite();
+      break;
+    case 'pond':
+      s = pondSprite();
       break;
     default:
       // 'paving' and other kinds drawn by the renderer itself
