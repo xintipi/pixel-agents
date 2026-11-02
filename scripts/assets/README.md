@@ -165,3 +165,22 @@ reconstruída (sem custo informado), porque duas execuções paralelas sobrescre
 que motivou a trava. `specs.json` é a receita atual; o log guarda o prompt exato de cada tomada (as
 pinturas geradas antes do reforço de "sangria total" no estilo `wallart` usaram a versão anterior
 desse texto, e as tomadas `logo-mark@v2a` a `@v2c` usaram versões anteriores do prompt do logo).
+
+## Sprites desenhados à mão (`handdrawn/`)
+
+Os sprites do mundo (ruas, veículos, barracas, árvores, bichinhos, mobília) saem de PNGs desenhados no Pixelorama
+(`scripts/assets/handdrawn/*.png` e `handdrawn/furniture/`), com o servidor MCP do Pixelorama ou à mão. Depois de editar um PNG:
+
+```sh
+python3 -E scripts/assets/png2grid.py scripts/assets/handdrawn/bench.png client/src/art/handdrawn/bench.ts BENCH   # um sprite
+python3 -E scripts/assets/atlas2furniture.py                                                                         # a mobília
+```
+
+O jogo importa os `.ts` gerados (`client/src/art/handdrawn/`), então eles precisam ser regerados e commitados junto com o PNG.
+
+Regras de estilo, para os sprites combinarem entre si:
+- **Contorno:** azul-acinzentado escuro `#2e3648` em tudo que fica na rua (veículos, barracas, mobília urbana). Folhagem usa contorno
+  verde-escuro do próprio tom; a marca (totem) mantém o azul-marinho da identidade.
+- **Luz:** vem de cima e da esquerda; sombra no lado direito e embaixo.
+- **Tons:** 3 a 4 por material (sombra, base, luz, brilho), sem degradê nem anti-aliasing.
+- **Variantes:** o jogo troca as cores por tabela (`recolor`) e espelha (`flip`): desenhe a versão-base com as cores do primeiro item da tabela.

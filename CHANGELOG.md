@@ -36,6 +36,10 @@ do meio (0.**3**.0).
   impressora, bebedouro, lixeira, sofás, poltronas, pufes, mesa de pingue-pongue, fliperama, geladeira, máquina de
   salgadinhos, balcões, pia, boxes, cadeiras, relógio, TV, quadro branco, elevador e as demais) vem de 13 folhas de sprites do
   Pixelorama (`scripts/assets/handdrawn/furniture/furniture-N.png`, com as cores semitransparentes preservadas).
+  Retoques nesses desenhos: o guarda-sol ganhou copa redonda com gomos, a cerca viva virou um bloco de tufos, a planta e o galho
+  de pêssego das motos têm três desenhos cada (a planta inclui uma samambaia e uma florida), o buquê tem duas disposições, o
+  garrafão do chá ficou mais limpo, o carro ganhou rodas de cinco raios e moldura no farol, e o contorno dos veículos, barracas
+  e ônibus foi unificado no azul-acinzentado `#2e3648` (as regras de estilo estão no `scripts/assets/README.md`).
   Os bichinhos (corgi e gato) agora também vêm de folhas de sprites desenhadas no Pixelorama (`pet-dog.png` e `pet-cat.png`,
   uma linha por pose e vista, uma coluna por quadro, 28 quadros cada): o desenho é idêntico ao anterior, mas dá para
   editar com o pincel em vez de mexer em mapas de caracteres no código.

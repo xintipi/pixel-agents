@@ -15,9 +15,14 @@ import { REPAIR_STOOL } from '../../art/handdrawn/repair-stool';
 import { TRASH_CART } from '../../art/handdrawn/trash-cart';
 import { TREE } from '../../art/handdrawn/tree';
 import { CARGO_FLOWERS } from '../../art/handdrawn/cargo-flowers';
+import { CARGO_FLOWERS_2 } from '../../art/handdrawn/cargo-flowers-2';
 import { CARGO_FOAM } from '../../art/handdrawn/cargo-foam';
 import { CARGO_PEACH } from '../../art/handdrawn/cargo-peach';
+import { CARGO_PEACH_2 } from '../../art/handdrawn/cargo-peach-2';
+import { CARGO_PEACH_3 } from '../../art/handdrawn/cargo-peach-3';
 import { CARGO_PLANT } from '../../art/handdrawn/cargo-plant';
+import { CARGO_PLANT_2 } from '../../art/handdrawn/cargo-plant-2';
+import { CARGO_PLANT_3 } from '../../art/handdrawn/cargo-plant-3';
 import { CARGO_WATER } from '../../art/handdrawn/cargo-water';
 import { CROSSING_SIGN } from '../../art/handdrawn/crossing-sign';
 import { DANCE_SPEAKER } from '../../art/handdrawn/dance-speaker';
@@ -332,7 +337,7 @@ function trashCartSprite(): PropSprite {
  * rack, a mesh bag of bottles hanging off the handlebar. 'bun' (bánh bao): navy frame, the foam steamer box on the rack.
  */
 function streetBikeSprite(load: 'scrap' | 'bun' | 'flowers' = 'scrap', fl?: FlowerInfo): PropSprite {
-  const o = '#22303a';
+  const o = '#2e3648';
   const [c, ctx] = makeCanvas(46, 36);
   const px = (color: string, x: number, y: number, w = 1, h = 1) => {
     ctx.fillStyle = color;
@@ -617,7 +622,15 @@ export function cargoSprite(kind: 'water' | 'foam' | 'plant' | 'flowers' | 'peac
   const key = `cargo:${kind}:${flip ? 1 : 0}:${seed % 4}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const grid = { water: CARGO_WATER, foam: CARGO_FOAM, plant: CARGO_PLANT, flowers: CARGO_FLOWERS, peach: CARGO_PEACH }[kind];
+  // plants and peach branches come in three drawings, bouquets in two arrangements (the seed picks one)
+  const options = {
+    water: [CARGO_WATER],
+    foam: [CARGO_FOAM],
+    plant: [CARGO_PLANT, CARGO_PLANT_2, CARGO_PLANT_3],
+    flowers: [CARGO_FLOWERS, CARGO_FLOWERS_2],
+    peach: [CARGO_PEACH, CARGO_PEACH_2, CARGO_PEACH_3],
+  }[kind];
+  const grid = options[(kind === 'flowers' ? Math.floor(seed / 2) : seed) % options.length];
   const { w, h } = gridSize(grid);
   const [c, ctx] = makeCanvas(w, h);
   // hand-drawn (scripts/assets/handdrawn/cargo-*.png); the bouquet's bloom colours turn with the seed, the rest can be mirrored
