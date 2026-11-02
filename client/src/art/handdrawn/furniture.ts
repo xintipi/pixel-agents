@@ -1,6 +1,5 @@
 // Hand-drawn office furniture (scripts/assets/handdrawn/furniture/*.png, drawn in Pixelorama) as the art module wants it:
-// pure pixel buffers with their anchor and dynamic regions. Only the pieces that don't depend on a seed are drawn by hand
-// (see SEED_VARIATIONS in art/furniture/index.ts); the rest stays procedural.
+// pure pixel buffers with their anchor and dynamic regions.
 import { parseColor } from '../core/color';
 import { PixelBuf } from '../core/pixbuf';
 import type { BufFurniture, BufSprite, Rects } from '../core/sprite';
@@ -33,8 +32,12 @@ function toBuf(s: HandSprite): BufSprite {
   return { buf, ax: s.ax, ay: s.ay, rects: s.rects };
 }
 
-/** The hand-drawn version of a (normalised) piece of furniture, or undefined when it is still procedural. */
-export function handFurniture(kind: string, variant: string | undefined, state: number): BufFurniture | undefined {
-  const d = FURNITURE_DATA[`${kind}|${variant ?? '-'}|${state}`];
+/**
+ * The hand-drawn version of a (normalised) piece of furniture, or undefined when it is still procedural. Pieces with
+ * detail variations (desks, shelves, plants...) are stored per variation (`vseed`); the others have a single drawing.
+ */
+export function handFurniture(kind: string, variant: string | undefined, state: number, vseed = 0): BufFurniture | undefined {
+  const base = `${kind}|${variant ?? '-'}|${state}`;
+  const d = FURNITURE_DATA[`${base}|${vseed}`] ?? FURNITURE_DATA[base];
   return d ? { base: toBuf(d.base), front: d.front ? toBuf(d.front) : undefined } : undefined;
 }

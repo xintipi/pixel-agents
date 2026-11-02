@@ -5,19 +5,23 @@ import { handFurniture } from './furniture';
 import { FURNITURE_DATA } from './furniture-data';
 
 describe('mobília desenhada à mão', () => {
-  it('cobre toda peça que não depende de semente, em cada variante e estado', () => {
+  it('cobre toda peça, em cada variante, estado e variação de detalhe', () => {
     for (const kind of Object.keys(FURNITURE) as FurnitureKind[]) {
-      if (SEED_VARIATIONS[kind]) continue;
       const def = FURNITURE[kind];
       for (const variant of def.variants ?? [undefined]) {
         for (let state = 0; state < (def.states ?? 1); state++) {
-          expect(handFurniture(kind, variant, state), `${kind}|${variant ?? '-'}|${state}`).toBeDefined();
+          for (let seed = 0; seed < (SEED_VARIATIONS[kind] ?? 1); seed++) {
+            expect(handFurniture(kind, variant, state, seed), `${kind}|${variant ?? '-'}|${state}|${seed}`).toBeDefined();
+          }
         }
       }
     }
   });
-  it('as peças com semente continuam procedurais', () => {
-    for (const kind of Object.keys(SEED_VARIATIONS)) expect(Object.keys(FURNITURE_DATA).some((k) => k.startsWith(`${kind}|`))).toBe(false);
+  it('as variações de detalhe são desenhos diferentes', () => {
+    const a = handFurniture('desk', 'wood', 0, 0)!.base;
+    const b = handFurniture('desk', 'wood', 0, 1)!.base;
+    const same = a.buf.w === b.buf.w && a.buf.h === b.buf.h && a.buf.data.every((v, i) => v === b.buf.data[i]);
+    expect(same).toBe(false);
   });
   it('cada camada tem grade retangular, cores na paleta e âncora inteira', () => {
     for (const [key, d] of Object.entries(FURNITURE_DATA)) {

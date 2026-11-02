@@ -132,8 +132,8 @@ function build(kind: FurnitureKind, variant: string | undefined, state: number, 
 /** Generates a piece of furniture's sprites (in a buffer), cropped to the content. */
 export function renderFurniture(kind: FurnitureKind, variant?: string, state?: number, seed?: number): BufFurniture {
   const n = normalizeFurniture(kind, variant, state, seed);
-  // hand-drawn pieces (scripts/assets/handdrawn/furniture): the ones that don't depend on a seed
-  const drawn = handFurniture(kind, n.variant, n.state);
+  // hand-drawn pieces (scripts/assets/handdrawn/furniture), one drawing per detail variation
+  const drawn = handFurniture(kind, n.variant, n.state, n.vseed);
   if (drawn) return drawn;
   const f = build(kind, n.variant, n.state, n.vseed);
   return { base: trim(f.base), front: f.front ? trim(f.front) : undefined };
