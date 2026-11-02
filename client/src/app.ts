@@ -28,6 +28,8 @@ export function start(): void {
   const city = cityHost({ world, worldCanvas, uiRoot, mock: store.mock, params, version: () => store.liveSnapshot?.meta.version ?? '' });
   createUI(uiRoot, store, world, city);
   // The pond across the street: the fishing mini game is only downloaded the first time someone clicks it.
+  // The lounge TV opens its game menu, loaded the same way (each game loads when chosen).
+  world.onTv?.((visit) => void import('./tv/menu').then((m) => m.openTvMenu(uiRoot, visit)));
   world.onPond?.((visit) => void import('./fishing/game').then((m) => m.openFishing({ root: uiRoot, ...visit })));
   // What this page can do (local port or remote with login) arrives before the first snapshot (or gives up after
   // a few seconds and the old rule stays).

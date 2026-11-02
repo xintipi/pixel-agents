@@ -2,6 +2,7 @@
 // Implementation: client/src/world/index.ts -> createWorld().
 // Rule: changes here must be ADDITIVE.
 import type { Appearance } from '../art/api';
+import type { Weather } from './render/weather';
 
 export type Selection = { type: 'agent'; id: string } | { type: 'room'; id: string } | null;
 
@@ -173,18 +174,24 @@ export interface SoundCue {
   count?: number;
 }
 
-/** What the fishing mini game needs when the pond is clicked: who fishes (the selected agent, else the first) and the weather there. */
-export interface PondVisit {
+/** Who plays a mini game (the selected agent, else the first) and how dark it is outside right now. */
+export interface TvVisit {
   appearance: Appearance | null;
   name: string | null;
   /** 0 (day) to 1 (night), as drawn. */
   dark: number;
-  rain: boolean;
+}
+
+/** The pond adds `env`: the main screen's darkness and weather, to ask again whenever they are needed (they change while the game is open). */
+export interface PondVisit extends TvVisit {
+  env(): { dark: number; weather: Weather };
 }
 
 export interface WorldApi {
   /** (Optional, additive) The pond across the street was clicked (opens the fishing mini game). */
   onPond?(cb: (visit: PondVisit) => void): () => void;
+  /** (Optional, additive) The lounge TV was clicked (opens the Flappy mini game). */
+  onTv?(cb: (visit: TvVisit) => void): () => void;
   /** Selects (or clears) an agent/room. `focus` moves the camera to it. */
   select(sel: Selection, opts?: { focus?: boolean }): void;
   getSelection(): Selection;

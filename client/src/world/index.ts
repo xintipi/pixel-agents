@@ -3,7 +3,7 @@
 import * as artModule from '../art';
 import { TILE, type ArtModule } from '../art/api';
 import type { OfficeStore } from '../net/store';
-import { DEFAULT_WORLD_OPTIONS, seasonalThemeFor, type PondVisit, type Selection, type SocialEvent, type SoundCue, type WorldApi, type WorldOptions, type WorldPlayback } from './api';
+import { DEFAULT_WORLD_OPTIONS, seasonalThemeFor, type PondVisit, type TvVisit, type Selection, type SocialEvent, type SoundCue, type WorldApi, type WorldOptions, type WorldPlayback } from './api';
 import { loadWorldAssets, type WorldAssets } from './assets';
 import { Camera, overviewFrame } from './camera';
 import { createDebug, type WorldDebug } from './debug';
@@ -67,7 +67,9 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   const selectCbs = new Set<(s: Selection) => void>();
   const hoverCbs = new Set<(id: string | null) => void>();
   const pondCbs = new Set<(v: PondVisit) => void>();
-  let overPond = false;
+  const tvCbs = new Set<(v: TvVisit) => void>();
+  /** The pointer is over a mini game (the pond or the TV): the cursor is a pointer. */
+  let overGame = false;
   const socialCbs = new Set<(e: SocialEvent) => void>();
   const soundCbs = new Set<(c: SoundCue) => void>();
   const roomMenuCbs = new Set<(roomId: string, at: { x: number; y: number }) => void>();
@@ -248,11 +250,26 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     camera.follow = VISITOR_ID;
   };
 
-  /** The pond across the street: the selected agent (else the first one) goes fishing. */
-  const openPond = () => {
+  /** The darkness and weather the office is drawing right now. */
+  const env = () => ({ dark: Math.max(0, Math.min(1, renderer.night)), weather: renderer.weather });
+  /** Who goes to play a mini game: the selected agent (else the first one), and how dark it is outside. */
+  const player = () => {
     const sel = selection?.type === 'agent' ? sim.chars.get(selection.id) : undefined;
     const ch = sel ?? sim.chars.values().next().value;
-    pondCbs.forEach((cb) => cb({ appearance: ch?.appearance ?? null, name: ch?.info.name ?? null, dark: Math.max(0, Math.min(1, renderer.night)), rain: renderer.weather === 'rain' }));
+    return { appearance: ch?.appearance ?? null, name: ch?.info.name ?? null, dark: env().dark };
+  };
+  const openPond = () => pondCbs.forEach((cb) => cb({ ...player(), env }));
+  const openTv = () => tvCbs.forEach((cb) => cb(player()));
+
+  /**
+   * The mini game under a world point: the lounge TV (its box, as drawn this frame; a click there doesn't select the room) or
+   * the pond across the street (open ground only). Nothing over an agent, in the visit or in the timelapse.
+   */
+  const gameAt = (w: { x: number; y: number }, hit: Hit): 'tv' | 'pond' | null => {
+    if (visitMode || playback || hit?.type === 'agent') return null;
+    if (tvCbs.size && renderer.tvBoxes.some((b) => w.x >= b.x && w.x < b.x + b.w && w.y >= b.y && w.y < b.y + b.h)) return 'tv';
+    if (!hit && pondCbs.size && inPond(w.x, w.y)) return 'pond';
+    return null;
   };
 
   const detachInput = attachInput(canvas, camera, {
@@ -265,10 +282,8 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       }
       const pet = petAt(at.x, at.y, hit);
       if (pet && sim.pets.pat(pet, sim.now)) return;
-      if (!hit && !visitMode && !playback && pondCbs.size) {
-        const w = camera.screenToWorld(at.x, at.y);
-        if (inPond(w.x, w.y)) return openPond();
-      }
+      const game = gameAt(camera.screenToWorld(at.x, at.y), hit);
+      if (game) return game === 'tv' ? openTv() : openPond();
       if (visitMode) visitClick(hit, at);
       else setSelection(hit);
     },
@@ -362,10 +377,9 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       if (mouse) {
         const hit = pick(mouse.x, mouse.y);
         setHover(hit?.type === 'agent' ? hit.id : null);
-        const at = camera.screenToWorld(mouse.x, mouse.y);
-        const over = !hit && !visitMode && !playback && pondCbs.size > 0 && inPond(at.x, at.y);
-        if (over !== overPond) {
-          overPond = over;
+        const over = gameAt(camera.screenToWorld(mouse.x, mouse.y), hit) !== null;
+        if (over !== overGame) {
+          overGame = over;
           if (!hover) canvas.style.cursor = over ? 'pointer' : 'grab';
         }
       }
@@ -455,6 +469,10 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     onPond: (cb) => {
       pondCbs.add(cb);
       return () => void pondCbs.delete(cb);
+    },
+    onTv: (cb) => {
+      tvCbs.add(cb);
+      return () => void tvCbs.delete(cb);
     },
     focusAgent,
     focusRoom,
@@ -546,6 +564,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       selectCbs.clear();
       hoverCbs.clear();
       pondCbs.clear();
+      tvCbs.clear();
       socialCbs.clear();
       soundCbs.clear();
     },

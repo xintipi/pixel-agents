@@ -11450,3 +11450,136 @@ html.is-replay #world {
 .ui-fish__cell.is-locked strong {
   color: var(--ui-faint);
 }
+
+/* ------------------------------------------------------------------ Flappy mini game (flappy/game.ts) */
+
+.ui-dialog.ui-flap {
+  width: fit-content;
+  max-width: calc(100vw - 24px);
+}
+
+.ui-flap .ui-dialog__head {
+  gap: 12px;
+}
+
+.ui-flap .ui-dialog__head h2 {
+  margin-right: auto;
+}
+
+.ui-flap__score {
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-flap__stage {
+  position: relative;
+  margin: 12px auto 0;
+  outline: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ui-flap__stage:focus-visible {
+  box-shadow: 0 0 0 2px var(--ui-accent);
+}
+
+.ui-flap__canvas {
+  display: block;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+
+.ui-flap__hint {
+  margin: 0;
+  padding: 10px 16px 12px;
+  text-align: center;
+  color: var(--ui-muted);
+  font-size: 13px;
+}
+
+.ui-flap__over {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(10, 14, 22, 0.55);
+  text-align: center;
+  pointer-events: none;
+}
+
+.ui-flap__over[hidden] {
+  display: none;
+}
+
+.ui-flap__over strong {
+  font-size: 22px;
+}
+
+.ui-flap__new {
+  color: var(--st-working);
+  font-weight: 700;
+}
+
+.ui-flap__again {
+  margin-top: 6px;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------ the lounge TV's game menu (tv/menu.ts) */
+
+.ui-dialog.ui-tv {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.ui-tv__games {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 14px 16px 18px;
+  list-style: none;
+}
+
+.ui-tv__game {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--ui-bg-soft);
+  color: var(--ui-text);
+  font: 13px/1.35 var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-tv__game:hover,
+.ui-tv__game:focus-visible {
+  background: var(--ui-bg-hover);
+  border-color: var(--ui-accent);
+  outline: none;
+}
+
+.ui-tv__icon {
+  grid-row: 1 / 3;
+  font-size: 28px;
+  text-align: center;
+}
+
+.ui-tv__game strong {
+  font-size: 15px;
+}
+
+.ui-tv__game span:last-child {
+  color: var(--ui-muted);
+}

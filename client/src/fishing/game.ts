@@ -10,7 +10,9 @@ import { h, iconButton } from '../ui/dom';
 import { ICONS } from '../ui/icons';
 import { safeLocalStorage } from '../ui/prefs';
 import { reducedMotion } from '../world/render/github-fx';
+import type { Weather } from '../world/render/weather';
 import { drawFish, drawMarker, FISH_BOX } from './art';
+import { CLOUDS, css, lerp, mix, type Rgb } from './sky';
 import { FISH, loadSave, RARITY, record, writeSave, type Catch, type Fish } from './fish';
 import { PROP_BOBBER } from './sprites/prop-bobber';
 import { SCENE_BG } from './sprites/scene-bg';
@@ -27,15 +29,9 @@ export interface FishingOptions {
   /** The agent that fishes; without one, a default look. */
   appearance: Appearance | null;
   name: string | null;
-  /** 0 (day) to 1 (night), as the office draws it, and whether it is raining there. */
-  dark: number;
-  rain: boolean;
+  /** The office's darkness (0 day .. 1 night) and weather right now: read again as they change while the game is open. */
+  env(): { dark: number; weather: Weather };
 }
-
-type Rgb = readonly [number, number, number];
-const mix = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const css = (c: Rgb): string => `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`;
-const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
 /** Where the float lands for a cast of strength p (0..1): farther is higher up the picture and farther right. */
 const target = (p: number): { x: number; y: number } => ({
@@ -113,44 +109,13 @@ function rng(seed: number): () => number {
 
 // ------------------------------------------------------------------ scenery (drawn once)
 
-/** A cloud: overlapping puffs with a flat bottom and a grey-blue underside (w white, s underside, S shade). */
-function cloudGrid(w: number, h: number, puffs: readonly (readonly [number, number, number])[]): PixelGrid {
-  const rows: string[] = [];
-  for (let y = 0; y < h; y++) {
-    let row = '';
-    for (let x = 0; x < w; x++) {
-      const inside = puffs.some(([cx, cy, r]) => (x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= r * r);
-      row += inside ? (y >= h - 2 ? 'S' : y >= h - 4 ? 's' : 'w') : '.';
-    }
-    rows.push(row);
-  }
-  return { palette: { w: '#ffffff', s: '#dbe8f5', S: '#b8cde3' }, rows };
-}
-const CLOUDS: readonly PixelGrid[] = [
-  cloudGrid(34, 12, [
-    [8, 8, 5],
-    [15, 6, 7],
-    [24, 8, 6],
-    [30, 10, 4],
-  ]),
-  cloudGrid(26, 10, [
-    [7, 7, 5],
-    [14, 5, 6],
-    [21, 7, 5],
-  ]),
-  cloudGrid(40, 11, [
-    [8, 8, 5],
-    [17, 6, 7],
-    [27, 5, 6],
-    [34, 8, 5],
-  ]),
-];
-
-function drawSky(dark: number, rain: boolean): HTMLCanvasElement {
+function drawSky(dark: number, weather: Weather): HTMLCanvasElement {
+  const overcast = weather === 'rain' || weather === 'snow';
   const [c, ctx] = canvasOf(W, SHORE);
   const gray: Rgb = [138, 150, 166];
-  const dayTop = mix([112, 184, 250], gray, rain ? 0.55 : 0);
-  const dayLow = mix([204, 234, 255], gray, rain ? 0.5 : 0);
+  const grey = { clear: 0, wind: 0.12, rain: 0.55, snow: 0.4 }[weather];
+  const dayTop = mix([112, 184, 250], gray, grey);
+  const dayLow = mix([204, 234, 255], gray, grey * 0.9);
   const top = mix(dayTop, [10, 16, 40], dark);
   const low = mix(dayLow, [40, 56, 98], dark);
   const bands = 12;
@@ -158,12 +123,12 @@ function drawSky(dark: number, rain: boolean): HTMLCanvasElement {
     ctx.fillStyle = css(mix(top, low, i / (bands - 1)));
     ctx.fillRect(0, Math.floor((i * SHORE) / bands), W, Math.ceil(SHORE / bands) + 1);
   }
-  if (!rain && dark > 0.35) {
+  if (!overcast && dark > 0.35) {
     const r = rng(7);
     ctx.fillStyle = `rgba(255,255,240,${Math.min(1, (dark - 0.35) * 2)})`;
     for (let i = 0; i < 30; i++) ctx.fillRect(Math.floor(r() * W), Math.floor(r() * 44), 1, 1);
   }
-  if (!rain) {
+  if (!overcast) {
     if (dark < 0.55) {
       for (const [r, col] of [
         [11, 'rgba(255,240,170,0.28)'],
@@ -217,11 +182,12 @@ export function openFishing(o: FishingOptions): void {
   const appearance = o.appearance ?? art.appearanceFromSeed(7);
   const storage = safeLocalStorage();
   const save = loadSave(storage);
-  const night = o.dark > 0.5;
   const calm = reducedMotion();
-
-  const sky = drawSky(o.dark, o.rain);
-  const land = drawLand(o.dark);
+  // the weather and darkness follow the main screen: the scenery is redrawn when either changes (checked twice a second)
+  let env = o.env();
+  let sky = drawSky(env.dark, env.weather);
+  let land = drawLand(env.dark);
+  const night = () => env.dark > 0.5;
   const body = art.characterSprite({
     appearance,
     dir: 'right',
@@ -253,7 +219,7 @@ export function openFishing(o: FishingOptions): void {
     },
   };
   const session = new Session(
-    () => ({ night, rain: o.rain }),
+    () => ({ night: night(), rain: env.weather === 'rain' }),
     (e) => events[e]?.(),
   );
   const say = (text: string) => {
@@ -287,7 +253,12 @@ export function openFishing(o: FishingOptions): void {
     on: { click: () => toggleDex() },
   });
   const close = iconButton(ICONS.close, tr('Close'), () => dialog.close(), 'ui-icon-btn--sm');
-  const mood = [night ? tr('Night') : tr('Day'), o.rain ? tr('Rain') : null].filter(Boolean).join(' · ');
+  const moodEl = h('span', { class: 'ui-fish__mood' });
+  const setMood = () => {
+    const weather = { clear: null, wind: tr('Windy'), rain: tr('Rain'), snow: tr('Snow') }[env.weather];
+    moodEl.textContent = [night() ? tr('Night') : tr('Day'), weather].filter(Boolean).join(' · ');
+  };
+  setMood();
   const dialog = h(
     'dialog',
     {
@@ -301,7 +272,7 @@ export function openFishing(o: FishingOptions): void {
         text: o.name ? tr('{0} is fishing', [o.name]) : tr('Fishing at the pond'),
         attrs: { id: 'ui-fish-title' },
       }),
-      h('span', { class: 'ui-fish__mood', text: mood }),
+      moodEl,
       dexBtn,
       close,
     ),
@@ -466,25 +437,98 @@ export function openFishing(o: FishingOptions): void {
     }
   };
 
+  /** A steady pseudo-random number in 0..1 for (i, k): the same drop always lands in the same lane. */
+  const noise = (i: number, k: number): number => {
+    const v = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+    return v - Math.floor(v);
+  };
+  const drawRain = () => {
+    // drops slant with the wind: a streak is a few pixels, one column to the left every second row
+    for (const [count, len, speed, color] of [
+      [110, 2, 130, 'rgba(190,210,240,0.38)'],
+      [60, 4, 215, 'rgba(228,238,255,0.72)'],
+    ] as const) {
+      ctx.fillStyle = color;
+      for (let i = 0; i < count; i++) {
+        const t = calm ? 0 : clock;
+        const y = (noise(i, speed) * (H + 12) + t * speed) % (H + 12);
+        const x = (((noise(i, speed + 1) * (W + 60) - t * speed * 0.3 + y * 0.5) % (W + 60)) + W + 60) % (W + 60);
+        for (let j = 0; j < len; j++) ctx.fillRect(Math.round(x) - (j >> 1), Math.round(y) + j - 6, 1, 1);
+      }
+    }
+    // rings on the open water (clear of the bank and the dock): each lives about a second, then lands somewhere else
+    if (calm) return;
+    ctx.fillStyle = 'rgba(235,244,255,0.8)';
+    for (let i = 0; i < 16; i++) {
+      const period = 0.7 + noise(i, 3) * 0.6;
+      const cycle = Math.floor(clock / period + noise(i, 4));
+      const age = (clock / period + noise(i, 4)) % 1;
+      const x = 172 + Math.floor(noise(i, cycle + 5) * 140);
+      const y = 100 + Math.floor(noise(i, cycle + 9) * 74);
+      const r = 1 + Math.round(age * 4);
+      ctx.globalAlpha = 1 - age;
+      ctx.fillRect(x - r, y, 1, 1);
+      ctx.fillRect(x + r, y, 1, 1);
+      if (r >= 3) ctx.fillRect(x - r + 2, y - 1, r * 2 - 3, 1);
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  /** Snow: two layers of flakes drifting down and sideways (far ones single pixels, near ones 2 x 2), swaying a little. */
+  const drawSnow = () => {
+    for (const [count, size, speed, color] of [
+      [70, 1, 20, 'rgba(235,242,255,0.6)'],
+      [36, 2, 36, 'rgba(255,255,255,0.9)'],
+    ] as const) {
+      ctx.fillStyle = color;
+      for (let i = 0; i < count; i++) {
+        const t = calm ? 0 : clock;
+        const y = (noise(i, speed) * (H + 8) + t * speed) % (H + 8);
+        const sway = calm ? 0 : Math.sin(t * 0.9 + i) * 5;
+        const x = (((noise(i, speed + 1) * W + sway + t * 7) % W) + W) % W;
+        ctx.fillRect(Math.round(x), Math.round(y) - 4, size, size);
+      }
+    }
+  };
+  /** Wind: long thin gusts racing right to left and a few leaves tumbling along. */
+  const drawWind = () => {
+    if (calm) return;
+    ctx.fillStyle = 'rgba(255,255,255,0.34)';
+    for (let i = 0; i < 9; i++) {
+      const len = 10 + Math.floor(noise(i, 2) * 16);
+      const x = ((((noise(i, 3) * (W + 80) - clock * (150 + noise(i, 4) * 90)) % (W + 80)) + W + 80) % (W + 80)) - 40;
+      ctx.fillRect(Math.round(x), 30 + Math.floor(noise(i, 5) * 130), len, 1);
+    }
+    for (let i = 0; i < 6; i++) {
+      const x = ((((noise(i, 6) * (W + 40) - clock * (70 + noise(i, 7) * 40)) % (W + 40)) + W + 40) % (W + 40)) - 20;
+      const y = 60 + noise(i, 8) * 90 + Math.sin(clock * 3 + i * 2) * 6;
+      ctx.fillStyle = i % 2 ? '#7aa84a' : '#b88a3e';
+      ctx.fillRect(Math.round(x), Math.round(y), 2, 1);
+      ctx.fillRect(Math.round(x) + 1, Math.round(y) + 1, 1, 1);
+    }
+  };
+
   const draw = () => {
     ctx.drawImage(sky, 0, 0);
     // clouds drift across and wrap round; the grey rainy ones and the dark night ones swap their three tones
-    const tone: Rgb = o.rain ? [150, 160, 176] : [255, 255, 255];
+    const overcast = env.weather === 'rain' || env.weather === 'snow';
+    const tone: Rgb = overcast ? [150, 160, 176] : [255, 255, 255];
     const cloudColors = {
-      '#ffffff': css(mix(tone, [60, 72, 108], o.dark)),
-      '#dbe8f5': css(mix(mix(tone, [190, 205, 225], 0.5), [52, 62, 98], o.dark)),
-      '#b8cde3': css(mix(mix(tone, [160, 180, 210], 0.6), [44, 54, 88], o.dark)),
+      '#ffffff': css(mix(tone, [60, 72, 108], env.dark)),
+      '#dbe8f5': css(mix(mix(tone, [190, 205, 225], 0.5), [52, 62, 98], env.dark)),
+      '#b8cde3': css(mix(mix(tone, [160, 180, 210], 0.6), [44, 54, 88], env.dark)),
     };
-    for (let i = 0; i < (o.rain ? 6 : 3); i++) {
+    const windy = env.weather === 'wind' ? 3.5 : 1;
+    for (let i = 0; i < (overcast ? 6 : env.weather === 'wind' ? 4 : 3); i++) {
       const span = W + 90;
-      const x = Math.round(((i * 109 + (calm ? 0 : clock * (2.5 + i * 0.7))) % span) - 50);
+      const x = Math.round(((i * 109 + (calm ? 0 : clock * (2.5 + i * 0.7) * windy)) % span) - 50);
       paintGrid(ctx, CLOUDS[i % CLOUDS.length], x, 8 + ((i * 17) % 36), { recolor: cloudColors });
     }
     ctx.drawImage(land, 0, 0);
 
     // sparkles on the water
     if (!calm) {
-      ctx.fillStyle = `rgba(255,255,255,${night ? 0.35 : 0.7})`;
+      ctx.fillStyle = `rgba(255,255,255,${night() ? 0.35 : 0.7})`;
       for (let i = 0; i < 18; i++) {
         if (Math.sin(clock * 1.7 + i * 2.3) > 0.82) ctx.fillRect(172 + ((i * 53) % 130), 98 + ((i * 29) % 78), 3, 1);
       }
@@ -544,25 +588,20 @@ export function openFishing(o: FishingOptions): void {
     }
 
     // night, then the lamp's glow, then the rain
-    if (o.dark > 0.02) {
-      ctx.fillStyle = `rgba(12,22,56,${(0.22 * o.dark).toFixed(3)})`;
+    if (env.dark > 0.02) {
+      ctx.fillStyle = `rgba(12,22,56,${(0.22 * env.dark).toFixed(3)})`;
       ctx.fillRect(0, 0, W, H);
     }
-    if (o.dark > 0.3) {
+    if (env.dark > 0.3) {
       const g = ctx.createRadialGradient(72, 84, 2, 72, 90, 56);
-      g.addColorStop(0, `rgba(255,214,120,${(0.5 * o.dark).toFixed(2)})`);
+      g.addColorStop(0, `rgba(255,214,120,${(0.5 * env.dark).toFixed(2)})`);
       g.addColorStop(1, 'rgba(255,214,120,0)');
       ctx.fillStyle = g;
       ctx.fillRect(10, 30, 130, 120);
     }
-    if (o.rain) {
-      ctx.fillStyle = 'rgba(210,225,255,0.55)';
-      for (let i = 0; i < 70; i++) {
-        const x = (i * 37 + (calm ? 0 : clock * 40)) % W;
-        const y = (i * 53 + (calm ? 0 : clock * 220)) % H;
-        ctx.fillRect(Math.round(x), Math.round(y), 1, 4);
-      }
-    }
+    if (env.weather === 'rain') drawRain();
+    else if (env.weather === 'snow') drawSnow();
+    else if (env.weather === 'wind') drawWind();
 
     // where the float will land, and the power gauge: a framed row of segments that turn from green to red
     if (p === 'charge') {
@@ -645,10 +684,21 @@ export function openFishing(o: FishingOptions): void {
   let shownFlash: string | null = null;
   let raf = 0;
   let prev = 0;
+  let envCheck = 0;
   const frame = (ts: number) => {
     const dt = Math.min(0.1, prev ? (ts - prev) / 1000 : 0);
     prev = ts;
     clock += dt;
+    if (clock - envCheck > 0.5) {
+      envCheck = clock;
+      const now = o.env();
+      if (now.weather !== env.weather || Math.abs(now.dark - env.dark) > 0.03) {
+        env = now;
+        sky = drawSky(env.dark, env.weather);
+        land = drawLand(env.dark);
+        setMood();
+      }
+    }
     session.update(dt);
     if (flash && clock > flash.until) flash = null;
     const phase = session.phase;

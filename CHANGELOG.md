@@ -12,12 +12,20 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Mini jogo Flappy na TV da sala de descanso.** Clicar na TV (o cursor vira mãozinha) abre um menu com os jogos da TV
+  (por enquanto o Flappy; novos jogos entram numa lista só) e escolher o Flappy abre uma janela com ele em pixel art: Espaço, Enter, seta para cima, clique ou toque fazem o passarinho bater as asas, e é preciso passar pela
+  fresta entre os canos sem tocar nos canos, no chão nem no teto. O passarinho leva as cores do agente selecionado (ou do
+  primeiro do escritório): a asa tem a cor da camisa e o topete, a do cabelo. O cenário (prédios ao fundo, colinas, chão que
+  rola) segue o dia e a noite do escritório. As frestas sempre dão para alcançar, e o toque logo depois de morrer é
+  ignorado por um instante para não pular a tela do resultado. O recorde fica só neste navegador (`habblaud:flappy`), sem ir
+  para o servidor nem para o Habblaud World. Com "reduzir movimento" somem a tremida da morte e as nuvens. Ainda sem som. O
+  jogo só é baixado quando é escolhido; Esc fecha. Os desenhos estão em `scripts/assets/handdrawn/flappy/`.
 - **Mini jogo de pescaria no lago do parque.** Do outro lado da rua, no parque, agora há um lago com um pequeno cais
   (arraste a tela para baixo, ou use o zoom, para chegar até ele). Clicar no lago abre uma janela com a pescaria: o
   agente selecionado (ou o primeiro do escritório) vai pescar no cais. Segure Espaço (ou o botão do mouse, ou o dedo)
   para carregar o arremesso e solte para lançar: quanto mais longe, mais fácil sair um peixe raro. Quando o peixe
   morder, aperte para fisgar e, na fase de puxar, segure para subir a faixa verde e mantenha o peixe dentro dela até
-  encher a barra. São dez peixes, que dependem da hora (o dia e a noite do escritório) e da chuva do dia, mais lixo e
+  encher a barra. O céu da pescaria acompanha o escritório: dia ou noite e o tempo (chuva com gotas e anéis na água, neve, vento) são lidos da tela principal e mudam até com a janela aberta. São dez peixes, que dependem da hora (o dia e a noite do escritório) e da chuva do dia, mais lixo e
   um baú do tesouro, e o caderno de peixes (Fishdex) guarda o maior de cada espécie. Tudo fica só neste navegador
   (`habblaud:fishing`) e nada vai para o servidor nem para o Habblaud World. Os desenhos (os peixes, o lixo e o cenário
   inteiro do lago, numa só imagem editável) foram feitos no Pixelorama (`scripts/assets/handdrawn/fishing/`). O jogo só é

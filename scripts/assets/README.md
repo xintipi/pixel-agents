@@ -198,3 +198,11 @@ Regras de estilo, para os sprites combinarem entre si:
 
 Cada PNG vira uma grade com `png2grid.py`, em `client/src/fishing/sprites/` (os peixes e o lixo, uma grade por célula
 do atlas; o cenário, uma grade só).
+
+## Sprites do mini jogo Flappy
+
+`handdrawn/flappy/` guarda os desenhos do Flappy da TV (`client/src/flappy/`): o passarinho em três quadros de asa
+(a asa e o topete são repintados com as cores do agente), o cano (tampa e corpo, que se repete na vertical), o tile do chão,
+e duas faixas de 320 px que repetem sem emenda (prédios e colinas). Os PNGs vêm de `flappy-atlas.png`, e cada célula vira
+uma grade com `png2grid.py`, em `client/src/flappy/sprites/`.
+

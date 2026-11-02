@@ -130,6 +130,8 @@ export class Renderer {
   readonly areas = new Map<string, AreaVis>();
   readonly heads = new Map<string, HeadInfo>();
   /** Rectangle (world px) of each pet drawn this frame, for the petting click. */
+  /** Rectangle (world px) of each wall TV drawn this frame, for the click that opens its mini game. */
+  readonly tvBoxes: { x: number; y: number; w: number; h: number }[] = [];
   readonly petBoxes = new Map<string, { x: number; y: number; w: number; h: number; feetY: number }>();
   exterior: ExteriorLayout;
   shells: SlotShell[] = [];
@@ -393,6 +395,7 @@ export class Renderer {
     const { ctx, camera } = this;
     this.date.setTime(this.clock());
     this.dt = dt;
+    this.tvBoxes.length = 0;
     const W = this.canvas.width;
     const H = this.canvas.height;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -787,6 +790,8 @@ export class Renderer {
         if (!s) return;
         const o = wallItemOrigin(w, s.base);
         ctx.drawImage(s.base.canvas, o.x, o.y + rise);
+        // only a TV that is fully up (not rising out of the floor while its room is built or taken down) can be clicked
+        if (rise === 0) this.tvBoxes.push({ x: o.x, y: o.y, w: s.base.canvas.width, h: s.base.canvas.height });
         const r = s.base.rects?.tv;
         // playing on the lounge TV: the chosen show (soccer, soap opera, cartoon) or the video game
         const live = this.sim.social.tvScreen();
