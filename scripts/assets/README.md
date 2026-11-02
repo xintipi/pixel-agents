@@ -191,13 +191,14 @@ Regras de estilo, para os sprites combinarem entre si:
 
 - `fishing-fish.png`: cinco formas de peixe (redondo, alto, comprido, enguia, esturjão) numa paleta canônica, que cada
   espécie recolore com as próprias cores, mais o lixo (bota, lata, garrafa, baú), já nas cores finais.
-- `scene-bg.png`: o cenário inteiro do lago numa só imagem de 320 x 180 (colinas, mata, margem distante, água com
-  ondas, a margem com grama e caminho, salgueiro, banco, lampião, cais e vitórias-régias), com o céu transparente
-  (o jogo desenha o céu por trás, conforme a hora). Para mexer no cenário, edite este PNG no Pixelorama; a paleta é
-  única e tem menos de 62 cores.
+- `fishing-layers.png` (e os `scene-*.png` cortados dele): o cenário do lago em camadas, para o jogo poder mexê-las: o fundo
+  (colinas, mata e margem distante, com o céu transparente), a margem de perto (grama, caminho, flores), uma peça para cada
+  coisa (carvalho, pinheiro, salgueiro, arbusto, quatro tufos de juncos, três vitórias-régias, pedras, banco, lampião e cais) e a
+  boia (`prop-bobber`). A água não é desenho: o jogo a pinta com um degradê pontilhado, o reflexo da margem, as ondas e os
+  brilhos. A paleta é única (menos de 62 cores); na neve o jogo troca os tons de verde por tons de neve só nas camadas de
+  grama e de copa.
 
-Cada PNG vira uma grade com `png2grid.py`, em `client/src/fishing/sprites/` (os peixes e o lixo, uma grade por célula
-do atlas; o cenário, uma grade só).
+Cada célula do atlas vira uma grade com `png2grid.py`, em `client/src/fishing/sprites/`.
 
 ## Sprites do mini jogo Flappy
 

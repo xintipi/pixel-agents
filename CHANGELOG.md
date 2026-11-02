@@ -25,7 +25,7 @@ do meio (0.**3**.0).
   agente selecionado (ou o primeiro do escritório) vai pescar no cais. Segure Espaço (ou o botão do mouse, ou o dedo)
   para carregar o arremesso e solte para lançar: quanto mais longe, mais fácil sair um peixe raro. Quando o peixe
   morder, aperte para fisgar e, na fase de puxar, segure para subir a faixa verde e mantenha o peixe dentro dela até
-  encher a barra. O céu da pescaria acompanha o escritório: dia ou noite e o tempo (chuva com gotas e anéis na água, neve, vento) são lidos da tela principal e mudam até com a janela aberta. São dez peixes, que dependem da hora (o dia e a noite do escritório) e da chuva do dia, mais lixo e
+  encher a barra. O cenário do lago é feito em camadas que se mexem: a água com o reflexo da margem, ondas e brilhos, as copas e os juncos balançando (mais com vento), vitórias-régias que sobem e descem, sombras de peixes, passarinhos e libélula de dia e vaga-lumes à noite; a boia e a linha seguem uma mola, e a vara (agora longa e fina, com cabo, carretel e passadores de linha) se curva ao puxar. O céu da pescaria acompanha o escritório: dia ou noite e o tempo (chuva com gotas e anéis na água, neve, vento) são lidos da tela principal e mudam até com a janela aberta. São dez peixes, que dependem da hora (o dia e a noite do escritório) e da chuva do dia, mais lixo e
   um baú do tesouro, e o caderno de peixes (Fishdex) guarda o maior de cada espécie. Tudo fica só neste navegador
   (`habblaud:fishing`) e nada vai para o servidor nem para o Habblaud World. Os desenhos (os peixes, o lixo e o cenário
   inteiro do lago, numa só imagem editável) foram feitos no Pixelorama (`scripts/assets/handdrawn/fishing/`). O jogo só é
