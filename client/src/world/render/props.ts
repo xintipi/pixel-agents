@@ -4,7 +4,21 @@
 import { mulberry32 } from '../../../../shared/hash';
 import type { ExteriorProp } from '../layout/types';
 import { treeLook, type TreeLook } from '../seasons';
+import { BANHTRANG_STAND } from '../../art/handdrawn/banhtrang-stand';
+import { BUSH } from '../../art/handdrawn/bush';
+import { PINE } from '../../art/handdrawn/pine';
+import { REPAIR_BASIN } from '../../art/handdrawn/repair-basin';
+import { REPAIR_COMPRESSOR } from '../../art/handdrawn/repair-compressor';
+import { REPAIR_RACK } from '../../art/handdrawn/repair-rack';
+import { REPAIR_SIGN } from '../../art/handdrawn/repair-sign';
+import { REPAIR_STOOL } from '../../art/handdrawn/repair-stool';
+import { TRASH_CART } from '../../art/handdrawn/trash-cart';
+import { TREE } from '../../art/handdrawn/tree';
 import { BENCH } from '../../art/handdrawn/bench';
+import { HEDGE } from '../../art/handdrawn/hedge';
+import { PARASOL } from '../../art/handdrawn/parasol';
+import { ROCK } from '../../art/handdrawn/rock';
+import { TOTEM } from '../../art/handdrawn/totem';
 import { LAMP } from '../../art/handdrawn/lamp';
 import { FLOWERBED } from '../../art/handdrawn/flowerbed';
 import { TEA_COOLER } from '../../art/handdrawn/tea-cooler';
@@ -81,37 +95,6 @@ function shadowEllipse(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx
   }
 }
 
-/** Rounded canopy: union of circles with top-left light shading. */
-function canopy(p: Painter, rng: () => number, cx: number, cy: number, r: number, tones: string[], outline: string): void {
-  const blobs: [number, number, number][] = [[cx, cy, r]];
-  for (let i = 0; i < 4; i++) {
-    const a = rng() * Math.PI * 2;
-    const d = r * (0.35 + rng() * 0.35);
-    blobs.push([cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.8, r * (0.55 + rng() * 0.25)]);
-  }
-  const inside = (x: number, y: number) => blobs.some(([bx, by, br]) => (x - bx) ** 2 + (y - by) ** 2 <= br * br);
-  const x0 = Math.floor(cx - r * 1.8);
-  const x1 = Math.ceil(cx + r * 1.8);
-  const y0 = Math.floor(cy - r * 1.6);
-  const y1 = Math.ceil(cy + r * 1.6);
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      if (!inside(x + 0.5, y + 0.5)) continue;
-      const edge = !inside(x - 0.5, y + 0.5) || !inside(x + 1.5, y + 0.5) || !inside(x + 0.5, y - 0.5) || !inside(x + 0.5, y + 1.5);
-      if (edge) {
-        p.set(x, y, outline);
-        continue;
-      }
-      // light: top-left brighter; noise for "leaves"
-      const nx = (x - cx) / r;
-      const ny = (y - cy) / r;
-      const light = -nx * 0.45 - ny * 0.75 + (rng() - 0.5) * 0.55;
-      const k = light > 0.55 ? 3 : light > 0.05 ? 2 : light > -0.5 ? 1 : 0;
-      p.set(x, y, tones[k]);
-    }
-  }
-}
-
 /** Canopy tones (dark to light) and outline by the season's look; blossoms are sprinkled on top of a green canopy. */
 const SEASON_TONES: Readonly<Record<'spring' | 'autumn', { tones: string[]; outline: string }>> = {
   spring: { tones: ['#4f8a45', '#6aab52', '#8fcc6a', '#c2e88f'], outline: '#2f5a32' },
@@ -122,31 +105,29 @@ const BLOSSOM: Readonly<Record<'phuong' | 'banglang', [string, string]>> = {
   banglang: ['#8a5cc4', '#c49af0'],
 };
 
+/** Tones (dark to light) and outline of the hand-drawn oak as it is drawn in tree.png; the looks swap them. */
+const TREE_DRAWN = { tones: ['#2f6a43', '#3f8550', '#5aa45d', '#86c873'], outline: '#25463a' };
+const TREE_GREENS = [
+  ['#2f6a43', '#3f8550', '#5aa45d', '#86c873'],
+  ['#356b3c', '#4b8a45', '#6aa956', '#9fcf74'],
+  ['#2c6250', '#3a7e5f', '#53a071', '#82c489'],
+];
+
+/** Oak: hand-drawn (scripts/assets/handdrawn/tree.png); the seed picks the green and the mirroring, the look the season. */
 function treeSprite(seed: number, look: TreeLook = 'green'): PropSprite {
-  const rng = mulberry32(seed);
-  const [c, ctx] = makeCanvas(36, 48);
+  const { w, h } = gridSize(TREE);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 18, 45, 12, 3, 0.25);
-  const p = new Painter(ctx, 36, 48);
-  // trunk
-  for (let y = 30; y < 46; y++) {
-    for (let x = 16; x < 21; x++) {
-      const col = x === 16 ? '#8a6243' : x === 20 ? '#4a3222' : '#6b4a32';
-      p.set(x, y, col);
-    }
-  }
-  p.set(15, 45, '#4a3222');
-  p.set(21, 45, '#4a3222');
-  const variants = [
-    ['#2f6a43', '#3f8550', '#5aa45d', '#86c873'],
-    ['#356b3c', '#4b8a45', '#6aa956', '#9fcf74'],
-    ['#2c6250', '#3a7e5f', '#53a071', '#82c489'],
-  ];
-  const r = 11 + Math.floor(rng() * 3);
-  const green = variants[Math.floor(rng() * variants.length)];
   const season = look === 'spring' || look === 'autumn' ? SEASON_TONES[look] : null;
-  canopy(p, rng, 18, 18, r, season ? season.tones : green, season ? season.outline : '#25463a');
+  const tones = season ? season.tones : TREE_GREENS[seed % TREE_GREENS.length];
+  const recolor: Record<string, string> = { [TREE_DRAWN.outline]: season ? season.outline : '#25463a' };
+  TREE_DRAWN.tones.forEach((t, i) => {
+    recolor[t] = tones[i];
+  });
+  paintGrid(ctx, TREE, 0, 0, { flip: seed % 2 === 1, recolor });
   if (look === 'phuong' || look === 'banglang') {
     // blossom clusters over the leaves (their own draws: the canopy's shape doesn't change), lighter on top
+    const p = new Painter(ctx, w, h);
     const [dk, lt] = BLOSSOM[look];
     const br = mulberry32(seed ^ 0xb105);
     for (let y = 3; y < 32; y++) {
@@ -157,47 +138,33 @@ function treeSprite(seed: number, look: TreeLook = 'green'): PropSprite {
         if (br() < 0.5 && p.alpha(x + 1, y) > 0) p.set(x + 1, y, dk);
       }
     }
+    p.flush();
   }
-  p.flush();
   return { canvas: c, ax: 18, ay: 45 };
 }
 
+/** Pine: hand-drawn (scripts/assets/handdrawn/pine.png); the seed only decides the mirroring. */
 function pineSprite(seed: number): PropSprite {
-  const rng = mulberry32(seed);
-  const [c, ctx] = makeCanvas(28, 48);
+  const { w, h } = gridSize(PINE);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 14, 45, 9, 3, 0.25);
-  const p = new Painter(ctx, 28, 48);
-  for (let y = 38; y < 46; y++) for (let x = 12; x < 16; x++) p.set(x, y, x === 12 ? '#8a6243' : x === 15 ? '#4a3222' : '#6b4a32');
-  const tones = ['#24533f', '#2f6b4f', '#3f8a5f', '#62ab79'];
-  const layers = 4;
-  for (let l = 0; l < layers; l++) {
-    const top = 4 + l * 8;
-    const bottom = top + 14;
-    for (let y = top; y < bottom; y++) {
-      const half = Math.round(((y - top) / (bottom - top)) * (5 + l * 2.2));
-      for (let x = 14 - half; x <= 14 + half; x++) {
-        const edge = x === 14 - half || x === 14 + half || y === bottom - 1;
-        const light = (14 - x) / (half + 1) - (y - top) / (bottom - top) + (rng() - 0.5) * 0.5;
-        p.set(x, y, edge ? '#1d3f33' : tones[light > 0.5 ? 3 : light > -0.1 ? 2 : light > -0.6 ? 1 : 0]);
-      }
-    }
-  }
-  p.flush();
+  paintGrid(ctx, PINE, 0, 0, { flip: seed % 2 === 1 });
   return { canvas: c, ax: 14, ay: 45 };
 }
 
+/** Bush: hand-drawn (scripts/assets/handdrawn/bush.png), mirrored by the seed, with a few little flowers sprinkled on top. */
 function bushSprite(seed: number): PropSprite {
   const rng = mulberry32(seed);
-  const [c, ctx] = makeCanvas(22, 16);
+  const { w, h } = gridSize(BUSH);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 11, 14, 9, 2, 0.22);
-  const p = new Painter(ctx, 22, 16);
-  canopy(p, rng, 11, 9, 6, ['#34663f', '#47864c', '#62a45a', '#8cc66f'], '#264a36');
-  // little flowers
+  paintGrid(ctx, BUSH, 0, 0, { flip: seed % 2 === 1 });
   if (rng() < 0.6) {
+    const p = new Painter(ctx, w, h);
     const col = ['#f2d14b', '#f28aa5', '#ffffff'][Math.floor(rng() * 3)];
     for (let i = 0; i < 4; i++) p.set(6 + Math.floor(rng() * 10), 5 + Math.floor(rng() * 6), col);
+    p.flush();
   }
-  p.flush();
   return { canvas: c, ax: 11, ay: 14 };
 }
 
@@ -214,21 +181,12 @@ function flowersSprite(seed: number): PropSprite {
   return { canvas: c, ax: 15, ay: 13 };
 }
 
+/** Hedge: hand-drawn (scripts/assets/handdrawn/hedge.png), mirrored by the seed. */
 function hedgeSprite(seed: number): PropSprite {
-  const rng = mulberry32(seed);
-  const [c, ctx] = makeCanvas(34, 16);
+  const { w, h } = gridSize(HEDGE);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 17, 14, 15, 2, 0.2);
-  const p = new Painter(ctx, 34, 16);
-  for (let y = 3; y < 14; y++) {
-    for (let x = 1; x < 33; x++) {
-      const r = y === 3 ? 2 : y === 4 ? 1 : 0;
-      if (x < 1 + r || x > 32 - r) continue;
-      const edge = y === 3 || y === 13 || x === 1 + r || x === 32 - r;
-      const light = -(y - 3) / 10 + (rng() - 0.5) * 0.6;
-      p.set(x, y, edge ? '#264a36' : light > 0 ? '#6aa956' : light > -0.4 ? '#4b8a45' : '#356b3c');
-    }
-  }
-  p.flush();
+  paintGrid(ctx, HEDGE, 0, 0, { flip: seed % 2 === 1 });
   return { canvas: c, ax: 17, ay: 14 };
 }
 
@@ -250,88 +208,39 @@ function benchSprite(): PropSprite {
   return { canvas: c, ax: 13, ay: 12 };
 }
 
+/** Rock: hand-drawn (scripts/assets/handdrawn/rock.png), mirrored by the seed. */
 function rockSprite(seed: number): PropSprite {
-  const rng = mulberry32(seed);
-  const [c, ctx] = makeCanvas(16, 12);
-  const p = new Painter(ctx, 16, 12);
-  canopy(p, rng, 8, 7, 4, ['#7d8590', '#959da8', '#b3bac4', '#d3d8de'], '#4d5562');
-  p.flush();
+  const { w, h } = gridSize(ROCK);
+  const [c, ctx] = makeCanvas(w, h);
+  paintGrid(ctx, ROCK, 0, 0, { flip: seed % 2 === 1 });
   return { canvas: c, ax: 8, ay: 11 };
 }
 
 /** Garden table with a striped umbrella (top view, 3/4) and two little chairs. */
+/** Canopy tones of the garden umbrella as drawn in parasol.png (red); the seed swaps them for teal or amber. */
+const PARASOL_DRAWN: readonly [string, string, string] = ['#e8574a', '#f6efe2', '#a83a33'];
+const PARASOL_COLORS: readonly (readonly [string, string, string])[] = [
+  PARASOL_DRAWN,
+  ['#2fb3a3', '#f6efe2', '#1f8579'],
+  ['#f2b33d', '#fbf4e4', '#c88a1f'],
+];
+
 function parasolSprite(seed: number): PropSprite {
-  const [c, ctx] = makeCanvas(32, 34);
-  const palettes: [string, string, string][] = [
-    ['#e8574a', '#f6efe2', '#a83a33'],
-    ['#2fb3a3', '#f6efe2', '#1f8579'],
-    ['#f2b33d', '#fbf4e4', '#c88a1f'],
-  ];
-  const [a, b, dk] = palettes[seed % palettes.length];
+  const { w, h } = gridSize(PARASOL);
+  const [c, ctx] = makeCanvas(w, h);
+  const [a, b, dk] = PARASOL_COLORS[seed % PARASOL_COLORS.length];
   // umbrella shadow on the ground
   shadowEllipse(ctx, 16, 29, 12, 3, 0.24);
-  // little chairs (sides) and table
-  ctx.fillStyle = '#5b3c25';
-  ctx.fillRect(2, 24, 6, 5);
-  ctx.fillRect(24, 24, 6, 5);
-  ctx.fillStyle = '#a0703f';
-  ctx.fillRect(2, 24, 6, 2);
-  ctx.fillRect(24, 24, 6, 2);
-  ctx.fillStyle = '#d8dde3';
-  ctx.fillRect(10, 24, 12, 5);
-  ctx.fillStyle = '#f4f6f8';
-  ctx.fillRect(10, 24, 12, 2);
-  ctx.fillStyle = '#8d96a3';
-  ctx.fillRect(10, 28, 12, 1);
-  // pole
-  ctx.fillStyle = '#4a5468';
-  ctx.fillRect(15, 11, 2, 14);
-  // canopy: flattened octagon with alternating segments and dark edge
-  const p = new Painter(ctx, 32, 34);
-  const cx = 15.5;
-  const cy = 8;
-  for (let y = 0; y <= 15; y++) {
-    for (let x = 0; x < 32; x++) {
-      const dx = (x - cx) / 14.5;
-      const dy = (y - cy) / 7.5;
-      const d = Math.abs(dx) + Math.abs(dy) * 0.55 + Math.hypot(dx, dy) * 0.45;
-      if (d > 1) continue;
-      const ang = Math.atan2(y - cy, x - cx);
-      const gomo = Math.floor(((ang + Math.PI) / (Math.PI * 2)) * 8) % 2;
-      const edge = d > 0.86;
-      const lit = y < cy - 1;
-      p.set(x, y, edge ? dk : gomo ? (lit ? '#ffffff' : b) : lit ? a : dk);
-    }
-  }
-  p.set(15, 8, '#2e3648');
-  p.set(16, 8, '#2e3648');
-  p.flush();
+  paintGrid(ctx, PARASOL, 0, 0, { recolor: { [PARASOL_DRAWN[0]]: a, [PARASOL_DRAWN[1]]: b, [PARASOL_DRAWN[2]]: dk } });
   return { canvas: c, ax: 16, ay: 29 };
 }
 
 /** Entrance totem with the brand (navy blue and orange, like the reception sign). */
 function totemSprite(): PropSprite {
-  const [c, ctx] = makeCanvas(14, 34);
+  const { w, h } = gridSize(TOTEM);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 7, 32, 6, 1.5, 0.25);
-  ctx.fillStyle = '#141b30';
-  ctx.fillRect(2, 2, 10, 30);
-  ctx.fillStyle = '#1c2541';
-  ctx.fillRect(3, 3, 8, 28);
-  ctx.fillStyle = '#2a355a';
-  ctx.fillRect(3, 3, 1, 28);
-  // orange band at the top, light "F" and orange "T" (the colors of "F" and "TE" on the sign)
-  ctx.fillStyle = '#f2a33a';
-  ctx.fillRect(3, 5, 8, 2);
-  ctx.fillStyle = '#f5f1e6';
-  ctx.fillRect(4, 11, 1, 7);
-  ctx.fillRect(5, 11, 4, 1);
-  ctx.fillRect(5, 14, 3, 1);
-  ctx.fillStyle = '#f2a33a';
-  ctx.fillRect(4, 20, 5, 1);
-  ctx.fillRect(6, 21, 1, 5);
-  // base
-  ctx.fillStyle = '#8d96a3';
-  ctx.fillRect(1, 31, 12, 2);
+  paintGrid(ctx, TOTEM);
   return { canvas: c, ax: 7, ay: 32 };
 }
 
@@ -402,85 +311,20 @@ function teaStackSprite(): PropSprite {
   return { canvas: c, ax: 12, ay: 28 };
 }
 
-/** A tire seen from the side: black rubber ring, a lighter tread line, hollow middle. */
-function tire(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
-  for (let y = -r; y <= r; y++)
-    for (let x = -r; x <= r; x++) {
-      const d = Math.hypot(x, y);
-      if (d > r + 0.3 || d < r - 2.6) continue;
-      ctx.fillStyle = d > r - 0.7 ? '#14171e' : d > r - 1.7 ? '#2a2e38' : '#3d4350';
-      ctx.fillRect(cx + x, cy + y, 1, 1);
-    }
-}
-
-/** The repair stall's things: tire rack, the tire sign, the compressor, the stool, the water basin. */
+/** The repair stall's things (tire rack, the tire sign, the compressor, the stool, the water basin): hand-drawn (repair-*.png). */
 function repairSprite(kind: 'repair_rack' | 'repair_sign' | 'repair_compressor' | 'repair_stool' | 'repair_basin'): PropSprite {
-  const o = '#2e3648';
-  const px = (ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w = 1, h = 1) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w, h);
-  };
-  if (kind === 'repair_rack') {
-    // a rough wooden frame with old tires hanging from the top bar and inner tubes draped over it
-    const [c, ctx] = makeCanvas(30, 30);
-    shadowEllipse(ctx, 15, 28, 13, 2, 0.22);
-    px(ctx, '#6b4a32', 2, 3, 2, 26);
-    px(ctx, '#6b4a32', 26, 3, 2, 26);
-    px(ctx, '#8a6444', 1, 2, 28, 2);
-    tire(ctx, 9, 12, 6);
-    tire(ctx, 21, 13, 6);
-    px(ctx, '#c4382f', 14, 4, 2, 14);
-    px(ctx, '#9a2b24', 15, 6, 1, 12);
-    return { canvas: c, ax: 15, ay: 28 };
-  }
-  if (kind === 'repair_sign') {
-    // the universal sign: a tire propped up on a little stand, a red stripe painted on it
-    const [c, ctx] = makeCanvas(18, 18);
-    shadowEllipse(ctx, 9, 16, 7, 1, 0.22);
-    px(ctx, '#5a3a2a', 4, 13, 10, 3);
-    tire(ctx, 9, 8, 7);
-    px(ctx, '#e04a3a', 3, 7, 2, 3);
-    px(ctx, '#e04a3a', 13, 7, 2, 3);
-    return { canvas: c, ax: 9, ay: 16 };
-  }
-  if (kind === 'repair_compressor') {
-    // a red air tank on two wheels, the motor on top and the coiled yellow hose
-    const [c, ctx] = makeCanvas(20, 16);
-    shadowEllipse(ctx, 10, 14, 9, 2, 0.24);
-    px(ctx, o, 2, 6, 16, 7);
-    px(ctx, '#d0352c', 3, 7, 14, 5);
-    px(ctx, '#f06a5f', 3, 7, 14, 1);
-    px(ctx, '#8f201d', 3, 11, 14, 1);
-    px(ctx, o, 5, 2, 8, 5);
-    px(ctx, '#6b7385', 6, 3, 6, 3);
-    px(ctx, '#b8bfcc', 6, 3, 2, 1);
-    px(ctx, o, 3, 12, 3, 3);
-    px(ctx, o, 14, 12, 3, 3);
-    px(ctx, '#f2c94c', 16, 5, 3, 1);
-    px(ctx, '#f2c94c', 18, 6, 1, 6);
-    px(ctx, '#f2c94c', 16, 12, 3, 1);
-    return { canvas: c, ax: 10, ay: 14 };
-  }
-  if (kind === 'repair_stool') {
-    // the low blue plastic stool
-    const [c, ctx] = makeCanvas(12, 8);
-    shadowEllipse(ctx, 6, 7, 5, 1, 0.2);
-    px(ctx, o, 1, 0, 10, 3);
-    px(ctx, '#3d7ce0', 2, 1, 8, 1);
-    px(ctx, '#2a589f', 2, 3, 1, 4);
-    px(ctx, '#2a589f', 9, 3, 1, 4);
-    return { canvas: c, ax: 6, ay: 7 };
-  }
-  // a big blue plastic basin of water (to find the hole by the bubbles), an inner tube soaking in it
-  const [c, ctx] = makeCanvas(18, 9);
-  shadowEllipse(ctx, 9, 7, 8, 1, 0.2);
-  px(ctx, o, 1, 1, 16, 7);
-  px(ctx, '#3d7ce0', 2, 2, 14, 5);
-  px(ctx, '#7fb0f0', 3, 2, 12, 2);
-  px(ctx, '#2a2e38', 5, 3, 8, 1);
-  px(ctx, '#ffffff', 7, 2, 1, 1);
-  px(ctx, '#ffffff', 11, 3, 1, 1);
-  return { canvas: c, ax: 9, ay: 7 };
+  const spec = {
+    repair_rack: { grid: REPAIR_RACK, shadow: [15, 28, 13, 2, 0.22], ax: 15, ay: 28 },
+    repair_sign: { grid: REPAIR_SIGN, shadow: [9, 16, 7, 1, 0.22], ax: 9, ay: 16 },
+    repair_compressor: { grid: REPAIR_COMPRESSOR, shadow: [10, 14, 9, 2, 0.24], ax: 10, ay: 14 },
+    repair_stool: { grid: REPAIR_STOOL, shadow: [6, 7, 5, 1, 0.2], ax: 6, ay: 7 },
+    repair_basin: { grid: REPAIR_BASIN, shadow: [9, 7, 8, 1, 0.2], ax: 9, ay: 7 },
+  }[kind];
+  const { w, h } = gridSize(spec.grid);
+  const [c, ctx] = makeCanvas(w, h);
+  shadowEllipse(ctx, spec.shadow[0], spec.shadow[1], spec.shadow[2], spec.shadow[3], spec.shadow[4]);
+  paintGrid(ctx, spec.grid);
+  return { canvas: c, ax: spec.ax, ay: spec.ay };
 }
 
 /**
@@ -489,76 +333,10 @@ function repairSprite(kind: 'repair_rack' | 'repair_sign' | 'repair_compressor' 
  * big spoked wheels.
  */
 function trashCartSprite(): PropSprite {
-  const o = '#22303a';
-  const [c, ctx] = makeCanvas(44, 36);
-  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w, h);
-  };
+  const { w, h } = gridSize(TRASH_CART);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 24, 33, 18, 2, 0.28);
-  // push handle: a long bar from the bin's west side, the rubber grip, and the brass bell hanging under it
-  px(o, 1, 11, 11, 3);
-  px('#8a95a3', 2, 12, 10, 1);
-  px('#2a2e38', 1, 11, 3, 3);
-  px(o, 4, 14, 1, 2);
-  px(o, 2, 16, 5, 4);
-  px('#d9a43a', 3, 16, 3, 3);
-  px('#f6d27a', 3, 16, 1, 1);
-  px('#a77b26', 3, 19, 3, 1);
-  // the trash heaped over the rim: black, white and blue bags, a cardboard flap
-  const bag = (x: number, y: number, w: number, h: number, body: string, light: string) => {
-    px(o, x, y + 1, w, h - 1);
-    px(o, x + 1, y, w - 2, 1);
-    px(body, x + 1, y + 1, w - 2, h - 2);
-    px(light, x + 1, y + 1, Math.max(1, Math.floor(w / 3)), 1);
-  };
-  bag(12, 3, 9, 7, '#2a2e38', '#4a5060');
-  bag(19, 1, 9, 8, '#e8e4da', '#ffffff');
-  bag(27, 4, 8, 6, '#3d7ce0', '#7fb0f0');
-  px(o, 33, 2, 6, 6);
-  px('#c8955a', 34, 3, 4, 4);
-  px('#a4733c', 34, 6, 4, 1);
-  bag(15, 6, 7, 5, '#4c9a5a', '#7cc47a');
-  // the bin: wider at the top (flared), lit from the left; rolled rim on top
-  for (let y = 9; y <= 27; y++) {
-    const inset = Math.round((y - 9) * 0.28);
-    const x0 = 10 + inset;
-    const x1 = 39 - inset;
-    px(o, x0 - 1, y, x1 - x0 + 3);
-    for (let x = x0; x <= x1; x++) {
-      const t = (x - x0) / (x1 - x0);
-      px(t < 0.2 ? '#4c9a5a' : t > 0.82 ? '#245232' : '#357a45', x, y);
-    }
-  }
-  px(o, 8, 8, 34, 3);
-  px('#7cc47a', 9, 8, 32, 1);
-  px('#2a5c34', 9, 10, 32, 1);
-  // riveted bands and a painted sign panel
-  for (const y of [14, 23]) {
-    const inset = Math.round((y - 9) * 0.28);
-    px('#245232', 10 + inset, y, 30 - inset * 2, 1);
-    for (let x = 12 + inset; x < 39 - inset; x += 5) px('#9fd0a8', x, y - 1, 1, 1);
-  }
-  px('#f2c94c', 18, 16, 14, 5);
-  px('#c8a030', 18, 20, 14, 1);
-  px('#2e3648', 20, 18, 10, 1);
-  // bamboo broom strapped along the side, its bristles fanned at the back end
-  px('#c8a46a', 12, 25, 26, 1);
-  px('#9a7a44', 12, 26, 26, 1);
-  px('#d9342b', 20, 24, 1, 3);
-  px('#d9342b', 31, 24, 1, 3);
-  for (let i = 0; i < 6; i++) px(i % 2 ? '#b08a50' : '#d6b878', 37 + Math.floor(i / 2), 23 + i, 4, 1);
-  // axle and the two big wheels: rubber tire, spokes, hub
-  px(o, 13, 28, 24, 2);
-  for (const wx of [15, 33]) {
-    for (let y = -4; y <= 4; y++)
-      for (let x = -4; x <= 4; x++) {
-        const d = Math.hypot(x, y);
-        if (d > 4.4) continue;
-        px(d > 3.2 ? '#14171e' : (x === 0 || y === 0 || x === y || x === -y) ? '#9aa3b5' : '#4a5060', wx + x, 30 + y);
-      }
-    px('#d6dbe4', wx, 30, 1, 1);
-  }
+  paintGrid(ctx, TRASH_CART);
   return { canvas: c, ax: 24, ay: 34 };
 }
 

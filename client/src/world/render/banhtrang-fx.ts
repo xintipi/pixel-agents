@@ -1,6 +1,8 @@
 // Night bánh tráng nướng stand (sim/banhtrang.ts): the sprite (low metal stand, round clay brazier with glowing coals,
 // the grill grate with a rice paper on it, the toppings), the charcoal smoke drifting off it and the coals' glow at
 // night. Same art direction as render/props.ts.
+import { BANHTRANG_STAND } from '../../art/handdrawn/banhtrang-stand';
+import { paintGrid } from '../../art/handdrawn/grid';
 
 /** Sprite with its anchor (bottom center), like props.ts's PropSprite. */
 interface Sprite {
@@ -26,83 +28,14 @@ export function banhtrangStandSprite(): Sprite {
   c.height = H;
   const ctx = c.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
-  const o = '#1d2733';
-  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w, h);
-  };
   // contact shadow
   ctx.fillStyle = 'rgba(28,36,52,0.28)';
   for (let y = -2; y <= 2; y++) {
     const half = Math.round(15 * Math.sqrt(Math.max(0, 1 - (y * y) / 4)));
     ctx.fillRect(16 - half, 24 + y, half * 2, 1);
   }
-  // styrofoam box under the tray, between the legs
-  px(o, 13, 17, 14, 7);
-  px('#f2f3f0', 14, 18, 12, 5);
-  px('#ffffff', 14, 18, 12, 1);
-  px('#cfd3d6', 14, 22, 12, 1);
-  px('#3f8fd8', 18, 20, 4, 1);
-  // four thin black legs (the front two a shade lighter) and the cross bar
-  for (const [x, col] of [[2, '#3a3f4a'], [29, '#3a3f4a'], [4, '#2a2e36'], [27, '#2a2e36']] as const) px(col, x, 15, 1, 9);
-  px('#2a2e36', 2, 21, 28, 1);
-  // the tray: dark metal, a light rim
-  px(o, 1, 13, 30, 3);
-  px('#5a6272', 2, 13, 28, 1);
-  px('#3a3f4a', 2, 14, 28, 1);
-  // the brazier (west half): round terracotta pot, darker band, little side vent showing the embers
-  px(o, 2, 6, 14, 8);
-  px('#b5603a', 3, 7, 12, 6);
-  px('#d07a4a', 3, 7, 3, 6);
-  px('#8a4329', 12, 7, 3, 6);
-  px('#7a3a24', 3, 10, 12, 1);
-  px('#1d1410', 7, 11, 4, 2);
-  px('#ff7a2a', 8, 11, 2, 1);
-  px('#ffcf5c', 8, 12, 1, 1);
-  // the coals in the mouth of the pot
-  px('#2a1d18', 3, 5, 12, 2);
-  for (const [x, col] of [[4, '#ff5a2a'], [6, '#ffcf5c'], [8, '#ff8a3c'], [10, '#ff5a2a'], [12, '#ffb347'], [14, '#c9361f']] as const) px(col, x, 6, 1, 1);
-  // the wire grate over the coals
-  px('#9aa3b5', 2, 4, 14, 1);
-  for (const x of [3, 6, 9, 12, 15]) px('#6b7280', x, 4, 1, 1);
-  // the round rice paper on the grate (seen a little from above): crisp edge, egg, scallions, dried shrimp, sausage
-  px('#c98f45', 4, 1, 10, 1);
-  px('#c98f45', 3, 2, 12, 2);
-  px('#e9c27a', 5, 1, 8, 1);
-  px('#f2c94c', 5, 2, 8, 2);
-  px('#ffe08a', 6, 2, 3, 1);
-  px('#4fae58', 6, 3, 1, 1);
-  px('#4fae58', 9, 2, 1, 1);
-  px('#4fae58', 11, 3, 1, 1);
-  px('#f08a4a', 8, 3, 1, 1);
-  px('#f08a4a', 12, 2, 1, 1);
-  px('#c4402f', 10, 3, 1, 1);
-  px('#fff2c4', 7, 2, 1, 1);
-  // toppings on the east half of the tray
-  // stack of round rice papers
-  px(o, 17, 10, 6, 4);
-  px('#efe6cf', 17, 10, 6, 3);
-  px('#fbf6e8', 17, 10, 6, 1);
-  px('#d9cdb0', 17, 12, 6, 1);
-  // a cup of beaten quail eggs
-  px(o, 23, 9, 4, 5);
-  px('#e9edf1', 23, 10, 4, 3);
-  px('#f2a73c', 23, 9, 4, 1);
-  // a little jar of scallion oil
-  px(o, 27, 10, 3, 4);
-  px('#5fb35a', 27, 11, 3, 2);
-  px('#9ad27a', 27, 10, 3, 1);
-  // squeeze bottles: chili sauce (red) and mayo (yellow), standing at the back
-  px(o, 20, 4, 3, 6);
-  px('#d9342b', 20, 5, 3, 5);
-  px('#f06a6a', 20, 5, 1, 4);
-  px('#f4f6f8', 21, 3, 1, 1);
-  px(o, 24, 5, 3, 4);
-  px('#f2d25c', 24, 6, 3, 3);
-  px('#fff1a0', 24, 6, 1, 2);
-  px('#f4f6f8', 25, 4, 1, 1);
-  // the little tongs resting on the tray's edge
-  px('#c9d0db', 15, 12, 4, 1);
+  // the stand itself is hand-drawn (scripts/assets/handdrawn/banhtrang-stand.png)
+  paintGrid(ctx, BANHTRANG_STAND);
   standCache = { canvas: c, ax: 16, ay: 24 };
   return standCache;
 }

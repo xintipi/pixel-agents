@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { BENCH } from './bench';
+import { BANHTRANG_STAND } from './banhtrang-stand';
+import { BUSH } from './bush';
+import { PINE } from './pine';
+import { REPAIR_BASIN } from './repair-basin';
+import { REPAIR_COMPRESSOR } from './repair-compressor';
+import { REPAIR_RACK } from './repair-rack';
+import { REPAIR_SIGN } from './repair-sign';
+import { REPAIR_STOOL } from './repair-stool';
+import { TRASH_CART } from './trash-cart';
+import { TREE } from './tree';
+import { BUS } from './bus';
+import { BUS_SHELTER } from './bus-shelter';
+import { BUS_SIGN } from './bus-sign';
+import { HEDGE } from './hedge';
+import { PARASOL } from './parasol';
+import { ROCK } from './rock';
+import { TOTEM } from './totem';
 import { BANHMI_CART } from './banhmi-cart';
 import { BIKE } from './bike';
 import { HUTIEU_CART } from './hutieu-cart';
@@ -20,7 +37,7 @@ describe('sprites desenhados à mão', () => {
     expect(gridSize(BENCH)).toEqual({ w: 26, h: 14 });
     expect(gridProblems(LAMP)).toEqual([]);
     expect(gridSize(LAMP)).toEqual({ w: 10, h: 36 });
-    for (const [grid, w, h] of [[FLOWERBED, 30, 14], [TEA_COOLER, 18, 22], [BIKE, 46, 36], [BIKE_LOAD_SCRAP, 20, 19], [BIKE_LOAD_BUN, 20, 19], [CAR, 60, 32], [SCOOTER_BACK, 30, 24], [SCOOTER_FRONT, 30, 24], [TEA_TABLE, 34, 22], [BANHMI_CART, 42, 36], [HUTIEU_CART, 56, 48]] as const) {
+    for (const [grid, w, h] of [[FLOWERBED, 30, 14], [TEA_COOLER, 18, 22], [BIKE, 46, 36], [BIKE_LOAD_SCRAP, 20, 19], [BIKE_LOAD_BUN, 20, 19], [CAR, 60, 32], [SCOOTER_BACK, 30, 24], [SCOOTER_FRONT, 30, 24], [TEA_TABLE, 34, 22], [BANHMI_CART, 42, 36], [HUTIEU_CART, 56, 48], [TRASH_CART, 44, 36], [BANHTRANG_STAND, 32, 26], [REPAIR_RACK, 30, 30], [REPAIR_SIGN, 18, 18], [REPAIR_COMPRESSOR, 20, 16], [REPAIR_STOOL, 12, 8], [REPAIR_BASIN, 18, 9], [TREE, 36, 48], [PINE, 28, 48], [BUSH, 22, 16], [BUS, 88, 46], [BUS_SHELTER, 64, 50], [BUS_SIGN, 22, 58], [PARASOL, 32, 34], [HEDGE, 34, 16], [ROCK, 16, 12], [TOTEM, 14, 34]] as const) {
       expect(gridProblems(grid)).toEqual([]);
       expect(gridSize(grid)).toEqual({ w, h });
     }
@@ -31,6 +48,14 @@ describe('sprites desenhados à mão', () => {
       const cores = Object.values(g.palette);
       expect(cores.some((c) => ['#c9302c', '#8f201d', '#e8665f'].includes(c))).toBe(true);
     }
+  });
+  it('a árvore traz os quatro tons e o contorno que o jogo troca por variante, estação e flor', () => {
+    const cores = Object.values(TREE.palette);
+    for (const c of ['#2f6a43', '#3f8550', '#5aa45d', '#86c873', '#25463a']) expect(cores).toContain(c);
+  });
+  it('o guarda-sol traz as três cores do pano que o jogo troca por variante', () => {
+    const cores = Object.values(PARASOL.palette);
+    for (const c of ['#e8574a', '#f6efe2', '#a83a33']) expect(cores).toContain(c);
   });
   it('a bicicleta traz as três cores de quadro que o jogo troca por variante', () => {
     const cores = Object.values(BIKE.palette);

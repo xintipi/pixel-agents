@@ -24,6 +24,12 @@ do meio (0.**3**.0).
   Também são desenhos à mão a mesa do chá gelado (jarra amarela, copos e prato de doce de amendoim), o carrinho de bánh
   mì (toldo listrado, vitrine com pães e a panela de xôi, placa vermelha) e o carrinho de hủ tiếu (vitrine, panela de
   caldo com vapor e a lâmpada).
+  O resto da calçada também: o carrinho de lixo, a barraca de bánh tráng nướng, as peças da oficina de pneus (cavalete com
+  pneus, placa, compressor, banquinho, bacia), a árvore (as estações e as flores de phượng e bằng lăng continuam por
+  cima), o pinheiro e o arbusto.
+  E mais: o ônibus (o número da linha continua sendo escrito pelo jogo no letreiro e na saia), o abrigo e a placa do ponto,
+  o guarda-sol (o pano troca de cor), a cerca viva, a pedra e o totem da entrada. Estes sete foram desenhados direto no
+  Pixelorama pelo servidor MCP.
   `scripts/assets/png2grid.py` converte o PNG numa grade de pixels em `client/src/art/handdrawn/`, que o jogo pinta
   como os demais sprites. Os outros sprites continuam procedurais.
 
