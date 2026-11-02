@@ -30,6 +30,8 @@ do meio (0.**3**.0).
   E mais: o ônibus (o número da linha continua sendo escrito pelo jogo no letreiro e na saia), o abrigo e a placa do ponto,
   o guarda-sol (o pano troca de cor), a cerca viva, a pedra e o totem da entrada. Estes sete foram desenhados direto no
   Pixelorama pelo servidor MCP.
+  As cargas das motos (garrafão, caixas de isopor, planta, buquê, galho de pêssego), os banquinhos e a pilha do chá gelado, a caixa de
+  som do baile e a placa de travessia de pedestres também são desenhos à mão (o buquê gira as cores das flores).
   Os bichinhos (corgi e gato) agora também vêm de folhas de sprites desenhadas no Pixelorama (`pet-dog.png` e `pet-cat.png`,
   uma linha por pose e vista, uma coluna por quadro, 28 quadros cada): o desenho é idêntico ao anterior, mas dá para
   editar com o pincel em vez de mexer em mapas de caracteres no código.

@@ -14,6 +14,15 @@ import { REPAIR_SIGN } from '../../art/handdrawn/repair-sign';
 import { REPAIR_STOOL } from '../../art/handdrawn/repair-stool';
 import { TRASH_CART } from '../../art/handdrawn/trash-cart';
 import { TREE } from '../../art/handdrawn/tree';
+import { CARGO_FLOWERS } from '../../art/handdrawn/cargo-flowers';
+import { CARGO_FOAM } from '../../art/handdrawn/cargo-foam';
+import { CARGO_PEACH } from '../../art/handdrawn/cargo-peach';
+import { CARGO_PLANT } from '../../art/handdrawn/cargo-plant';
+import { CARGO_WATER } from '../../art/handdrawn/cargo-water';
+import { CROSSING_SIGN } from '../../art/handdrawn/crossing-sign';
+import { DANCE_SPEAKER } from '../../art/handdrawn/dance-speaker';
+import { TEA_STACK } from '../../art/handdrawn/tea-stack';
+import { TEA_STOOL } from '../../art/handdrawn/tea-stool';
 import { BENCH } from '../../art/handdrawn/bench';
 import { HEDGE } from '../../art/handdrawn/hedge';
 import { PARASOL } from '../../art/handdrawn/parasol';
@@ -250,33 +259,16 @@ const STOOL_COLORS: [string, string, string][] = [
   ['#2f7fd8', '#1f5aa6', '#6aa8f0'],
 ];
 
-/** Low plastic stool (3/4 view): round seat with the hole in the middle and four splayed legs. */
-function drawStool(ctx: CanvasRenderingContext2D, x: number, y: number, color: number): void {
-  const [base, dk, lt] = STOOL_COLORS[color % STOOL_COLORS.length];
-  ctx.fillStyle = dk;
-  ctx.fillRect(x + 1, y + 3, 1, 5);
-  ctx.fillRect(x + 8, y + 3, 1, 5);
-  ctx.fillRect(x + 3, y + 3, 1, 4);
-  ctx.fillRect(x + 6, y + 3, 1, 4);
-  ctx.fillStyle = base;
-  ctx.fillRect(x, y + 1, 10, 2);
-  ctx.fillRect(x + 1, y, 8, 1);
-  ctx.fillRect(x + 1, y + 4, 8, 1);
-  ctx.fillStyle = lt;
-  ctx.fillRect(x + 2, y, 6, 1);
-  ctx.fillStyle = dk;
-  ctx.fillRect(x, y + 3, 10, 1);
-  ctx.fillRect(x + 4, y + 1, 2, 1);
-}
-
+/** Low plastic stool (3/4 view): hand-drawn red (scripts/assets/handdrawn/tea-stool.png); the other colour swaps the tones. */
 function teaStoolSprite(color: number): PropSprite {
-  const [c, ctx] = makeCanvas(12, 10);
+  const { w, h } = gridSize(TEA_STOOL);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 6, 8, 5, 1, 0.22);
-  drawStool(ctx, 1, 1, color);
+  const tones = STOOL_COLORS[color % STOOL_COLORS.length];
+  paintGrid(ctx, TEA_STOOL, 0, 0, { recolor: { [STOOL_COLORS[0][0]]: tones[0], [STOOL_COLORS[0][1]]: tones[1], [STOOL_COLORS[0][2]]: tones[2] } });
   return { canvas: c, ax: 6, ay: 9 };
 }
 
-/** Glass of iced tea: amber tea, ice on top, the glass catching the light. */
 /** Low wooden table with the big tea jug (yellow, red lid, little tap), glasses and a plate of peanut candy. */
 function teaTableSprite(): PropSprite {
   const { w, h } = gridSize(TEA_TABLE);
@@ -298,16 +290,10 @@ function teaCoolerSprite(): PropSprite {
 
 /** Closed: the stools stacked (red and blue) with the folded table leaning beside them. */
 function teaStackSprite(): PropSprite {
-  const [c, ctx] = makeCanvas(26, 30);
+  const { w, h } = gridSize(TEA_STACK);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 12, 28, 11, 2, 0.24);
-  // folded table, standing on its side
-  ctx.fillStyle = '#5b3c25';
-  ctx.fillRect(15, 8, 9, 20);
-  ctx.fillStyle = '#a0703f';
-  ctx.fillRect(16, 9, 7, 18);
-  ctx.fillStyle = '#c08a52';
-  ctx.fillRect(16, 9, 1, 18);
-  for (let i = 0; i < 6; i++) drawStool(ctx, 2, 19 - i * 3, i % 2);
+  paintGrid(ctx, TEA_STACK);
   return { canvas: c, ax: 12, ay: 28 };
 }
 
@@ -423,34 +409,10 @@ function banhmiCartSprite(): PropSprite {
  * a big woofer and a tweeter, and the LED ring around the woofer in rainbow colors.
  */
 function danceSpeakerSprite(): PropSprite {
-  const [c, ctx] = makeCanvas(18, 30);
-  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w, h);
-  };
+  const { w, h } = gridSize(DANCE_SPEAKER);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 9, 28, 7, 1.5, 0.28);
-  // handle
-  px('#8a95a3', 6, 0, 1, 7);
-  px('#8a95a3', 11, 0, 1, 7);
-  px('#2a2e38', 5, 0, 8, 2);
-  // the box
-  px('#14171f', 2, 6, 14, 21);
-  px('#262b36', 3, 7, 12, 19);
-  px('#3a4150', 3, 7, 1, 19);
-  // tweeter and the woofer with its rainbow LED ring
-  px('#0c0e13', 7, 9, 4, 3);
-  px('#5a6272', 8, 10, 2, 1);
-  const ring = ['#ff4d6d', '#ffb347', '#ffe066', '#5ce1a1', '#4dc3ff', '#b07cff'];
-  for (let a = 0; a < 24; a++) {
-    const ang = (a / 24) * Math.PI * 2;
-    px(ring[Math.floor(a / 4) % ring.length], Math.round(9 + Math.cos(ang) * 5), Math.round(19 + Math.sin(ang) * 5));
-  }
-  for (let y = -3; y <= 3; y++) for (let x = -3; x <= 3; x++) if (x * x + y * y <= 10) px(x * x + y * y <= 2 ? '#5a6272' : '#0c0e13', 9 + x, 19 + y);
-  // wheels
-  px('#0c0e13', 2, 26, 3, 3);
-  px('#0c0e13', 13, 26, 3, 3);
-  px('#8a95a3', 3, 27, 1, 1);
-  px('#8a95a3', 14, 27, 1, 1);
+  paintGrid(ctx, DANCE_SPEAKER);
   return { canvas: c, ax: 9, ay: 28 };
 }
 
@@ -459,32 +421,10 @@ function danceSpeakerSprite(): PropSprite {
  * over the zebra stripes; on a gray pole with a white/black band at the foot.
  */
 function crossingSignSprite(): PropSprite {
-  const [c, ctx] = makeCanvas(18, 38);
-  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w, h);
-  };
+  const { w, h } = gridSize(CROSSING_SIGN);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 9, 36, 4, 1, 0.25);
-  // pole
-  px('#6f7886', 8, 18, 2, 18);
-  px('#a3abb8', 8, 18, 1, 18);
-  px('#f4f6f8', 8, 31, 2, 2);
-  px('#1d2230', 8, 33, 2, 2);
-  // the plate: dark rim, blue face lit on top
-  px('#14234a', 0, 0, 18, 18);
-  px('#1f5fc4', 1, 1, 16, 16);
-  px('#3d7ce0', 1, 1, 16, 1);
-  // the white triangle (apex up), wide enough for the figure
-  for (let y = 0; y < 13; y++) {
-    const half = Math.min(7, Math.floor((y + 2) * 0.62));
-    px('#ffffff', 9 - half, 3 + y, half * 2, 1);
-  }
-  // the figure striding right (head, swinging arms, legs apart) and the zebra stripes under its feet
-  const FIG = ['..##..', '..##..', '.####.', '#.##.#', '..##..', '.#..#.', '.#..#.', '#....#'];
-  FIG.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++) if (row[x] === '#') px('#111520', 6 + x, 5 + y, 1, 1);
-  });
-  for (let x = 4; x < 15; x += 2) px('#111520', x, 14, 1, 1);
+  paintGrid(ctx, CROSSING_SIGN);
   return { canvas: c, ax: 9, ay: 36 };
 }
 
@@ -677,108 +617,21 @@ export function cargoSprite(kind: 'water' | 'foam' | 'plant' | 'flowers' | 'peac
   const key = `cargo:${kind}:${flip ? 1 : 0}:${seed % 4}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const W = 24;
-  const H = 30;
-  const [c, ctx] = makeCanvas(W, H);
-  if (flip) {
-    ctx.translate(W, 0);
-    ctx.scale(-1, 1);
-  }
-  const o = '#2e3648';
-  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w, h);
-  };
-  const cx = 12;
-  const by = H - 1;
-  if (kind === 'water') {
-    // a 20 L water jug standing on the rack: translucent blue, white cap
-    px(o, cx - 4, by - 10, 9, 10);
-    px('#5aa9e6', cx - 3, by - 9, 7, 8);
-    px('#9fd0f5', cx - 2, by - 8, 1, 6);
-    px('#3f86c4', cx + 2, by - 8, 1, 7);
-    px(o, cx - 2, by - 13, 5, 3);
-    px('#f4f4f0', cx - 1, by - 12, 3, 2);
-  } else if (kind === 'foam') {
-    // two foam boxes stacked and tied with red string
-    for (const [y, w] of [
-      [by - 6, 12],
-      [by - 12, 11],
-    ] as const) {
-      px(o, cx - Math.ceil(w / 2), y, w + 1, 7);
-      px('#f4f4f0', cx - Math.ceil(w / 2) + 1, y + 1, w - 1, 5);
-      px('#d4d4cc', cx - Math.ceil(w / 2) + 1, y + 4, w - 1, 2);
-    }
-    px('#d9342b', cx - 1, by - 12, 1, 12);
-    px('#d9342b', cx - 6, by - 9, 12, 1);
-  } else if (kind === 'plant') {
-    // a potted plant: terracotta pot and a big round leafy top, lit from the top left
-    const leaf = mulberry32(0x9e1 + seed);
-    for (let y = -8; y <= 7; y++)
-      for (let x = -8; x <= 8; x++) {
-        const d = Math.hypot(x, y * 1.15);
-        if (d > 8.4 - leaf() * 1.2) continue;
-        const lit = x + y < -5 ? '#8fd08a' : x + y > 5 ? '#357a45' : '#4fa25c';
-        px(d > 7.4 ? '#2a5c34' : leaf() < 0.18 ? '#2f6b3c' : lit, cx + x, by - 13 + y);
-      }
-    px(o, cx - 4, by - 6, 9, 6);
-    px('#c8693a', cx - 3, by - 5, 7, 4);
-    px('#e08a5a', cx - 3, by - 5, 7, 1);
-  } else if (kind === 'flowers') {
-    // a big bouquet in a kraft paper cone, leaning back: red roses, pink and white blooms, leaves
-    for (let y = 0; y < 10; y++) {
-      const w = 2 + Math.floor(y / 2);
-      px(o, cx - w - 1, by - y, w * 2 + 3, 1);
-      px(y % 3 ? '#e9cfa6' : '#d6b88a', cx - w, by - y, w * 2 + 1, 1);
-    }
-    px('#d9342b', cx - 4, by - 4, 9, 1);
-    const blooms = ['#e8454a', '#f08ab8', '#ffffff', '#c92d3a', '#f2c94c', '#f08ab8'];
-    const spots: [number, number][] = [
-      [-6, -13], [-3, -16], [1, -18], [4, -15], [6, -12], [-4, -11], [0, -13], [3, -11], [-1, -20], [5, -18], [-6, -17],
-    ];
-    for (const [x, y] of [[-7, -11], [7, -10], [-2, -21], [6, -19]] as const) px('#4c9a5a', cx + x, by + y, 2, 2);
-    spots.forEach(([x, y], i) => {
-      px(o, cx + x - 1, by + y - 1, 4, 4);
-      px(blooms[(i + seed) % blooms.length], cx + x, by + y, 2, 2);
-      px('#ffffff', cx + x, by + y, 1, 1);
-    });
-  } else {
-    // a peach branch for Tết: dark twigs fanning up and back, covered in pink blossoms
-    const rng = mulberry32(0xda0 + seed);
-    const twig = '#5a3a2a';
-    const wood: [number, number][] = [];
-    const branch = (x: number, y: number, dx: number, n: number) => {
-      for (let i = 0; i < n && y > 1; i++) {
-        const rx = Math.round(x);
-        if (rx >= 0 && rx < W) {
-          px(i < 4 ? '#4a2e22' : twig, rx, y, i < 3 ? 2 : 1, 1);
-          if (i > 3) wood.push([rx, y]);
-        }
-        x += dx + (rng() - 0.5) * 0.7;
-        y -= 1;
-        if (rng() < 0.2 && n - i > 5) branch(x, y, dx + (rng() < 0.5 ? -0.7 : 0.7), Math.floor((n - i) * 0.65));
-      }
-    };
-    // tied to the rack: a thick stump, branches fanning up and back
-    px('#d9342b', cx - 2, by - 2, 5, 1);
-    branch(cx, by - 1, -0.3, 27);
-    branch(cx, by - 1, 0.25, 22);
-    branch(cx - 1, by - 1, -0.75, 18);
-    // blossoms hugging the twigs: pink five-petal dots, some still buds
-    for (let i = 0; i < 90 && wood.length; i++) {
-      const [wx, wy] = wood[Math.floor(rng() * wood.length)];
-      const x = wx + Math.round((rng() - 0.5) * 4);
-      const y = wy + Math.round((rng() - 0.5) * 3);
-      if (y > by - 5 || y < 0 || x < 0 || x >= W - 1) continue;
-      const r = rng();
-      px(r < 0.15 ? '#c2185b' : r < 0.5 ? '#f08ab8' : '#f9b9d2', x, y, 2, 2);
-      if (r > 0.4) px('#fff0f5', x, y, 1, 1);
-    }
-  }
-  const s = { canvas: c, ax: cx, ay: by };
+  const grid = { water: CARGO_WATER, foam: CARGO_FOAM, plant: CARGO_PLANT, flowers: CARGO_FLOWERS, peach: CARGO_PEACH }[kind];
+  const { w, h } = gridSize(grid);
+  const [c, ctx] = makeCanvas(w, h);
+  // hand-drawn (scripts/assets/handdrawn/cargo-*.png); the bouquet's bloom colours turn with the seed, the rest can be mirrored
+  // by it (`flip` is the bike's own direction, the seed's parity mirrors the drawing on top of that)
+  const mirror = (seed % 2 === 1) !== flip;
+  const recolor = kind === 'flowers' ? rotatePairs(BLOOMS, seed % BLOOMS.length) : undefined;
+  paintGrid(ctx, grid, 0, 0, { flip: kind === 'water' || kind === 'foam' ? flip : mirror, recolor });
+  const s = { canvas: c, ax: 12, ay: h - 1 };
   cache.set(key, s);
   return s;
 }
+
+/** Bloom colours of the bouquet as drawn in cargo-flowers.png (red, pink, white, dark red, yellow). */
+const BLOOMS: readonly (readonly string[])[] = [['#e8454a'], ['#f08ab8'], ['#ffffff'], ['#c92d3a'], ['#f2c94c']];
 
 /** Contact shadow under the characters. */
 export function shadowSprite(): PropSprite {

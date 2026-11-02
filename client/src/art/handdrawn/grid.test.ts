@@ -19,6 +19,15 @@ import { PET_CAT } from './pet-cat';
 import { PET_DOG } from './pet-dog';
 import { ROCK } from './rock';
 import { TOTEM } from './totem';
+import { CARGO_FLOWERS } from './cargo-flowers';
+import { CARGO_FOAM } from './cargo-foam';
+import { CARGO_PEACH } from './cargo-peach';
+import { CARGO_PLANT } from './cargo-plant';
+import { CARGO_WATER } from './cargo-water';
+import { CROSSING_SIGN } from './crossing-sign';
+import { DANCE_SPEAKER } from './dance-speaker';
+import { TEA_STACK } from './tea-stack';
+import { TEA_STOOL } from './tea-stool';
 import { BANHMI_CART } from './banhmi-cart';
 import { BIKE } from './bike';
 import { HUTIEU_CART } from './hutieu-cart';
@@ -39,7 +48,7 @@ describe('sprites desenhados à mão', () => {
     expect(gridSize(BENCH)).toEqual({ w: 26, h: 14 });
     expect(gridProblems(LAMP)).toEqual([]);
     expect(gridSize(LAMP)).toEqual({ w: 10, h: 36 });
-    for (const [grid, w, h] of [[FLOWERBED, 30, 14], [TEA_COOLER, 18, 22], [BIKE, 46, 36], [BIKE_LOAD_SCRAP, 20, 19], [BIKE_LOAD_BUN, 20, 19], [CAR, 60, 32], [SCOOTER_BACK, 30, 24], [SCOOTER_FRONT, 30, 24], [TEA_TABLE, 34, 22], [BANHMI_CART, 42, 36], [HUTIEU_CART, 56, 48], [TRASH_CART, 44, 36], [BANHTRANG_STAND, 32, 26], [REPAIR_RACK, 30, 30], [REPAIR_SIGN, 18, 18], [REPAIR_COMPRESSOR, 20, 16], [REPAIR_STOOL, 12, 8], [REPAIR_BASIN, 18, 9], [TREE, 36, 48], [PINE, 28, 48], [BUSH, 22, 16], [BUS, 88, 46], [BUS_SHELTER, 64, 50], [BUS_SIGN, 22, 58], [PARASOL, 32, 34], [HEDGE, 34, 16], [ROCK, 16, 12], [TOTEM, 14, 34], [PET_DOG, 128, 184], [PET_CAT, 128, 184]] as const) {
+    for (const [grid, w, h] of [[FLOWERBED, 30, 14], [TEA_COOLER, 18, 22], [BIKE, 46, 36], [BIKE_LOAD_SCRAP, 20, 19], [BIKE_LOAD_BUN, 20, 19], [CAR, 60, 32], [SCOOTER_BACK, 30, 24], [SCOOTER_FRONT, 30, 24], [TEA_TABLE, 34, 22], [BANHMI_CART, 42, 36], [HUTIEU_CART, 56, 48], [TRASH_CART, 44, 36], [BANHTRANG_STAND, 32, 26], [REPAIR_RACK, 30, 30], [REPAIR_SIGN, 18, 18], [REPAIR_COMPRESSOR, 20, 16], [REPAIR_STOOL, 12, 8], [REPAIR_BASIN, 18, 9], [TREE, 36, 48], [PINE, 28, 48], [BUSH, 22, 16], [BUS, 88, 46], [BUS_SHELTER, 64, 50], [BUS_SIGN, 22, 58], [PARASOL, 32, 34], [HEDGE, 34, 16], [ROCK, 16, 12], [TOTEM, 14, 34], [PET_DOG, 128, 184], [PET_CAT, 128, 184], [CARGO_WATER, 24, 30], [CARGO_FOAM, 24, 30], [CARGO_PLANT, 24, 30], [CARGO_FLOWERS, 24, 30], [CARGO_PEACH, 24, 30], [TEA_STOOL, 12, 10], [TEA_STACK, 26, 30], [DANCE_SPEAKER, 18, 30], [CROSSING_SIGN, 18, 38]] as const) {
       expect(gridProblems(grid)).toEqual([]);
       expect(gridSize(grid)).toEqual({ w, h });
     }
@@ -58,6 +67,12 @@ describe('sprites desenhados à mão', () => {
   it('o guarda-sol traz as três cores do pano que o jogo troca por variante', () => {
     const cores = Object.values(PARASOL.palette);
     for (const c of ['#e8574a', '#f6efe2', '#a83a33']) expect(cores).toContain(c);
+  });
+  it('o buquê traz as cinco cores de flor que o jogo gira por semente, e o banquinho o vermelho que vira azul', () => {
+    const flores = Object.values(CARGO_FLOWERS.palette);
+    for (const c of ['#e8454a', '#f08ab8', '#ffffff', '#c92d3a', '#f2c94c']) expect(flores).toContain(c);
+    const banco = Object.values(TEA_STOOL.palette);
+    for (const c of ['#d8383e', '#9e2328', '#f06a6a']) expect(banco).toContain(c);
   });
   it('a bicicleta traz as três cores de quadro que o jogo troca por variante', () => {
     const cores = Object.values(BIKE.palette);
