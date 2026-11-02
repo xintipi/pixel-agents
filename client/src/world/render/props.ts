@@ -4,7 +4,20 @@
 import { mulberry32 } from '../../../../shared/hash';
 import type { ExteriorProp } from '../layout/types';
 import { treeLook, type TreeLook } from '../seasons';
-import { pixelText } from '../../art/pixelfont';
+import { BENCH } from '../../art/handdrawn/bench';
+import { LAMP } from '../../art/handdrawn/lamp';
+import { FLOWERBED } from '../../art/handdrawn/flowerbed';
+import { TEA_COOLER } from '../../art/handdrawn/tea-cooler';
+import { BIKE } from '../../art/handdrawn/bike';
+import { BANHMI_CART } from '../../art/handdrawn/banhmi-cart';
+import { CAR } from '../../art/handdrawn/car';
+import { HUTIEU_CART } from '../../art/handdrawn/hutieu-cart';
+import { TEA_TABLE } from '../../art/handdrawn/tea-table';
+import { SCOOTER_BACK } from '../../art/handdrawn/scooter-back';
+import { SCOOTER_FRONT } from '../../art/handdrawn/scooter-front';
+import { BIKE_LOAD_BUN } from '../../art/handdrawn/bike-load-bun';
+import { BIKE_LOAD_SCRAP } from '../../art/handdrawn/bike-load-scrap';
+import { gridSize, paintGrid, rotatePairs } from '../../art/handdrawn/grid';
 import { FLOWER_KINDS, flowerInfo, type FlowerInfo } from '../sim/flowers';
 import { banhtrangStandSprite } from './banhtrang-fx';
 import { busShelterSprite, busSignSprite } from './bus';
@@ -188,25 +201,16 @@ function bushSprite(seed: number): PropSprite {
   return { canvas: c, ax: 11, ay: 14 };
 }
 
+/** Petal / shade pairs of the flower bed drawing, in the order the PNG uses them (red, yellow, pink, white, purple). */
+const BED_PETALS: readonly (readonly [string, string])[] = [
+  ['#e8574a', '#b83c33'], ['#f2c94c', '#c9a02e'], ['#f08bb0', '#c46a8d'], ['#ffffff', '#d9dde4'], ['#9b7be0', '#7a5bc0'],
+];
+
+/** Flower bed: hand-drawn (scripts/assets/handdrawn/flowerbed.png); the seed turns the colours around and mirrors it. */
 function flowersSprite(seed: number): PropSprite {
-  const rng = mulberry32(seed);
-  const [c, ctx] = makeCanvas(30, 14);
-  const p = new Painter(ctx, 30, 14);
-  // flower bed: stone border + soil
-  for (let y = 4; y < 13; y++) {
-    for (let x = 1; x < 29; x++) {
-      const border = y === 4 || y === 12 || x === 1 || x === 28;
-      p.set(x, y, border ? (y === 12 ? '#8d8a82' : '#b9b5aa') : '#6a4b35');
-    }
-  }
-  const cols = ['#e8574a', '#f2c94c', '#f08bb0', '#ffffff', '#9b7be0'];
-  for (let i = 0; i < 26; i++) {
-    const x = 3 + Math.floor(rng() * 24);
-    const y = 2 + Math.floor(rng() * 9);
-    p.set(x, y + 1, '#3f8550');
-    p.set(x, y, rng() < 0.75 ? cols[Math.floor(rng() * cols.length)] : '#5aa45d');
-  }
-  p.flush();
+  const { w, h } = gridSize(FLOWERBED);
+  const [c, ctx] = makeCanvas(w, h);
+  paintGrid(ctx, FLOWERBED, 0, 0, { flip: seed % 2 === 1, recolor: rotatePairs(BED_PETALS, seed % BED_PETALS.length) });
   return { canvas: c, ax: 15, ay: 13 };
 }
 
@@ -228,40 +232,21 @@ function hedgeSprite(seed: number): PropSprite {
   return { canvas: c, ax: 17, ay: 14 };
 }
 
+/** Street lamp: hand-drawn (scripts/assets/handdrawn/lamp.png), lit lantern, two collars, flared base. */
 function lampSprite(): PropSprite {
-  const [c, ctx] = makeCanvas(10, 36);
+  const { w, h } = gridSize(LAMP);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 5, 34, 4, 1, 0.25);
-  ctx.fillStyle = '#2e3648';
-  ctx.fillRect(4, 6, 2, 28);
-  ctx.fillStyle = '#4a5468';
-  ctx.fillRect(4, 6, 1, 28);
-  ctx.fillStyle = '#2e3648';
-  ctx.fillRect(1, 2, 8, 5);
-  ctx.fillStyle = '#ffe9a8';
-  ctx.fillRect(2, 4, 6, 2);
-  ctx.fillStyle = '#fff6d6';
-  ctx.fillRect(3, 4, 2, 1);
-  ctx.fillStyle = '#3a4152';
-  ctx.fillRect(3, 32, 4, 2);
+  paintGrid(ctx, LAMP);
   return { canvas: c, ax: 5, ay: 34 };
 }
 
+/** Park bench: the first hand-drawn sprite (scripts/assets/handdrawn/bench.png, drawn in Pixelorama). */
 function benchSprite(): PropSprite {
-  const [c, ctx] = makeCanvas(26, 14);
+  const { w, h } = gridSize(BENCH);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 13, 12, 11, 2, 0.22);
-  ctx.fillStyle = '#2e3648';
-  ctx.fillRect(3, 8, 2, 4);
-  ctx.fillRect(21, 8, 2, 4);
-  // slatted backrest and seat
-  ctx.fillStyle = '#7a5232';
-  ctx.fillRect(1, 1, 24, 3);
-  ctx.fillRect(1, 6, 24, 3);
-  ctx.fillStyle = '#a0703f';
-  ctx.fillRect(1, 1, 24, 1);
-  ctx.fillRect(1, 6, 24, 1);
-  ctx.fillStyle = '#5b3c25';
-  ctx.fillRect(1, 8, 24, 1);
-  ctx.fillRect(1, 3, 24, 1);
+  paintGrid(ctx, BENCH);
   return { canvas: c, ax: 13, ay: 12 };
 }
 
@@ -383,89 +368,22 @@ function teaStoolSprite(color: number): PropSprite {
 }
 
 /** Glass of iced tea: amber tea, ice on top, the glass catching the light. */
-function drawTeaGlass(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-  ctx.fillStyle = '#9fc4d6';
-  ctx.fillRect(x, y, 3, 4);
-  ctx.fillStyle = '#c98a3a';
-  ctx.fillRect(x, y + 1, 3, 3);
-  ctx.fillStyle = '#f4fbff';
-  ctx.fillRect(x, y + 1, 1, 1);
-  ctx.fillRect(x + 2, y, 1, 1);
-}
-
 /** Low wooden table with the big tea jug (yellow, red lid, little tap), glasses and a plate of peanut candy. */
 function teaTableSprite(): PropSprite {
-  const [c, ctx] = makeCanvas(34, 22);
+  const { w, h } = gridSize(TEA_TABLE);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 17, 20, 15, 2, 0.24);
-  // legs
-  ctx.fillStyle = '#5b3c25';
-  ctx.fillRect(3, 15, 2, 5);
-  ctx.fillRect(29, 15, 2, 5);
-  ctx.fillRect(10, 15, 1, 4);
-  ctx.fillRect(23, 15, 1, 4);
-  // top
-  ctx.fillStyle = '#a0703f';
-  ctx.fillRect(1, 11, 32, 4);
-  ctx.fillStyle = '#c08a52';
-  ctx.fillRect(2, 11, 30, 1);
-  ctx.fillStyle = '#7a5232';
-  ctx.fillRect(1, 14, 32, 1);
-  // jug: yellow insulated body, red lid and handle, white tap
-  ctx.fillStyle = '#2e3648';
-  ctx.fillRect(2, 2, 10, 10);
-  ctx.fillStyle = '#f2b33d';
-  ctx.fillRect(3, 4, 8, 8);
-  ctx.fillStyle = '#ffd36b';
-  ctx.fillRect(4, 5, 2, 5);
-  ctx.fillStyle = '#c88a1f';
-  ctx.fillRect(9, 4, 2, 8);
-  ctx.fillStyle = '#d8383e';
-  ctx.fillRect(3, 2, 8, 2);
-  ctx.fillRect(5, 1, 4, 1);
-  ctx.fillStyle = '#f06a6a';
-  ctx.fillRect(4, 2, 3, 1);
-  ctx.fillStyle = '#f4f6f8';
-  ctx.fillRect(11, 9, 2, 1);
-  ctx.fillRect(12, 10, 1, 1);
-  // glasses and the candy plate
-  drawTeaGlass(ctx, 15, 8);
-  drawTeaGlass(ctx, 19, 7);
-  drawTeaGlass(ctx, 23, 8);
-  ctx.fillStyle = '#e9edf1';
-  ctx.fillRect(27, 10, 5, 1);
-  ctx.fillStyle = '#b07a3e';
-  ctx.fillRect(28, 9, 3, 1);
-  ctx.fillStyle = '#e8c27a';
-  ctx.fillRect(29, 9, 1, 1);
+  paintGrid(ctx, TEA_TABLE);
   return { canvas: c, ax: 17, ay: 20 };
 }
 
 /** Ice cooler (blue box, white lid) with a cardboard sign showing a glass of iced tea. */
+/** Iced-tea cooler with the cardboard sign on its lid: hand-drawn (scripts/assets/handdrawn/tea-cooler.png). */
 function teaCoolerSprite(): PropSprite {
-  const [c, ctx] = makeCanvas(18, 22);
+  const { w, h } = gridSize(TEA_COOLER);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 9, 20, 8, 1.5, 0.24);
-  ctx.fillStyle = '#2e3648';
-  ctx.fillRect(1, 10, 16, 10);
-  ctx.fillStyle = '#3f8fd8';
-  ctx.fillRect(2, 12, 14, 7);
-  ctx.fillStyle = '#2c6fb3';
-  ctx.fillRect(2, 17, 14, 2);
-  ctx.fillStyle = '#f4f6f8';
-  ctx.fillRect(2, 11, 14, 2);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(3, 11, 6, 1);
-  // cardboard sign standing on the lid
-  ctx.fillStyle = '#7a5232';
-  ctx.fillRect(4, 1, 10, 10);
-  ctx.fillStyle = '#d9b07a';
-  ctx.fillRect(5, 2, 8, 8);
-  ctx.fillStyle = '#9fc4d6';
-  ctx.fillRect(7, 3, 4, 6);
-  ctx.fillStyle = '#c98a3a';
-  ctx.fillRect(7, 5, 4, 4);
-  ctx.fillStyle = '#f4fbff';
-  ctx.fillRect(7, 4, 2, 1);
-  ctx.fillRect(10, 5, 1, 1);
+  paintGrid(ctx, TEA_COOLER);
   return { canvas: c, ax: 9, ay: 20 };
 }
 
@@ -484,43 +402,6 @@ function teaStackSprite(): PropSprite {
   return { canvas: c, ax: 12, ay: 28 };
 }
 
-/** 3×5 (N: 4×5, M: 5×5) letters for the cart's sign. */
-const SIGN_FONT: Record<string, readonly string[]> = {
-  B: ['11.', '1.1', '11.', '1.1', '11.'],
-  A: ['.1.', '1.1', '111', '1.1', '1.1'],
-  N: ['1..1', '11.1', '1.11', '1..1', '1..1'],
-  H: ['1.1', '1.1', '111', '1.1', '1.1'],
-  M: ['1...1', '11.11', '1.1.1', '1...1', '1...1'],
-  I: ['111', '.1.', '.1.', '.1.', '111'],
-  ' ': ['.', '.', '.', '.', '.'],
-};
-
-/** Pixel text (top-left x, y). */
-function signText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string): void {
-  ctx.fillStyle = color;
-  for (const chr of text) {
-    const g = SIGN_FONT[chr] ?? SIGN_FONT[' '];
-    for (let r = 0; r < g.length; r++) for (let i = 0; i < g[r].length; i++) if (g[r][i] === '1') ctx.fillRect(x + i, y + r, 1, 1);
-    x += g[0].length + 1;
-  }
-}
-
-/** Baguette in the glass case: golden loaf with diagonal cuts. */
-function drawLoaf(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-  ctx.fillStyle = '#c47f34';
-  ctx.fillRect(x, y + 1, 7, 2);
-  ctx.fillStyle = '#eab15a';
-  ctx.fillRect(x + 1, y, 5, 1);
-  ctx.fillRect(x, y + 1, 7, 1);
-  ctx.fillStyle = '#9a5f24';
-  ctx.fillRect(x + 2, y + 1, 1, 1);
-  ctx.fillRect(x + 4, y + 1, 1, 1);
-}
-
-/**
- * Bánh mì cart: blue tin cabinet with the red "BÁNH MÌ" sign, glass case with the baguettes and a pot of xôi, striped
- * awning on two posts, two wheels and the push handle on the west end.
- */
 /** A tire seen from the side: black rubber ring, a lighter tread line, hollow middle. */
 function tire(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
   for (let y = -r; y <= r; y++)
@@ -693,52 +574,11 @@ function streetBikeSprite(load: 'scrap' | 'bun' | 'flowers' = 'scrap', fl?: Flow
     ctx.fillStyle = color;
     ctx.fillRect(x, y, w, h);
   };
-  const line = (color: string, x0: number, y0: number, x1: number, y1: number) => {
-    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
-    for (let i = 0; i <= n; i++) px(color, Math.round(x0 + ((x1 - x0) * i) / n), Math.round(y0 + ((y1 - y0) * i) / n));
-  };
-  const frame = load === 'bun' ? '#2d4f8a' : load === 'flowers' ? '#4a7fb5' : '#2f6a4e';
-  const frameLit = load === 'bun' ? '#5f86c8' : load === 'flowers' ? '#8fb8e0' : '#5fae84';
-  const chrome = '#c9d0db';
+  // the bicycle itself is hand-drawn (scripts/assets/handdrawn/bike.png) in the green "scrap" colours; the other bikes
+  // swap the three frame tones, then the load and the loudspeaker are painted on top
+  const frame = load === 'bun' ? ['#2d4f8a', '#5f86c8', '#1f3866'] : load === 'flowers' ? ['#4a7fb5', '#8fb8e0', '#33587f'] : ['#2f6a4e', '#5fae84', '#1f4a36'];
   shadowEllipse(ctx, 23, 33, 19, 2, 0.28);
-  // wheels: black tire, chrome rim, thin spokes, hub
-  for (const wx of [12, 35]) {
-    for (let y = -7; y <= 7; y++)
-      for (let x = -7; x <= 7; x++) {
-        const d = Math.hypot(x, y);
-        if (d > 6.6) continue;
-        if (d > 5.4) px('#15181f', wx + x, 27 + y);
-        else if (d > 4.6) px(chrome, wx + x, 27 + y);
-        else if (d > 1 && (x === 0 || y === 0 || Math.abs(x) === Math.abs(y))) px('#7d8696', wx + x, 27 + y);
-      }
-    px(o, wx - 1, 26, 3, 3);
-    px(chrome, wx, 27);
-  }
-  // frame: step-through down tube (two px, lit on top), seat tube, chain and seat stays, fork, head tube
-  line(frame, 32, 18, 22, 27);
-  line(frameLit, 31, 18, 21, 27);
-  line(frame, 19, 15, 22, 28);
-  line(frame, 22, 28, 12, 27);
-  line(frame, 19, 16, 12, 27);
-  line('#7d8696', 33, 20, 35, 27);
-  px(frame, 31, 15, 2, 5);
-  px(frameLit, 31, 15, 1, 4);
-  // chainring and pedal
-  px(o, 20, 26, 5, 4);
-  px('#9aa3b5', 21, 27, 3, 2);
-  px(o, 23, 30, 3, 1);
-  // saddle on its post, the handlebar stem and the bars swept back with black grips
-  px('#7d8696', 18, 13, 1, 3);
-  px(o, 15, 11, 7, 3);
-  px('#6a3e2a', 16, 11, 5, 2);
-  px('#9a6040', 16, 11, 3, 1);
-  px('#7d8696', 32, 11, 1, 4);
-  px(chrome, 28, 10, 5, 1);
-  px('#2a2e38', 27, 10, 2, 2);
-  // rear rack: a chrome grid over the back wheel, struts down to the hub
-  px(chrome, 2, 17, 15, 1);
-  line('#8a95a3', 4, 18, 11, 26);
-  line('#8a95a3', 15, 18, 13, 26);
+  paintGrid(ctx, BIKE, 0, 0, { recolor: { '#2f6a4e': frame[0], '#5fae84': frame[1], '#1f4a36': frame[2] } });
   if (load === 'flowers' && fl) {
     // the flowers of the month heaped on the rear rack (a wide bamboo basket) and in the front basket, no loudspeaker
     const heap = (x0: number, y0: number, w: number, h: number) => {
@@ -763,50 +603,8 @@ function streetBikeSprite(load: 'scrap' | 'bun' | 'flowers' = 'scrap', fl?: Flow
     heap(34, 5, 9, 6);
     return { canvas: c, ax: 23, ay: 34 };
   }
-  if (load === 'bun') {
-    // the steamer: a white foam box with a lid, a red band, a wisp of steam escaping at the lid
-    px(o, 1, 4, 17, 14);
-    px('#f4f2ec', 2, 5, 15, 12);
-    px('#ffffff', 2, 5, 4, 11);
-    px('#d8d4ca', 14, 6, 3, 11);
-    px(o, 0, 3, 19, 2);
-    px('#e8e4da', 1, 3, 17, 1);
-    px('#d9342b', 2, 10, 15, 3);
-    px('#f2c94c', 4, 11, 2, 1);
-    px('#f2c94c', 8, 11, 3, 1);
-    px('#f2c94c', 13, 11, 2, 1);
-    px('#e6edf3', 8, 1, 1, 2);
-    px('#e6edf3', 9, 0, 1, 1);
-    px('#e6edf3', 12, 1, 1, 2);
-  } else {
-    // the load: a bale of flattened cardboard...
-    px(o, 1, 11, 17, 7);
-    px('#c8955a', 2, 12, 15, 5);
-    px('#e0b47c', 2, 12, 15, 1);
-    px('#a4733c', 2, 14, 15, 1);
-    px('#a4733c', 2, 16, 15, 1);
-    // ...and a big bulging woven sack on top, tied at the neck, blue stripes
-    const sack: [number, number, number][] = [
-      [1, 6, 12], [2, 4, 14], [3, 3, 15], [4, 2, 16], [5, 2, 16], [6, 2, 16], [7, 2, 16], [8, 2, 16], [9, 3, 15], [10, 3, 15],
-    ];
-    for (const [y, x0, x1] of sack) px(o, x0 - 1, y, x1 - x0 + 3);
-    px(o, 6, 0, 7, 1);
-    for (const [y, x0, x1] of sack) {
-      for (let x = x0; x <= x1; x++) {
-        const t = (x - x0) / (x1 - x0);
-        px(t < 0.25 ? '#ffffff' : t > 0.8 ? '#c4beb0' : '#ebe6da', x, y);
-      }
-    }
-    for (const [y, x0, x1] of sack) if (y % 3 === 0) px('#d4cebf', x0, y, x1 - x0 + 1);
-    px('#3d7ce0', 4, 4, 1, 7);
-    px('#3d7ce0', 13, 4, 1, 7);
-    px('#8a6a4a', 8, 0, 3, 2);
-    // red rubber straps around it all
-    px('#d9342b', 6, 2, 1, 16);
-    px('#d9342b', 12, 2, 1, 16);
-    px('#a82820', 6, 11, 1, 1);
-    px('#a82820', 12, 11, 1, 1);
-  }
+  // the load on the rear rack, hand-drawn like the bike: the bun steamer, or the sack on a bale of cardboard
+  paintGrid(ctx, load === 'bun' ? BIKE_LOAD_BUN : BIKE_LOAD_SCRAP);
   // the loudspeaker strapped to the handlebar: white horn, mouth forward, a black driver at the back
   px(o, 33, 5, 2, 4);
   px('#2a2e38', 33, 6, 2, 2);
@@ -830,78 +628,15 @@ function streetBikeSprite(load: 'scrap' | 'bun' | 'flowers' = 'scrap', fl?: Flow
   return { canvas: c, ax: 23, ay: 34 };
 }
 
+/**
+ * Bánh mì cart: blue tin cabinet with the red "BÁNH MÌ" sign, glass case with the baguettes and a pot of xôi, striped
+ * awning on two posts, two wheels and the push handle on the west end. Hand-drawn (scripts/assets/handdrawn/banhmi-cart.png).
+ */
 function banhmiCartSprite(): PropSprite {
-  const [c, ctx] = makeCanvas(42, 36);
+  const { w, h } = gridSize(BANHMI_CART);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 21, 33, 18, 2, 0.24);
-  // push handle (west end)
-  ctx.fillStyle = '#4a5468';
-  ctx.fillRect(0, 16, 6, 1);
-  ctx.fillRect(4, 16, 1, 6);
-  // awning posts
-  ctx.fillStyle = '#8d96a3';
-  ctx.fillRect(7, 4, 1, 5);
-  ctx.fillRect(35, 4, 1, 5);
-  // glass case: aluminum frame, bluish glass, the loaves and the xôi pot inside
-  ctx.fillStyle = '#9aa6b4';
-  ctx.fillRect(7, 8, 29, 11);
-  ctx.fillStyle = '#d6eef7';
-  ctx.fillRect(8, 9, 27, 9);
-  drawLoaf(ctx, 9, 11);
-  drawLoaf(ctx, 17, 11);
-  drawLoaf(ctx, 12, 14);
-  drawLoaf(ctx, 20, 14);
-  ctx.fillStyle = '#3a7a35';
-  ctx.fillRect(28, 15, 6, 2);
-  ctx.fillStyle = '#4f9a45';
-  ctx.fillRect(28, 14, 6, 1);
-  ctx.fillStyle = '#f7f1dc';
-  ctx.fillRect(29, 12, 4, 2);
-  ctx.fillRect(30, 11, 2, 1);
-  ctx.fillStyle = '#c9893a';
-  ctx.fillRect(30, 12, 1, 1);
-  // reflection on the glass
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.fillRect(9, 9, 3, 1);
-  ctx.fillRect(9, 10, 1, 1);
-  ctx.fillRect(26, 9, 1, 1);
-  // cabinet (blue tin) with the red sign
-  ctx.fillStyle = '#2e3648';
-  ctx.fillRect(5, 18, 33, 12);
-  ctx.fillStyle = '#2f7fd8';
-  ctx.fillRect(6, 19, 31, 10);
-  ctx.fillStyle = '#6aa8f0';
-  ctx.fillRect(6, 19, 31, 1);
-  ctx.fillStyle = '#1f5aa6';
-  ctx.fillRect(6, 28, 31, 1);
-  ctx.fillStyle = '#d8383e';
-  ctx.fillRect(7, 20, 29, 8);
-  ctx.fillStyle = '#9e2328';
-  ctx.fillRect(7, 27, 29, 1);
-  const yellow = '#ffd36b';
-  signText(ctx, 'BANH MI', 8, 22, yellow);
-  // the accents: Á and Ì
-  ctx.fillStyle = yellow;
-  ctx.fillRect(14, 21, 1, 1);
-  ctx.fillRect(31, 21, 1, 1);
-  // wheels
-  for (const wx of [11, 31]) {
-    ctx.fillStyle = '#2e3648';
-    ctx.fillRect(wx - 3, 29, 6, 5);
-    ctx.fillRect(wx - 2, 28, 4, 7);
-    ctx.fillStyle = '#a8b0bc';
-    ctx.fillRect(wx - 1, 30, 2, 2);
-  }
-  // striped awning (red and white) with a scalloped edge
-  ctx.fillStyle = '#9e2328';
-  ctx.fillRect(5, 0, 33, 1);
-  for (let x = 4; x < 39; x++) {
-    const red = Math.floor((x - 4) / 3) % 2 === 0;
-    ctx.fillStyle = red ? '#d8383e' : '#f4f6f8';
-    ctx.fillRect(x, 1, 1, 4);
-    if (red) ctx.fillRect(x, 5, 1, 1);
-  }
-  ctx.fillStyle = 'rgba(28,36,52,0.18)';
-  ctx.fillRect(4, 4, 35, 1);
+  paintGrid(ctx, BANHMI_CART);
   return { canvas: c, ax: 21, ay: 34 };
 }
 
@@ -981,93 +716,12 @@ function crossingSignSprite(): PropSprite {
  * bean sprouts, herbs, char siu, shrimp and lime on the shelves), the big aluminum broth pot over a glowing charcoal
  * stove at the east end, steam rising, a bulb hanging from a little post and the push handle at the west end.
  */
+/** Hủ tiếu cart: turquoise cabinet, glass case with the noodles and toppings, broth pot with steam, bulb. Hand-drawn (hutieu-cart.png). */
 function hutieuCartSprite(): PropSprite {
-  const o = '#1d2733';
-  const W = 56;
-  const H = 48;
-  const [c, ctx] = makeCanvas(W, H);
-  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w, h);
-  };
+  const { w, h } = gridSize(HUTIEU_CART);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 28, 45, 24, 2, 0.3);
-  // wheels peeking out under the cabinet (spoked, chrome rims) and the kickstand at the east end
-  for (const wx of [12, 40]) {
-    for (let y = -6; y <= 6; y++)
-      for (let x = -6; x <= 6; x++) {
-        const d = Math.hypot(x, y);
-        if (d > 5.6) continue;
-        if (d > 4.5) px('#15181f', wx + x, 40 + y);
-        else if (d > 3.7) px('#c9d0db', wx + x, 40 + y);
-        else if (d > 1 && (x === 0 || y === 0)) px('#7d8696', wx + x, 40 + y);
-      }
-    px(o, wx - 1, 39, 3, 3);
-  }
-  px('#5a6272', 50, 36, 1, 9);
-  // push handle at the west end (wood grip on a metal bar)
-  px('#7d8696', 0, 25, 6, 1);
-  px('#6b4429', 0, 24, 3, 3);
-  // lower cabinet: turquoise panels, white trim, two doors with little knobs
-  px(o, 4, 22, 48, 15);
-  px('#2fa39a', 5, 23, 46, 13);
-  px('#5cc7bd', 5, 23, 46, 1);
-  px('#1f7a73', 5, 35, 46, 1);
-  px('#f2f4f7', 5, 26, 46, 1);
-  for (const dx of [7, 22, 37]) px('#1f7a73', dx, 28, 12, 6);
-  for (const dx of [8, 23, 38]) px('#3ab8ad', dx, 29, 10, 4);
-  for (const dx of [17, 32, 47]) px('#f2c94c', dx, 30, 1, 2);
-  // the glass case on the west two thirds: aluminum frame, tinted glass, two shelves
-  px(o, 5, 5, 31, 18);
-  px('#c4ccd8', 6, 6, 29, 16);
-  px('#d7eef6', 7, 7, 27, 14);
-  px('#ffffff', 7, 7, 27, 1);
-  px('#eaf6fb', 8, 8, 1, 12);
-  px('#c4ccd8', 7, 14, 27, 1);
-  // "HỦ TIẾU" in red across the glass (the hook and the circumflex + acute drawn by hand)
-  pixelText(ctx, 'hu tieu', 8, 9, '#d9342b');
-  // dấu hỏi over the first U
-  px('#d9342b', 13, 7, 2, 1);
-  px('#d9342b', 14, 8, 1, 1);
-  // dấu mũ + dấu sắc over the E
-  px('#d9342b', 29, 7, 1, 1);
-  px('#d9342b', 28, 8, 1, 1);
-  px('#d9342b', 30, 8, 1, 1);
-  px('#d9342b', 31, 7, 1, 1);
-  // bottom shelf: a pile of white noodles, bean sprouts, herbs, char siu, shrimp, a lime
-  px('#f7f3ea', 8, 17, 6, 4);
-  px('#e3dccb', 8, 20, 6, 1);
-  px('#f2f0d0', 15, 18, 4, 3);
-  px('#4fae58', 20, 17, 4, 4);
-  px('#7fd17a', 20, 17, 2, 1);
-  px('#c9575a', 25, 18, 4, 3);
-  px('#e88a8c', 25, 18, 4, 1);
-  px('#f08a4a', 30, 18, 3, 2);
-  px('#c9e86a', 30, 20, 2, 1);
-  // the roof of the case with a small overhang
-  px(o, 4, 4, 33, 2);
-  px('#8a95a3', 5, 4, 31, 1);
-  // the broth pot over the charcoal stove at the east end
-  px(o, 38, 18, 14, 5);
-  px('#3a3f4a', 39, 19, 12, 3);
-  px('#ff8a3c', 40, 20, 3, 1);
-  px('#ffcf5c', 44, 20, 2, 1);
-  px('#ff5a2a', 47, 20, 3, 1);
-  px(o, 37, 7, 16, 12);
-  px('#b8c0cc', 38, 8, 14, 10);
-  px('#e4e8ee', 38, 8, 4, 10);
-  px('#8a95a3', 48, 8, 4, 10);
-  px('#9aa3b5', 38, 13, 14, 1);
-  px(o, 36, 6, 18, 2);
-  px('#d6dbe4', 37, 6, 16, 1);
-  px('#5a6272', 44, 3, 3, 3);
-  // steam
-  for (const [x, y, h] of [[40, 1, 3], [41, 0, 1], [47, 2, 3], [48, 0, 2], [51, 2, 2]] as const) px('#e6edf3', x, y, 1, h);
-  // the bulb on its post between the case and the pot
-  px('#5a6272', 36, 0, 1, 5);
-  px('#5a6272', 33, 0, 4, 1);
-  px('#5a6272', 33, 1, 1, 1);
-  px('#ffe27a', 32, 2, 3, 3);
-  px('#fff6c8', 33, 3, 1, 1);
+  paintGrid(ctx, HUTIEU_CART);
   return { canvas: c, ax: 28, ay: 45 };
 }
 
@@ -1177,76 +831,18 @@ const CAR_COLORS: [string, string, string][] = [
   ['#4a5468', '#323a4a', '#76819a'],
 ];
 
-/** Car seen from the side, facing right; `flip` draws it facing left. About twice a motorbike's length. */
+/** Car seen from the side, facing right; `flip` draws it facing left. Hand-drawn (scripts/assets/handdrawn/car.png) in the
+ * red of CAR_COLORS[0]; the other cars swap the three body tones. About twice a motorbike's length. */
 export function carSprite(variant: number, flip: boolean): PropSprite {
   const key = `car:${variant % CAR_COLORS.length}:${flip ? 1 : 0}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const [body, dark, light] = CAR_COLORS[variant % CAR_COLORS.length];
-  const W = 60;
-  const H = 32;
-  const [c, ctx] = makeCanvas(W, H);
-  if (flip) {
-    ctx.translate(W, 0);
-    ctx.scale(-1, 1);
-  }
-  const o = '#2e3648';
-  const px = (color: string, x: number, y: number, w = 1, h = 1) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w, h);
-  };
+  const [red, redDark, redLight] = CAR_COLORS[0];
+  const { w, h } = gridSize(CAR);
+  const [c, ctx] = makeCanvas(w, h);
   shadowEllipse(ctx, 30, 29, 28, 2, 0.3);
-  // cabin: a trapezoid, the windshield raked more than the rear window
-  const cabin = (y: number): [number, number] => [17 - Math.round((y - 5) * 0.7), 39 + Math.round((y - 5) * 1.1)];
-  for (let y = 5; y <= 14; y++) {
-    const [x0, x1] = cabin(y);
-    px(o, x0 - 1, y, x1 - x0 + 3);
-  }
-  px(o, 17, 4, 23);
-  for (let y = 5; y <= 14; y++) {
-    const [x0, x1] = cabin(y);
-    px(y === 5 ? light : body, x0, y, x1 - x0 + 1);
-  }
-  // windows: rear and front, split by the B pillar, a reflection streak across each
-  for (let y = 7; y <= 13; y++) {
-    const [x0, x1] = cabin(y);
-    px('#3a5f86', x0 + 2, y, 28 - x0 - 2);
-    px('#3a5f86', 31, y, x1 - 2 - 31);
-  }
-  for (let i = 0; i < 5; i++) {
-    px('#9cc7ec', 18 + i, 12 - i);
-    px('#9cc7ec', 35 + i, 12 - i);
-  }
-  // lower body: long, rounded at the ends, lit along the shoulder line
-  px(o, 3, 14, 54, 11);
-  px(o, 2, 16, 56, 7);
-  px(body, 4, 15, 52, 9);
-  px(body, 3, 16, 54, 6);
-  px(light, 4, 15, 52, 1);
-  px(dark, 3, 21, 54, 3);
-  // doors, handles, side mirror
-  px(dark, 29, 15, 1, 7);
-  px(dark, 44, 15, 1, 6);
-  px(light, 24, 17, 3, 1);
-  px(light, 39, 17, 3, 1);
-  px(o, 44, 12, 3, 3);
-  px(body, 45, 13, 1, 1);
-  // bumpers, headlight and tail light
-  px('#9aa3b5', 54, 21, 4, 2);
-  px('#9aa3b5', 2, 21, 4, 2);
-  px('#fff3c4', 55, 16, 2, 2);
-  px('#e04a3a', 2, 16, 2, 3);
-  // wheels in their arches
-  for (const wx of [13, 46]) {
-    px(o, wx - 6, 19, 13, 2);
-    for (let y = -5; y <= 5; y++)
-      for (let x = -5; x <= 5; x++) {
-        const d = Math.hypot(x, y);
-        if (d > 5.3) continue;
-        px(d > 3.4 ? '#1f2430' : d > 1.4 ? '#6b7385' : '#b8bfcc', wx + x, 24 + y);
-      }
-    px('#9aa3b5', wx - 2, 21, 2, 1);
-  }
+  paintGrid(ctx, CAR, 0, 0, { flip, recolor: { [red]: body, [redDark]: dark, [redLight]: light } });
   const s = { canvas: c, ax: 30, ay: 29 };
   cache.set(key, s);
   return s;
@@ -1271,95 +867,23 @@ export interface BikeSprites {
 /** Riders sit this far ahead of the bike's center (px, facing right): the rider and the passenger behind. */
 export const BIKE_SEATS = { rider: -1, passenger: -8 } as const;
 
-/** Scooter (facing right; 30 px long, the anchor where the wheels touch the ground), in one of the body colors. */
+/** Scooter (facing right; 30 px long, the anchor where the wheels touch the ground), in one of the body colors. Both layers
+ * are hand-drawn (scooter-back.png / scooter-front.png) in the red of BIKE_COLORS[0] and recoloured per variant. */
 export function motorbikeSprites(variant: number, flip: boolean): BikeSprites {
   const key = `bike:${variant % BIKE_COLORS.length}:${flip ? 1 : 0}`;
   const hit = cache.get(key);
   if (hit) return { back: hit, front: cache.get(key + ':front')! };
   const [body, dark, light] = BIKE_COLORS[variant % BIKE_COLORS.length];
-  const o = '#2e3648';
-  const W = 30;
-  const H = 24;
-  const layer = (): [HTMLCanvasElement, CanvasRenderingContext2D] => {
-    const [c, ctx] = makeCanvas(W, H);
-    if (flip) {
-      ctx.translate(W, 0);
-      ctx.scale(-1, 1);
-    }
-    return [c, ctx];
-  };
-  const px = (ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w = 1, h = 1) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w, h);
-  };
-  const wheel = (ctx: CanvasRenderingContext2D, cx: number, cy: number) => {
-    for (let y = -4; y <= 4; y++)
-      for (let x = -4; x <= 4; x++) {
-        const d = Math.hypot(x, y);
-        if (d > 4.3) continue;
-        px(ctx, d > 2.6 ? '#1f2430' : d > 0.8 ? '#5d6476' : '#b8bfcc', cx + x, cy + y);
-      }
-    px(ctx, '#3a4050', cx - 3, cy - 3);
-  };
-
-  // ---- back: wheels, rear body, seat, exhaust
-  const [bc, b] = layer();
+  const [red, redDark, redLight] = BIKE_COLORS[0];
+  const recolor = { [red]: body, [redDark]: dark, [redLight]: light };
+  const { w, h } = gridSize(SCOOTER_BACK);
+  // back: wheels, rear body, seat, exhaust (the riders sit on top of it)
+  const [bc, b] = makeCanvas(w, h);
   shadowEllipse(b, 15, 21, 13, 2, 0.3);
-  // rear body: a tall rounded cowl under the seat, sloping down to the tail, outlined and lit from the top
-  const rows: [number, number, number][] = [
-    [7, 5, 16],
-    [8, 3, 17],
-    [9, 2, 17],
-    [10, 2, 17],
-    [11, 2, 17],
-    [12, 3, 17],
-    [13, 4, 17],
-    [14, 5, 16],
-  ];
-  for (const [y, x0, x1] of rows) px(b, o, x0 - 1, y, x1 - x0 + 3);
-  px(b, o, 4, 15, 13);
-  for (const [y, x0, x1] of rows) px(b, y === 8 ? light : y >= 13 ? dark : body, x0, y, x1 - x0 + 1);
-  px(b, light, 5, 7, 4);
-  // side panel line and a stripe decal
-  px(b, dark, 6, 10, 10);
-  px(b, light, 7, 11, 6);
-  // tail light and rear rack
-  px(b, '#e04a3a', 1, 9, 2, 2);
-  px(b, o, 2, 6, 4, 1);
-  // seat: long, padded, dark, a highlight along the top
-  px(b, o, 4, 4, 14, 4);
-  px(b, '#2a2e38', 5, 5, 12, 2);
-  px(b, '#4a5060', 6, 5, 9, 1);
-  // exhaust peeking out behind the rear wheel, then the wheels
-  px(b, o, 1, 15, 7, 3);
-  px(b, '#9aa3b5', 2, 16, 5, 1);
-  wheel(b, 7, 18);
-  wheel(b, 23, 18);
-
-  // ---- front: floorboard, leg shield up to the handlebar, front fender, lights, mirror
-  const [fc, f] = layer();
-  px(f, o, 12, 15, 9, 3);
-  px(f, '#4a5060', 13, 16, 7, 1);
-  // leg shield: a column leaning back from the front wheel up to the handlebar
-  for (let y = 4; y <= 16; y++) {
-    const x = 18 + Math.round((y - 4) / 4);
-    px(f, o, x - 1, y, 5);
-    px(f, y < 7 ? light : y > 13 ? dark : body, x, y, 3);
-  }
-  // front fender hugging the wheel
-  px(f, o, 20, 12, 8, 3);
-  px(f, body, 21, 13, 6, 1);
-  px(f, light, 21, 12, 5, 1);
-  // headlight and turn signal on the shield
-  px(f, o, 20, 5, 4, 3);
-  px(f, '#fff3c4', 21, 6, 2, 1);
-  px(f, '#f2a33a', 22, 9, 1, 1);
-  // handlebar with its grip, and the mirror on its stalk
-  px(f, o, 14, 2, 8, 2);
-  px(f, '#1b1e26', 14, 2, 2, 2);
-  px(f, o, 19, 0, 1, 2);
-  px(f, '#9aa3b5', 18, 0, 3, 1);
-
+  paintGrid(b, SCOOTER_BACK, 0, 0, { flip, recolor });
+  // front: floorboard, leg shield up to the handlebar, front fender, lights, mirror
+  const [fc, f] = makeCanvas(w, h);
+  paintGrid(f, SCOOTER_FRONT, 0, 0, { flip, recolor });
   const back = { canvas: bc, ax: 15, ay: 21 };
   const front = { canvas: fc, ax: 15, ay: 21 };
   cache.set(key, back);

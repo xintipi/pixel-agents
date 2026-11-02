@@ -12,6 +12,21 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Primeiros sprites desenhados à mão: banco, poste, canteiro de flores, garrafão de chá e bicicleta.** Em vez de
+  retângulos pintados pelo código, agora são desenhos feitos no Pixelorama (`scripts/assets/handdrawn/*.png`): o banco
+  com encosto de duas ripas, braços e pés de metal; o poste com lanterna acesa, duas braçadeiras e base alargada; o
+  canteiro com borda de pedra e flores (as cores das flores giram e o desenho espelha conforme o canteiro, então não
+  ficam todos iguais); o garrafão azul com a plaquinha de papelão; e a bicicleta (rodas com raios, para-lama, farol,
+  quadro, selim, bagageiro), que o jogo repinta nas cores de cada vendedor (ve chai, bánh bao, flores). A carga do ve
+  chai (saco sobre o fardo de papelão) e a panela de bánh bao também são desenhos à mão. O mesmo vale para o carro
+  (hatchback com vidros inclinados, faixa de ombro, soleira, rodas com aro) e para a scooter (as duas camadas: a de trás,
+  embaixo do piloto, e a da frente, por cima), que o jogo repinta em cada cor e espelha para a outra mão da rua.
+  Também são desenhos à mão a mesa do chá gelado (jarra amarela, copos e prato de doce de amendoim), o carrinho de bánh
+  mì (toldo listrado, vitrine com pães e a panela de xôi, placa vermelha) e o carrinho de hủ tiếu (vitrine, panela de
+  caldo com vapor e a lâmpada).
+  `scripts/assets/png2grid.py` converte o PNG numa grade de pixels em `client/src/art/handdrawn/`, que o jogo pinta
+  como os demais sprites. Os outros sprites continuam procedurais.
+
 - **Postes dos dois lados da rua.** A calçada do outro lado também ganhou postes de luz junto ao meio-fio, nos vãos
   entre o que já fica ali (as motos dos xe ôm e a faixa de pedestres, a dança da noite, o ponto de ônibus): à noite as
   duas calçadas ficam iluminadas, com as mariposas em volta das lâmpadas.
